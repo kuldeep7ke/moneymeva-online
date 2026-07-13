@@ -1,0 +1,46 @@
+{
+  "name": "money-meva",
+  "version": "5.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "node scripts/bump-version.cjs patch",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "package:webapp": "powershell -ExecutionPolicy Bypass -File scripts/package-webapp.ps1",
+    "version:patch": "node scripts/bump-version.cjs patch",
+    "version:minor": "node scripts/bump-version.cjs minor",
+    "version:major": "node scripts/bump-version.cjs major"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@supabase/supabase-js": "^2.110.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "dexie": "^4.4.4",
+    "docx": "^9.7.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.22.0",
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^3.9.1",
+    "tailwind-merge": "^3.6.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

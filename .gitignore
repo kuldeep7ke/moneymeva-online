@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+.env.local
+*.log
+.DS_Store
+cd
+npm
+
+# Capacitor Android build outputs
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+.cxx/

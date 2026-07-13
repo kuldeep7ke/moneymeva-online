@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-light: var(--brand-light);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-muted: var(--brand-muted);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --brand: #FF8A3D;
+  --brand-secondary: #FFCF9A;
+  --brand-light: #FFF6EC;
+  --brand-dark: #1B1B1D;
+  --brand-muted: #3D332F;
+  --card-bg: #FFFFFF;
+  --card-bg-dark: #2A2522;
+}
+
+html.brand-blue {
+  --brand: #1E40AF;
+  --brand-secondary: #FCD34D;
+  --brand-light: #FFF7ED;
+  --brand-dark: #0F172A;
+  --brand-muted: #1E3A5F;
+}
+
+html.brand-green {
+  --brand: #047857;
+  --brand-secondary: #FCD34D;
+  --brand-light: #FFF7ED;
+  --brand-dark: #0F2918;
+  --brand-muted: #064E3B;
+}
+
+body {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.dark body, .dark {
+  background: var(--brand-dark);
+  color: var(--brand-light);
+}
+
+html.brand-blue .dark body, html.brand-blue .dark,
+html.brand-green .dark body, html.brand-green .dark {
+  background: var(--brand-dark);
+  color: var(--brand-light);
+}
+
+/* Landing page glassmorphism */
+.landing-glass {
+  background: linear-gradient(135deg, var(--brand-light), #f0e6ff, #e6f0ff, var(--brand-light));
+  background-size: 400% 400%;
+  animation: glassBg 20s ease infinite;
+}
+
+.dark .landing-glass {
+  background: linear-gradient(135deg, var(--brand-dark), #1a1a2e, #2d1b1b, var(--brand-dark));
+  background-size: 400% 400%;
+}
+
+@keyframes glassBg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up { animation: slideUp 0.6s ease-out both; }
+.slide-up-1 { animation: slideUp 0.6s ease-out 0.1s both; }
+.slide-up-2 { animation: slideUp 0.6s ease-out 0.2s both; }
+.slide-up-3 { animation: slideUp 0.6s ease-out 0.3s both; }
+.slide-up-4 { animation: slideUp 0.6s ease-out 0.4s both; }
+
+.reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+.revealed { opacity: 1; transform: translateY(0); }

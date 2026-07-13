@@ -1,0 +1,278 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { LogIn, Mail, Lock, UserPlus, X, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import LoadingOverlay from '@/components/LoadingOverlay';
+import { useRouter } from 'next/navigation';
+import { loginUser, registerUser, getAllUsers, switchUser, removeUser, getSession, LocalUser } from '@/lib/localAuth';
+import { useAuth } from '@/components/AuthProvider';
+
+function getPasswordStrength(password: string, name: string, email: string): { score: number; label: string; color: string; error?: string } {
+  let error: string | undefined;
+
+  if (password.length < 6) error = 'At least 6 characters';
+  else if (!/[a-zA-Z]/.test(password)) error = 'Must contain letters';
+  else if (!/\d/.test(password)) error = 'Must contain a number';
+
+  const lower = password.toLowerCase();
+  const nameParts = name.toLowerCase().split(/\s+/).filter(Boolean);
+  for (const part of nameParts) {
+    if (part.length > 1 && lower.includes(part)) { error = 'Should not contain your name'; break; }
+  }
+  if (!error && email && lower.includes(email.split('@')[0].toLowerCase())) {
+    error = 'Should not contain your email';
+  }
+
+  let score = 0;
+  if (password.length >= 6) score += 30;
+  if (password.length >= 10) score += 10;
+  if (/[a-zA-Z]/.test(password)) score += 25;
+  if (/\d/.test(password)) score += 25;
+  if (/[!@#$%^&*(),.?":{}|<>_\-]/.test(password)) score += 10;
+  if (error) score = Math.max(0, Math.min(score, 19));
+  if (password.length < 6) score = 0;
+
+  score = Math.max(0, Math.min(100, score));
+
+  let label: string, color: string;
+  if (score < 20) { label = 'Weak'; color = 'bg-red-500'; }
+  else if (score < 50) { label = 'Basic'; color = 'bg-orange-500'; }
+  else if (score < 75) { label = 'Good'; color = 'bg-yellow-500'; }
+  else { label = 'Strong'; color = 'bg-emerald-500'; }
+
+  return { score, label, color, error };
+}
+
+export default function LoginPage() {
+  const { refreshAuth } = useAuth();
+  const router = useRouter();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+
+  const strength = mode === 'register' && password ? getPasswordStrength(password, fullName, email) : null;
+
+  useEffect(() => {
+    const session = getSession().user;
+    if (session) {
+      if (!session.onboarding_completed) {
+        removeUser(session.id);
+        localStorage.removeItem('money_meva_session');
+        refreshAuth();
+        return;
+      }
+      refreshAuth();
+      router.replace('/dashboard');
+    }
+  }, [router, refreshAuth]);
+
+  useEffect(() => {
+    if (mode === 'register' && !fullName) {
+      const saved = localStorage.getItem('mm_last_name');
+      if (saved) setFullName(saved);
+    }
+  }, [mode, fullName]);
+
+  const handleGoogleLogin = () => setShowComingSoon(true);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (mode === 'register') {
+      const s = getPasswordStrength(password, fullName, email);
+      if (s.error) { setError(s.error); return; }
+    }
+
+    setSubmitting(true);
+
+    if (mode === 'login') {
+      const result = loginUser(email, password);
+      if (result.error) { setError(result.error); setSubmitting(false); return; }
+      refreshAuth();
+      setTimeout(() => router.push(result.user?.onboarding_completed ? '/dashboard' : '/onboarding'), 400);
+    } else {
+      const result = registerUser(email, password, fullName);
+      if (result.error) { setError(result.error); setSubmitting(false); return; }
+      localStorage.setItem('mm_last_name', fullName);
+      refreshAuth();
+      setTimeout(() => router.push('/onboarding'), 400);
+    }
+  };
+
+  return (
+    <div className="contents">
+      {submitting && <LoadingOverlay message={mode === 'login' ? 'Signing in…' : 'Creating account…'} />}
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-secondary via-white to-purple-50 dark:from-brand-dark dark:via-[#2A2522] dark:to-brand-dark px-4">
+      <div className="max-w-md w-full bg-white dark:bg-[#2A2522] rounded-2xl shadow-xl border border-slate-100 dark:border-brand-muted">
+        <div className="relative flex items-center justify-center p-6 pb-0">
+          <Link href="/" className="absolute left-6 top-6 h-8 w-8 rounded-full border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-400 hover:text-brand hover:border-brand/30 transition-colors" title="Back to home">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="text-center space-y-2 pt-2">
+            <h1 className="text-4xl font-bold text-brand dark:text-brand-secondary">Money Meva</h1>
+            <p className="text-slate-500 dark:text-slate-400">Your minimalistic personal finance companion.</p>
+          </div>
+        </div>
+
+        <div className="p-10 pt-6 space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'register' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Full Name</label>
+              <div className="relative">
+                <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <input required type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="John Doe" />
+              </div>
+            </div>
+          )}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="you@example.com" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="••••••••" />
+            </div>
+            {/* Strength Bar */}
+            {mode === 'register' && password && strength && (
+              <div className="space-y-1.5">
+                <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-300 ${strength.color}`} style={{ width: `${strength.score}%` }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">{strength.label}</span>
+                </div>
+                {strength.error && (
+                  <p className="text-[11px] text-red-500">{strength.error}</p>
+                )}
+              </div>
+            )}
+          </div>
+          {error && <p className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-2 rounded-lg">{error}</p>}
+          <Button type="submit" className="w-full py-3 gap-2">
+            {mode === 'login' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+            {mode === 'login' ? 'Sign In' : 'Create Account'}
+          </Button>
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+            {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+            {' '}
+            <button type="button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); setPassword(''); }} className="text-brand dark:text-brand-secondary hover:text-brand dark:hover:text-brand-secondary font-medium">
+              {mode === 'login' ? 'Register' : 'Sign In'}
+            </button>
+          </p>
+        </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200 dark:border-brand-muted" /></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-[#2A2522] px-2 text-slate-400 dark:text-slate-500">or continue with</span></div>
+        </div>
+
+        <Button onClick={handleGoogleLogin} variant="outline" className="w-full py-3 gap-2">
+          <svg viewBox="0 0 24 24" className="h-5 w-5">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+          </svg>
+          Continue with Google
+        </Button>
+
+        {/* Existing Users Quick Switch */}
+        {mode === 'login' && <ExistingUsers onRefresh={refreshAuth} />}
+        </div>
+      </div>
+
+      {/* Coming Soon Modal */}
+      {showComingSoon && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowComingSoon(false)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-8 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-4">
+                <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h3 className="text-2xl font-bold text-white">Coming Soon</h3>
+              <p className="text-amber-100 text-sm mt-2">Google Sign-In is on its way</p>
+            </div>
+            <div className="p-6 text-center space-y-4">
+              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
+                We&apos;re working on it! Meanwhile, use <strong>email &amp; password</strong>{' '}sign-up — it&apos;s fast, private, and stores everything locally on your device.
+              </p>
+              <button onClick={() => setShowComingSoon(false)}
+                className="w-full px-6 py-3 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors text-sm">
+                Got it, use email instead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </div>
+  );
+}
+
+function ExistingUsers({ onRefresh }: { onRefresh: () => void }) {
+  const [users, setUsers] = useState<Omit<LocalUser, 'password'>[]>([]);
+
+  useEffect(() => {
+    setUsers(getAllUsers()
+      .sort((a, b) => new Date(b.lastLoginAt || b.createdAt).getTime() - new Date(a.lastLoginAt || a.createdAt).getTime())
+      .slice(0, 2));
+  }, []);
+
+  if (users.length === 0) return null;
+
+  const handleRemove = (userId: string) => {
+    removeUser(userId);
+    setUsers(current => current.filter(u => u.id !== userId));
+  };
+
+  return (
+    <div>
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200 dark:border-brand-muted" /></div>
+        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-[#2A2522] px-2 text-slate-400 dark:text-slate-500">quick login</span></div>
+      </div>
+      <div className="mt-3 space-y-1.5">
+        <p className="text-[10px] text-slate-400 text-center">Showing your two most recent local accounts</p>
+        {users.map(u => (
+          <div key={u.id}
+            className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2.5 transition-colors hover:bg-brand-light dark:border-brand-muted dark:hover:bg-brand-muted/50">
+                            <button type="button" onClick={() => { switchUser(u.id); onRefresh(); window.location.href = u.onboarding_completed ? '/dashboard' : '/onboarding'; }}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left">
+              <div className="h-8 w-8 shrink-0 rounded-full bg-brand-secondary dark:bg-brand-muted flex items-center justify-center text-brand dark:text-brand-secondary font-bold text-sm">
+                {(u.full_name || u.email)?.[0] || '?'}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-300">{u.full_name || 'User'}</p>
+                <p className="truncate text-xs text-slate-400">{u.email}</p>
+              </div>
+            </button>
+            <button type="button" onClick={() => handleRemove(u.id)} aria-label={`Remove ${u.full_name || u.email} from quick login`}
+              className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
