@@ -1,13 +1,14 @@
-# Money Meva
+# Money Meva Premium
 
-**v5.2.1** — A local-first personal finance tracker for Indian users. Built with Next.js, runs entirely in your browser.
+**v6.0.0** — The premium edition of Money Meva, featuring PouchDB cloud sync for seamless multi-device access. Built with Next.js.
 
-Track income, expenses, savings, investments, and partner accounts — all stored entirely on-device in IndexedDB. No data leaves your browser unless you explicitly export it.
+Track income, expenses, savings, investments, and partner accounts with real-time synchronization across all your devices. Your financial data, everywhere you need it.
 
 ---
 
 ## Features
 
+- **Cloud Sync** — Real-time synchronization across devices using PouchDB with remote database support
 - **Dashboard** — Summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders
 - **Income / Expenses / Investments** — Full CRUD with search, filter, sort (newest/oldest), group (day/week/month), duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore
 - **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars
@@ -20,20 +21,19 @@ Track income, expenses, savings, investments, and partner accounts — all store
 - **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), and full JSON backup with cross-user detection and reassignment
 - **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data); session auto-lock (1h–24h)
 - **Activity Log** — Tracks 200 most recent security and CRUD events with color-coded timeline in Settings
-- **Notifications** — In-app notification panel: recurring due alerts, budget overruns, archive notifications, pending reminders, weekend backup reminder, cloud upgrade nudge
+- **Notifications** — In-app notification panel: recurring due alerts, budget overruns, archive notifications, pending reminders, weekend backup reminder
 - **Onboarding Wizard** — 6-step setup (Personal Info, Financial Profile, Work/Business, Partner Accounts, Savings Goal, Complete) with optional steps, T&C agreement, and re-edit support
 - **Edit Profile** — Re-open onboarding from About page or landing page (PIN-protected) to update registration info
 - **Incomplete Registration Cleanup** — Unfinished onboarding sessions are auto-cleared on next visit
 - **Landing Page Redirect** — Logged-in users skip landing page; existing users can visit via `/?from=dashboard`
 - **Public Terms & Privacy Pages** — Standalone `/terms` and `/privacy` pages accessible without login
 - **Name Autofill** — Full name remembered from registration and auto-filled on subsequent sign-ups
-- **Multi-User** — Multiple local profiles with quick-switch from login screen
+- **Multi-User** — Multiple profiles with quick-switch from login screen
 - **Dark / Light Theme** — Toggleable, persisted in localStorage
 - **3 Brand Colors** — Orange (default), Royal Blue, Emerald Green — changeable in Settings
 - **Scroll Animations** — Staggered Reveal animations on all major sections
 - **PWA Ready** — Install as a standalone app with service worker caching
 - **Floating Mobile Nav** — Bottom-right FAB with filtered nav (Dashboard, Income, Expenses, Savings, Investments, Partners, Settings)
-- **Random Engagement Popups** — Data Safety Notice, Install Prompt, Cloud Upgrade, Security Tips (independently timed)
 
 ---
 
@@ -45,6 +45,7 @@ Track income, expenses, savings, investments, and partner accounts — all store
 | Language | TypeScript 5 |
 | UI | React 19, Tailwind CSS v4, Lucide React |
 | Local DB | Dexie.js 4 (IndexedDB) |
+| Sync DB | PouchDB (multi-device sync) |
 | Charts | Recharts 3 |
 | PDF | jsPDF 4 + jspdf-autotable |
 | Excel | SheetJS (xlsx) |
@@ -118,16 +119,16 @@ A detailed step-by-step build prompt (`From-Scratch.md`) is included in the repo
 ## Privacy
 
 - **100% local-first** — all data stays in your browser's IndexedDB
+- **Cloud sync** — optional PouchDB synchronization for multi-device access
 - No cookies, analytics, or tracking services
-- No external data transmission unless you explicitly export or use Google OAuth
-- Optional cloud upgrade (multi-device sync via Supabase) available as opt-in
+- No external data transmission unless you explicitly export or enable sync
 
 ---
 
 ## License
 
-Distributed under the [MIT License](LICENSE).
+All Rights Reserved. Copyright © 2026 Money Meva Premium. Unauthorized copying, distribution, or use of this software is strictly prohibited.
 
 ---
 
-*Built with Next.js, TypeScript, Tailwind CSS, and Dexie.js. Made in India.*
+*Money Meva Premium — Built with Next.js, TypeScript, Tailwind CSS, Dexie.js, and PouchDB. Made in India.*
