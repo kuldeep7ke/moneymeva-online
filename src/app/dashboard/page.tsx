@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Users, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, Plus, Trash2, X, Wallet, Undo2, Gauge, Lock, Cloud, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { formatCurrency, cn, useSortedCategories } from '@/lib/utils';
@@ -37,6 +38,7 @@ function ChartSkeleton({ className = "" }: { className?: string }) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { profile } = useAuth();
   const lockSession = () => window.dispatchEvent(new Event('request-lock-session'));
   const [isLoading, setIsLoading] = useState(true);
@@ -394,22 +396,28 @@ export default function DashboardPage() {
                   <div className={cn("w-1.5 h-1.5 rounded-full", syncConnected ? "bg-green-500" : syncing ? "bg-amber-500 animate-pulse" : "bg-slate-300")} />
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {syncing ? 'Syncing...' : syncConnected ? 'Connected — real-time sync active' : 'Tap to sync'}
+                  {syncing ? 'Syncing...' : syncConnected ? 'Connected — real-time sync active' : 'Offline — set up sync'}
                 </p>
               </div>
             </div>
-            <Button variant={syncConnected ? "outline" : "primary"} size="sm" className={cn("text-xs gap-1.5", syncConnected && "border-sky-200 text-sky-700 dark:border-sky-800 dark:text-sky-400")} onClick={async () => {
-              if (syncing) return;
-              setSyncing(true);
-              const cfg = getConfig();
-              if (cfg.url) {
-                const ok = await checkConnection();
-                setSyncConnected(ok);
-              }
-              setTimeout(() => setSyncing(false), 1000);
-            }} disabled={syncing}>
-              <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
-            </Button>
+            {syncConnected ? (
+              <Button variant="outline" size="sm" className="text-xs gap-1.5 border-sky-200 text-sky-700 dark:border-sky-800 dark:text-sky-400" onClick={async () => {
+                if (syncing) return;
+                setSyncing(true);
+                const cfg = getConfig();
+                if (cfg.url) {
+                  const ok = await checkConnection();
+                  setSyncConnected(ok);
+                }
+                setTimeout(() => setSyncing(false), 1000);
+              }} disabled={syncing}>
+                <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
+              </Button>
+            ) : (
+              <Button variant="primary" size="sm" className="text-xs gap-1.5" onClick={() => router.push('/dashboard/settings')}>
+                <Cloud className="h-3.5 w-3.5" /> Set Up
+              </Button>
+            )}
           </div>
         </div>
         </Reveal>
