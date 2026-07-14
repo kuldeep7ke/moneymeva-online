@@ -38,6 +38,57 @@ Track income, expenses, savings, investments, and partner accounts with real-tim
 
 ---
 
+## Cloud Sync Setup
+
+Money Meva Premium uses **PouchDB** (local) + **CouchDB** (remote) for real-time, bi-directional sync across all your devices.
+
+### How it works
+
+```
+Device A ──→ Local PouchDB ──→ Remote CouchDB ──→ Local PouchDB ──→ Device B
+                 │                                        │
+            IndexedDB                                IndexedDB
+           (offline-capable)                      (offline-capable)
+```
+
+Every change you make (add/edit/delete transaction, partner, budget, etc.) is written to local IndexedDB, then synced to the remote CouchDB server via PouchDB. Other connected devices receive the changes in real-time via live replication.
+
+### Prerequisites
+
+A CouchDB server URL (e.g., deployed on [Railway.app](https://railway.app), or any CouchDB-compatible host). The server must be reachable from all your devices.
+
+### Step-by-Step
+
+1. **Set up a CouchDB server** – Deploy CouchDB on Railway.app, Fly.io, or your own server. Create a database (e.g., `mm_sync`).
+2. **Get the database URL** – The URL format is `https://username:password@your-server.railway.app/db-name`.
+3. **Open Settings → Multi-Device Sync** in the app.
+4. **Enter the URL** – Paste your CouchDB URL in the input field.
+5. **Tap Connect** – The app will test the connection and begin live sync.
+6. **Repeat on other devices** – Log in to the same account on another device and enter the same URL.
+
+### Status Indicators
+
+| Indicator | Meaning |
+|---|---|
+| 🟢 Green dot | Connected — real-time sync active |
+| 🟡 Amber dot (pulse) | Connecting — attempting to reach server |
+| 🔴 Red dot | Offline — connection failed or no URL configured |
+
+### Dashboard Sync Card
+
+A sync status card appears on the dashboard showing:
+- Current connection status with colored indicator
+- **Sync Now** button — tap to force a re-sync or reconnect
+
+### Notes
+
+- Sync is **optional** — the app works fully offline without it
+- All data is stored locally first (IndexedDB); the remote is a replica
+- Clearing data while sync is enabled may cause conflicts — disable sync first in Danger Zone
+- CouchDB authentication (username/password) is supported in the URL
+
+---
+
 ## Tech Stack
 
 | Category | Technology |
