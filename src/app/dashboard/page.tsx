@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Users, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, Plus, Trash2, X, Wallet, Undo2, Gauge, Lock } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Users, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, Plus, Trash2, X, Wallet, Undo2, Gauge, Lock, Cloud, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { formatCurrency, cn, useSortedCategories } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -12,6 +12,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import { ReminderFrequency } from '@/types';
 import Reveal from '@/components/Reveal';
+import { checkConnection, getConfig, connected as pouchConnected } from '@/lib/pouchdb';
 
 function CardSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -63,6 +64,8 @@ export default function DashboardPage() {
   const [expenseQuota, setExpenseQuota] = useState(15);
   const [investQuota, setInvestQuota] = useState(35);
   const [editingQuota, setEditingQuota] = useState<'expense' | 'invest' | null>(null);
+  const [syncConnected, setSyncConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const refreshGoals = () => { setGoals(getGoals()); };
 
@@ -118,6 +121,13 @@ export default function DashboardPage() {
     const onReady = () => refreshDashboard();
     window.addEventListener('store-ready', onReady);
     return () => window.removeEventListener('store-ready', onReady);
+  }, []);
+
+  useEffect(() => {
+    const cfg = getConfig();
+    if (cfg.url) {
+      checkConnection().then(setSyncConnected);
+    }
   }, []);
 
   useEffect(() => {
@@ -367,6 +377,44 @@ export default function DashboardPage() {
               )}
             </div>
           )})}
+        </div>
+        </Reveal>
+
+        {/* Cloud Sync Status */}
+        <Reveal delay={150}>
+        <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm p-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn("p-2.5 rounded-xl", syncConnected ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-brand-muted/30")}>
+                <Cloud className={cn("h-5 w-5", syncConnected ? "text-green-600" : "text-slate-400")} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cloud Sync</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {syncConnected ? 'Connected — data syncing in real-time' : 'Not connected'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={cn("w-2 h-2 rounded-full", syncConnected ? "bg-green-500" : "bg-slate-300")} />
+              <Button variant="ghost" size="sm" className="text-xs gap-1.5" onClick={async () => {
+                if (syncing) return;
+                setSyncing(true);
+                if (syncConnected) {
+                  await checkConnection();
+                } else {
+                  const cfg = getConfig();
+                  if (cfg.url) {
+                    const ok = await checkConnection();
+                    setSyncConnected(ok);
+                  }
+                }
+                setSyncing(false);
+              }} disabled={syncing}>
+                <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> Sync
+              </Button>
+            </div>
+          </div>
         </div>
         </Reveal>
 

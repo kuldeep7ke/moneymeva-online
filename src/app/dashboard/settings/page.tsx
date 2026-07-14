@@ -20,6 +20,7 @@ import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
+import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected } from '@/lib/pouchdb';
 
 export default function SettingsPage() {
   const { refreshAuth } = useAuth();
@@ -42,6 +43,10 @@ export default function SettingsPage() {
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const [pendingAutoLockVal, setPendingAutoLockVal] = useState<number>(0);
   const [loading, setLoading] = useState<string | null>(null);
+  const [syncUrl, setSyncUrl] = useState('');
+  const [syncConnected, setSyncConnected] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [syncError, setSyncError] = useState('');
 
   useEffect(() => {
     const existingPins = hasPins();
@@ -62,6 +67,18 @@ export default function SettingsPage() {
       setAutoLockMinutes(0);
     }
   }, []);
+
+  useEffect(() => {
+    const cfg = getConfig();
+    if (cfg.url) {
+      setSyncUrl(cfg.url);
+      checkConnection().then(ok => {
+        setSyncConnected(ok);
+        setSyncStatus(ok ? 'connected' : 'idle');
+      });
+    }
+  }, []);
+
   const [captchaA, setCaptchaA] = useState(0);
   const [captchaB, setCaptchaB] = useState(0);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
@@ -195,6 +212,32 @@ export default function SettingsPage() {
     }
   };
 
+  const handleConnect = async () => {
+    if (!syncUrl.trim()) return;
+    setSyncStatus('connecting');
+    setSyncError('');
+    try {
+      const ok = await connectRemote(syncUrl.trim());
+      if (ok) {
+        setSyncStatus('connected');
+        setSyncConnected(true);
+      } else {
+        setSyncStatus('error');
+        setSyncError('Could not connect. Check the URL and ensure the server is running.');
+      }
+    } catch {
+      setSyncStatus('error');
+      setSyncError('Connection failed. Check the URL and try again.');
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnectRemote();
+    setSyncStatus('idle');
+    setSyncConnected(false);
+    setSyncUrl('');
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -227,6 +270,49 @@ export default function SettingsPage() {
                   <ExternalLink className="h-3.5 w-3.5" /> Open Landing Page
                 </Button>
               </Link>
+            </div>
+          </div>
+        </div>
+        </Reveal>
+
+        {/* Multi-Device Sync */}
+        <Reveal delay={150}>
+        <div className="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl">
+              <Cloud className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Multi-Device Sync</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                Connect to a CouchDB server to sync data across devices in real-time.
+              </p>
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn("w-2 h-2 rounded-full", syncStatus === 'connected' ? 'bg-green-500' : syncStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-300')} />
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
+                    {syncStatus === 'connected' ? 'Connected' : syncStatus === 'connecting' ? 'Connecting...' : syncStatus === 'error' ? 'Connection failed' : 'Not connected'}
+                  </span>
+                </div>
+                {syncStatus === 'connected' ? (
+                  <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20">
+                    Disconnect
+                  </Button>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      value={syncUrl}
+                      onChange={e => { setSyncUrl(e.target.value); setSyncError(''); }}
+                      placeholder="https://your-server.railway.app/db-name"
+                      className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                    <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim()}>
+                      <Cloud className="h-3.5 w-3.5" /> Connect
+                    </Button>
+                  </div>
+                )}
+                {syncError && <p className="text-xs text-red-500">{syncError}</p>}
+              </div>
             </div>
           </div>
         </div>
