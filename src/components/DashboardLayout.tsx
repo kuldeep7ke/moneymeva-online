@@ -38,6 +38,7 @@ import SecurityTipNotice from '@/components/SecurityTipNotice';
 import InstallPrompt from '@/components/InstallPrompt';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -90,7 +91,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
+    if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: StatusBarStyle.Dark });
       StatusBar.setBackgroundColor({ color: '#1e1b4b' });
     }
