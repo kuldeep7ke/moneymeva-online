@@ -266,7 +266,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const filteredCategories = useMemo(() => {
-    if (!categorySearch) return recentCategories;
+    if (!categorySearch) return recentCategories.slice(0, 3);
     const search = categorySearch.toLowerCase();
     const matched = recentCategories.filter(c => c.toLowerCase().includes(search));
     const baseMatches = baseCategories.filter(c => c.toLowerCase().includes(search) && !matched.includes(c));
