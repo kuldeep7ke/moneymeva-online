@@ -35,6 +35,7 @@ import { updateLastActivity, getAutoLockMinutes, isLocked, setLocked, checkAndLo
 import { logActivity } from '@/lib/activityLog';
 import DataSafetyNotice from '@/components/DataSafetyNotice';
 import SecurityTipNotice from '@/components/SecurityTipNotice';
+import InstallPrompt from '@/components/InstallPrompt';
 import LoadingOverlay from '@/components/LoadingOverlay';
 
 const navItems = [
@@ -352,6 +353,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <DataSafetyNotice delay={8000} />
       <SecurityTipNotice delay={45000} />
+      <InstallPrompt delay={30000} />
     </div>
   );
 }
