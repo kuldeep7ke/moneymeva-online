@@ -881,7 +881,7 @@ export default function SettingsPage() {
                 We were unable to establish a connection to the sync server. This may be due to a temporary outage or your monthly synchronization quota has been exhausted.
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
-                Please verify your server credentials or try again later. If the issue persists, contact support.
+                Please verify your server credentials or try again later. <Link href="/dashboard/support" className="text-sky-600 font-medium hover:underline">Contact support</Link> if the issue persists.
               </p>
               <div className="mt-6 flex justify-center gap-2">
                 <Button size="sm" className="bg-sky-600 hover:bg-sky-700" onClick={() => { setShowSyncFailPopup(false); setSyncFailCount(0); }}>
