@@ -312,33 +312,6 @@ export default function SettingsPage() {
         </div>
         </Reveal>
 
-        {/* Cloud Upgrade */}
-        <Reveal delay={300}>
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
-              <Cloud className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Need Cloud Backup?</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Want your data backed up automatically and accessible from multiple devices? We offer paid cloud versions with Supabase integration.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">Cloud Sync</span>
-                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">WordPress Plugin</span>
-                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full font-medium">Supabase Version</span>
-              </div>
-              <a href="https://t.me/marathimeva" target="_blank" rel="noopener noreferrer">
-                <Button size="sm" className="mt-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-                  <Send className="h-3.5 w-3.5 mr-1" /> Contact on Telegram
-                </Button>
-              </a>
-            </div>
-          </div>
-        </div>
-        </Reveal>
-
         {/* Full JSON Backup */}
         <Reveal delay={400}>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Full Data Backup</h2>
