@@ -163,42 +163,42 @@ export default function LedgerPage() {
         <Reveal>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">Audit Ledger</h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Full traceability of every data transition</p>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Audit Ledger</h1>
+              <p className="text-slate-500 dark:text-slate-400">Full traceability of every data transition</p>
             </div>
-            <Button onClick={exportToCSV} className="gap-2 bg-brand hover:bg-brand-dark text-white text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2">
-              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="sm:hidden">CSV</span><span className="hidden sm:inline">Export CSV</span>
+            <Button onClick={exportToCSV} className="gap-2 bg-brand hover:bg-brand-dark text-white">
+              <Download className="h-4 w-4" /> Export CSV
             </Button>
           </div>
         </Reveal>
 
         <Reveal delay={100}>
-          <div className="bg-white dark:bg-[#2A2522] p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm flex flex-wrap items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 flex-1 min-w-[180px] sm:min-w-[240px]">
-              <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 ml-1 sm:ml-2" />
+          <div className="bg-white dark:bg-[#2A2522] p-4 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+              <Search className="h-4 w-4 text-slate-400 ml-2" />
               <input 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="w-full bg-transparent outline-none text-xs sm:text-sm text-slate-700 dark:text-slate-200"
+                placeholder="Search transitionId, entity, or detail..."
+                className="w-full bg-transparent outline-none text-sm text-slate-700 dark:text-slate-200"
               />
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <Filter className="h-3 w-3 sm:h-4 sm:w-4 text-slate-400" />
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
               <select 
                 value={entityFilter} 
                 onChange={e => setEntityFilter(e.target.value)}
-                className="bg-transparent text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
+                className="bg-transparent text-xs font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
               >
-                <option value="all">All</option>
+                <option value="all">All Entities</option>
                 {entityOpts().map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <select 
                 value={actionFilter} 
                 onChange={e => setActionFilter(e.target.value)}
-                className="bg-transparent text-[10px] sm:text-xs font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
+                className="bg-transparent text-xs font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
               >
-                <option value="all">All</option>
+                <option value="all">All Actions</option>
                 {Object.keys(ACTION_COLORS).map(action => <option key={action} value={action}>{action.charAt(0).toUpperCase() + action.slice(1)}</option>)}
               </select>
             </div>
@@ -223,43 +223,38 @@ export default function LedgerPage() {
                 return (
                   <div key={log.id} className="bg-white dark:bg-[#2A2522] rounded-xl border border-slate-200 dark:border-brand-muted shadow-sm overflow-hidden transition-all">
                     <div 
-                      className="p-3 sm:p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors"
+                      className="p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors"
                       onClick={() => handleExpand(log.transitionId)}
                     >
-                      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                        <div className="p-1.5 sm:p-2 rounded-lg bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-400">
-                          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="p-2 rounded-lg bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-400">
+                          <Icon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className={cn("text-[9px] sm:text-[10px] font-bold uppercase px-1 sm:px-1.5 py-0.5 rounded", ACTION_COLORS[log.action as MutationAction] || 'bg-slate-100 text-slate-600')}>
+                          <div className="flex items-center gap-2">
+                            <span className={cn("text-[10px] font-bold uppercase px-1.5 py-0.5 rounded", ACTION_COLORS[log.action as MutationAction] || 'bg-slate-100 text-slate-600')}>
                               {log.action}
                             </span>
-                            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-                              {log.detail?.split(' ').length > 4 ? log.detail.split(' ').slice(0, 4).join(' ') + '...' : log.detail || `${formatEntityType(log.entityType)} record`}
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {log.detail || `${formatEntityType(log.entityType)} record`}
                             </span>
                           </div>
-                          <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
-                            <span className="text-[9px] sm:text-[10px] text-slate-400 font-mono truncate max-w-[80px] sm:max-w-none">{log.transitionId}</span>
-                            <span className="text-[9px] sm:text-[10px] text-slate-300">•</span>
-                            <span className="text-[9px] sm:text-[10px] text-slate-400">{formatTimestamp(log.timestamp)}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-slate-400 font-mono">{log.transitionId}</span>
+                            <span className="text-[10px] text-slate-300">•</span>
+                            <span className="text-[10px] text-slate-400">{formatTimestamp(log.timestamp)}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button 
                           onClick={(e) => { e.stopPropagation(); copyToClipboard(log.transitionId); }}
-                          className="p-1 sm:p-1.5 rounded-md text-slate-400 hover:text-brand transition-colors"
+                          className="p-1.5 rounded-md text-slate-400 hover:text-brand transition-colors"
                           title="Copy transitionId"
                         >
-                          {copiedId === log.transitionId ? <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-green-500" /> : <Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
+                          {copiedId === log.transitionId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
-                        <div className="sm:hidden">
-                          {expandedId === log.transitionId ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
-                        </div>
-                        <div className="hidden sm:block">
-                          {expandedId === log.transitionId ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                        </div>
+                        {expandedId === log.transitionId ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                       </div>
                     </div>
                     {expandedId === log.transitionId && (
