@@ -668,6 +668,7 @@ export default function SettingsPage() {
                   <ul className="list-disc list-inside text-red-600 dark:text-red-400 space-y-1">
                     <li>All actions <strong>cannot be reversed</strong></li>
                     <li>Make sure to <strong>export your data</strong> first</li>
+                    <li>Disable <strong>cloud sync</strong> before clearing data to avoid conflicts</li>
                   </ul>
                 </div>
                 <div className="flex flex-wrap gap-3">
