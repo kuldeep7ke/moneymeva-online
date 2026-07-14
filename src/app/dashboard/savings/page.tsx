@@ -31,7 +31,6 @@ export default function GoalsPage() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [catHighlightIndex, setCatHighlightIndex] = useState(-1);
   const [todoFilter, setTodoFilter] = useState<'all' | 'pending' | 'completed' | 'overdue'>('pending');
-  const [todoCategoryFilter, setTodoCategoryFilter] = useState<string>('all');
 
   const refreshGoals = () => { setGoals(getGoals()); };
   const refreshTodos = () => { setTodos(getTodos()); };
@@ -53,19 +52,16 @@ export default function GoalsPage() {
 
   const recentCategories = useMemo(() => {
     const cats = todos.filter(t => t.category).map(t => t.category);
-    return [...new Set(cats)].slice(0, 8);
+    return [...new Set(cats)];
   }, [todos]);
 
-  const allCategoryOptions = useMemo(() => {
-    const combined = [...DEFAULT_CATEGORIES, ...recentCategories];
-    return [...new Set(combined)];
-  }, [recentCategories]);
-
   const filteredCategoryOptions = useMemo(() => {
-    if (!todoForm.category) return allCategoryOptions;
+    if (!todoForm.category) return recentCategories.slice(0, 3);
     const q = todoForm.category.toLowerCase();
-    return allCategoryOptions.filter(c => c.toLowerCase().includes(q));
-  }, [allCategoryOptions, todoForm.category]);
+    const matched = recentCategories.filter(c => c.toLowerCase().includes(q));
+    const baseMatches = DEFAULT_CATEGORIES.filter(c => c.toLowerCase().includes(q) && !matched.includes(c));
+    return [...matched, ...baseMatches].slice(0, 10);
+  }, [recentCategories, todoForm.category]);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -85,9 +81,8 @@ export default function GoalsPage() {
     if (todoFilter === 'pending') list = list.filter(t => t.status === 'pending');
     else if (todoFilter === 'completed') list = list.filter(t => t.status === 'completed');
     else if (todoFilter === 'overdue') list = list.filter(t => t.status === 'pending' && t.dueDate && t.dueDate < todayStr);
-    if (todoCategoryFilter !== 'all') list = list.filter(t => t.category === todoCategoryFilter);
     return list;
-  }, [todos, todoFilter, todoCategoryFilter, todayStr]);
+  }, [todos, todoFilter, todayStr]);
 
   const groupedTodos = useMemo(() => {
     const today = todayStr;
@@ -247,12 +242,7 @@ export default function GoalsPage() {
                     {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : f === 'completed' ? 'Done' : 'Due'}
                   </button>
                 ))}
-                <select value={todoCategoryFilter} onChange={e => setTodoCategoryFilter(e.target.value)}
-                  className="hidden sm:block ml-2 px-2 py-1 rounded-lg text-xs font-medium border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none text-slate-500 dark:text-slate-400">
-                  <option value="all">All Categories</option>
-                  {recentCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <button onClick={() => setShowTodoModal(true)} className="h-9 w-9 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" title="Add Task"><Plus className="h-4 w-4" /></button>
+                <button onClick={() => setShowTodoModal(true)} className="ml-auto h-9 w-9 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" title="Add Task"><Plus className="h-4 w-4" /></button>
               </div>
             </Reveal>
 

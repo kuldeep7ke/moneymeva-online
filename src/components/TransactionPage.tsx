@@ -266,7 +266,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const filteredCategories = useMemo(() => {
-    if (!categorySearch) return recentCategories.slice(0, 3);
+    if (!categorySearch) return recentCategories;
     const search = categorySearch.toLowerCase();
     const matched = recentCategories.filter(c => c.toLowerCase().includes(search));
     const baseMatches = baseCategories.filter(c => c.toLowerCase().includes(search) && !matched.includes(c));
@@ -438,7 +438,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300 text-[11px] font-medium">{t.category}</span>
-                        {t.partnerAccountId && <span className="px-2 py-0.5 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-[11px]">partner</span>}
+                        {t.partnerAccountId && <span className="px-2 py-0.5 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-[11px]">Party</span>}
                       </div>
                       <div className="flex items-center gap-1">
                         {confirmDelete === t.id ? (
@@ -505,7 +505,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                       <td className="px-6 py-4 text-sm text-center text-slate-400 dark:text-slate-500 font-mono">{idx + 1}</td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 rounded-full bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300 text-xs font-medium">{t.category}</span>
-                        {t.partnerAccountId && <span className="ml-1 px-2 py-1 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-xs">partner</span>}
+                        {t.partnerAccountId && <span className="ml-1 px-2 py-1 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-xs">Party</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{t.description}</td>
                       <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' || type === 'saving' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>

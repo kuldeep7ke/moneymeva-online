@@ -352,12 +352,14 @@ function deleteFromCacheAndWrite<T extends { id: string }>(table: string, list: 
   if (idx >= 0) {
     const item = list[idx];
     const tId = (item as any).transitionId || '';
-    logMutation(table.slice(0, -1), id, tId, 'permanent_deleted');
+    logMutation(logEntityType(table), id, tId, 'permanent_deleted');
     list.splice(idx, 1);
   }
   (db as any)[table].delete(id).catch(() => {});
   syncRemoveDoc(table, id).catch(() => {});
 }
+
+const logEntityType = (table: string): string => table === 'partners' ? 'party' : entityMap[table] || table.slice(0, -1);
 
 // ─── PouchDB Sync Helpers ─────────────────────────────────────
 const entityMap: Record<string, EntityType> = {

@@ -19,7 +19,7 @@ export default function AccountsPage() {
 
   const refresh = () => {
     const txs = getTransactions();
-    const cash = txs.filter(t => t.account === 'cash');
+    const cash = txs.filter(t => !t.account || t.account === 'cash');
     const bank = txs.filter(t => t.account === 'bank' || t.account === 'upi');
     setCashBalance(cash.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0));
     setBankBalance(bank.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0));
@@ -41,6 +41,7 @@ export default function AccountsPage() {
     e.preventDefault();
     const amount = Number(transferForm.amount);
     if (!amount || amount <= 0) return;
+    if (transferForm.from === transferForm.to) return;
     const today = new Date().toISOString().split('T')[0];
     const transferId = Date.now().toString(36);
     addTransaction({ amount, type: 'expense', category: 'Transfer', description: `Transfer to ${transferForm.to === 'cash' ? 'Cash' : 'Bank'}`, date: today, account: transferForm.from as 'cash' | 'bank', transferId, partnerAccountId: undefined, isRecurring: false });

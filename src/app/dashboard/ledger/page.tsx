@@ -30,7 +30,6 @@ import { LucideIcon } from 'lucide-react';
 const ENTITY_ICONS: Record<string, LucideIcon> = {
   transaction: ArrowUpCircle,
   party: Users,
-  partner: Users,
   recurring: Calendar,
   budget: Landmark,
   reminder: Bell,
@@ -53,6 +52,26 @@ const ACTION_COLORS: Record<MutationAction, string> = {
 function formatEntityType(type: string): string {
   if (type === 'partner') return 'Party';
   return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function entityIcon(type: string): LucideIcon {
+  if (type === 'partner') return Users;
+  const map: Record<string, LucideIcon> = {
+    transaction: ArrowUpCircle,
+    party: Users,
+    recurring: Calendar,
+    budget: Landmark,
+    reminder: Bell,
+    adjustment: SlidersHorizontal,
+    goal: Target,
+    todo: ListTodo,
+  };
+  return map[type] || ScrollText;
+}
+
+function entityOpts(): { value: string; label: string }[] {
+  const types = ['transaction', 'party', 'recurring', 'budget', 'reminder', 'adjustment', 'goal', 'todo'];
+  return types.map(t => ({ value: t, label: formatEntityType(t) }));
 }
 
 export default function LedgerPage() {
@@ -172,7 +191,7 @@ export default function LedgerPage() {
                 className="bg-transparent text-xs font-medium text-slate-500 dark:text-slate-400 outline-none cursor-pointer"
               >
                 <option value="all">All Entities</option>
-                {Object.keys(ENTITY_ICONS).map(type => <option key={type} value={type}>{formatEntityType(type)}</option>)}
+                {entityOpts().map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <select 
                 value={actionFilter} 
@@ -200,7 +219,7 @@ export default function LedgerPage() {
           ) : (
             <div className="space-y-3">
               {filteredLogs.map((log) => {
-                const Icon = ENTITY_ICONS[log.entityType] || ScrollText;
+                const Icon = entityIcon(log.entityType);
                 return (
                   <div key={log.id} className="bg-white dark:bg-[#2A2522] rounded-xl border border-slate-200 dark:border-brand-muted shadow-sm overflow-hidden transition-all">
                     <div 

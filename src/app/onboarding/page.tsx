@@ -165,7 +165,8 @@ export default function OnboardingPage() {
 
   const canProceed = () => {
     if (step === 1) return form.full_name.trim().length > 0 && form.terms_accepted;
-    if (step === 2) return form.monthly_income && form.primary_goal && form.profession;
+    if (step === 2) return form.monthly_income && form.primary_goal;
+    if (step === 3) return !!form.profession;
     return true;
   };
 
@@ -568,7 +569,7 @@ export default function OnboardingPage() {
                   Skip for now
                 </button>
               )}
-              <Button onClick={handleNext} disabled={(step < 2 && !canProceed()) || loading} className="gap-1">
+              <Button onClick={handleNext} disabled={!canProceed() || loading} className="gap-1">
                 {loading ? 'Saving...' : step === 6 ? 'Go to Dashboard' : step === 1 ? 'Continue' : step === 5 ? 'Finish' : 'Next'}
                 {!loading && step < 6 && <ArrowRight className="h-4 w-4" />}
               </Button>
