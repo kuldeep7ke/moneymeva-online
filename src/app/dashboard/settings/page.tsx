@@ -47,6 +47,8 @@ export default function SettingsPage() {
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [syncError, setSyncError] = useState('');
+  const [syncFailCount, setSyncFailCount] = useState(0);
+  const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
 
   useEffect(() => {
     const existingPins = hasPins();
@@ -221,13 +223,12 @@ export default function SettingsPage() {
       if (ok) {
         setSyncStatus('connected');
         setSyncConnected(true);
+        setSyncFailCount(0);
       } else {
-        setSyncStatus('error');
-        setSyncError('Could not connect. Check the URL and ensure the server is running.');
+        failSync('Could not connect. Check the URL and ensure the server is running.');
       }
     } catch {
-      setSyncStatus('error');
-      setSyncError('Connection failed. Check the URL and try again.');
+      failSync('Connection failed. Check the URL and try again.');
     }
   };
 
@@ -235,19 +236,34 @@ export default function SettingsPage() {
     disconnectRemote();
     setSyncStatus('idle');
     setSyncConnected(false);
+    setSyncFailCount(0);
   };
 
   const handleSyncNow = async () => {
     setSyncStatus('connecting');
+    setSyncError('');
     try {
       const ok = await checkConnection();
       setSyncConnected(ok);
-      setSyncStatus(ok ? 'connected' : 'error');
-      if (!ok) setSyncError('Sync failed. Check connection.');
+      if (ok) {
+        setSyncStatus('connected');
+        setSyncFailCount(0);
+      } else {
+        failSync('Sync failed. Check connection.');
+      }
     } catch {
-      setSyncStatus('error');
-      setSyncError('Sync failed.');
+      failSync('Sync failed.');
     }
+  };
+
+  const failSync = (msg: string) => {
+    setSyncStatus('error');
+    setSyncError(msg);
+    setSyncFailCount(c => {
+      const next = c + 1;
+      if (next >= 2) setShowSyncFailPopup(true);
+      return next;
+    });
   };
 
   return (
@@ -851,6 +867,34 @@ export default function SettingsPage() {
         onClose={() => setShowPinSetup(null)}
         action={showPinSetup || ''}
       />
+
+      {/* Sync Failure Popup */}
+      {showSyncFailPopup && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[130] p-4" onClick={() => setShowSyncFailPopup(false)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <div className="mx-auto w-14 h-14 rounded-full bg-sky-50 dark:bg-sky-900/30 flex items-center justify-center mb-4">
+                <Cloud className="h-7 w-7 text-sky-500" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Sync Unavailable</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                We were unable to establish a connection to the sync server. This may be due to a temporary outage or your monthly synchronization quota has been exhausted.
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+                Please verify your server credentials or try again later. If the issue persists, contact support.
+              </p>
+              <div className="mt-6 flex justify-center gap-2">
+                <Button size="sm" className="bg-sky-600 hover:bg-sky-700" onClick={() => { setShowSyncFailPopup(false); setSyncFailCount(0); }}>
+                  Try Again
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowSyncFailPopup(false)}>
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Import Warning Modal */}
       {importConfirm && (
