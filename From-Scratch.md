@@ -1,532 +1,488 @@
-# Money Meva — Complete Build Prompt
+# Money Meva Premium — Build from Scratch Guide
 
-Offline-first PWA personal finance manager for Indian users. Tracks income, expenses, savings, investments. All data local (IndexedDB + localStorage) — zero servers.
-
----
-
-## 1. Tech Stack
-
-| Dependency | Version | Purpose |
-|---|---|---|
-| Next.js | `16.2.9` | App Router, `output: 'export'` (static), `images: { unoptimized: true }` |
-| React | `19.2.4` | UI |
-| TypeScript | `^5` | `target: ES2017`, `moduleResolution: bundler`, `@/* → ./src/*` |
-| Tailwind CSS | `^4` | PostCSS plugin (`@tailwindcss/postcss ^4`) |
-| Dexie.js | `^4.4.4` | IndexedDB wrapper |
-| Recharts | `^3.9.1` | Charts |
-| Lucide React | `^1.22.0` | Icons |
-| date-fns | `^4.4.0` | Dates |
-| clsx + tailwind-merge | `^2.1.1` / `^3.6.0` | `cn()` helper |
-| jsPDF + jspdf-autotable | `^4.2.1` / `^5.0.8` | PDF export |
-| SheetJS (xlsx) | `^0.18.5` | Excel export |
-| @supabase/supabase-js | `^2.110.0` | Optional cloud auth (mock fallback) |
-| @capacitor/local-notifications | `8.2.0` | Android tray notifications |
-| ESLint | `v9` | `eslint-config-next` |
+A step-by-step blueprint for an AI agent to build this personal finance management app. Each section contains exact implementation details drawn from the working codebase.
 
 ---
 
-## 2. Architecture Overview
+## 1. Project Initialization
 
-```
-src/
-├── app/                        # Routes (App Router)
-│   ├── page.tsx                # Landing page
-│   ├── login/page.tsx          # Login/Register
-│   ├── onboarding/page.tsx     # 6-step wizard
-│   ├── dashboard/              # All dashboard pages (12 routes)
-│   ├── terms/page.tsx          # Public Terms
-│   └── privacy/page.tsx        # Public Privacy
-├── components/
-│   ├── DashboardLayout.tsx     # Main shell (sidebar, nav, session lock)
-│   ├── AuthProvider.tsx        # Context: user, profile, signOut
-│   ├── ThemeProvider.tsx       # Context: theme (light/dark), brand (orange/blue/green)
-│   ├── TransactionPage.tsx     # Reusable CRUD page for income/expense/investment
-│   ├── ui/button.tsx           # Button component (5 variants, 4 sizes)
-│   └── ... (Reveal, PinPrompt, modals, etc.)
-└── lib/
-    ├── db.ts                   # Dexie schema (7 tables)
-    ├── store.ts                # Core logic (CRUD, summaries, archive, notifications)
-    ├── localAuth.ts            # localStorage auth (register, login, session)
-    ├── pinStore.ts             # 10 cyclic 4-digit PINs, session auto-lock
-    ├── activityLog.ts          # Event log (max 200)
-    ├── capacitor-notifications.ts  # Capacitor local notification sync
-    ├── export.ts               # PDF + Excel
-    ├── utils.ts                # cn(), useInView(), formatCurrency(), categories
-    └── supabase.ts             # Optional Supabase client
-```
-
-### Color System
-
-| Token | Value | Usage |
-|---|---|---|
-| `bg-brand` / `text-brand` | `#FF8A3D` | Orange brand |
-| `.brand-orange` | `#FF8A3D` | Default theme |
-| `.brand-blue` | `#3B82F6` | Royal blue theme |
-| `.brand-green` | `#10B981` | Emerald theme |
-| Success | `green-500/600` | |
-| Danger | `red-500/600` | |
-| Warning | `amber-500/600` | |
-
-### Routes
-
-| Route | Page |
-|---|---|
-| `/` | Landing page |
-| `/login` | Login/Register |
-| `/onboarding` | 6-step wizard |
-| `/dashboard` | Main dashboard |
-| `/dashboard/{income,expenses,savings,investments}` | Transaction pages |
-| `/dashboard/partners` | Partner accounts |
-| `/dashboard/recurring` | Recurring automation |
-| `/dashboard/adjustments` | Balance adjustments |
-| `/dashboard/summary` | P&L + export |
-| `/dashboard/settings` | All settings |
-| `/dashboard/archive` | Archived items |
-| `/dashboard/{about,privacy,terms}` | Info pages |
-| `/terms`, `/privacy` | Public versions (no login) |
-
-### Data Layer Rules
-
-- IDs: `crypto.randomUUID()`
-- Timestamps: ISO strings via `new Date().toISOString()`
-- Soft deletes: `deletedAt` timestamp (null = active)
-- All entities scoped by `userId` for multi-user isolation
-- Cache is source of truth for reads; writes go to cache + IndexedDB
-
----
-
-## 3. Setup & Build Phases
-
-### Phase A: Project Initialization (Steps 1–4)
-
----
-
-**Step 1 — Create Next.js project**
 ```bash
-npx create-next-app@16.2.9 money-meva --typescript --tailwind --eslint --app --src-dir
-```
-- Delete `src/app/favicon.ico` and `public/` boilerplate
+# Create Next.js app with TypeScript and App Router
+npx create-next-app@latest money-meva --typescript --tailwind --eslint --app
 
-**Step 2 — Configure core files**
-- `next.config.ts`: `output: 'export'`, `images: { unoptimized: true }`
-- `tsconfig.json`: verify `@/* → ./src/*`
-- `postcss.config.mjs`: Tailwind v4 PostCSS only
-- `eslint.config.mjs`: flat config with `eslint-config-next` + TypeScript
+# Install core dependencies
+npm install dexie pouchdb-browser pouchdb-find \
+  @supabase/supabase-js \
+  clsx tailwind-merge \
+  date-fns \
+  lucide-react \
+  recharts \
+  jspdf jspdf-autotable \
+  xlsx \
+  docx
 
-**Step 3 — Install dependencies**
-```bash
-npm install dexie recharts lucide-react date-fns clsx tailwind-merge jspdf jspdf-autotable xlsx @supabase/supabase-js
-npm install -D @tailwindcss/postcss
-```
+# Install dev dependencies
+npm install -D @types/pouchdb-browser @types/pouchdb-find
 
-**Step 4 — Tailwind v4 globals (`src/app/globals.css`)**
-```css
-@import "tailwindcss";
+# For Capacitor (Android app)
+npm install @capacitor/cli @capacitor/core @capacitor/android \
+  @capacitor/local-notifications @capacitor/status-bar
 
-@layer utilities {
-  .reveal { opacity: 0; transform: translateY(30px); pointer-events: none; }
-  .revealed { opacity: 1; transform: translateY(0); pointer-events: auto; transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+npx cap init Money Meva com.moneymeva.app
+npx cap add android
 ```
 
-### Phase B: Foundation Layer (Steps 5–9)
+### Config Files
 
----
-
-**Step 5 — Utils (`src/lib/utils.ts`)**
-- `cn(...inputs)` — `clsx` + `twMerge`
-- `useInView(threshold=0.15)` — IntersectionObserver hook, fires once, returns `{ ref, inView }`
-- `formatCurrency(amount)` — `Intl.NumberFormat('en-IN', ...)` with INR, 0 decimals
-- `getSortedCategories(baseCategories, type?)` — sort by base order, then usage count, then alpha
-- `useSortedCategories(baseCategories, type?)` — hook wrapper
-
-**Step 6 — UI button (`src/components/ui/button.tsx`)**
-- `Button` with `forwardRef`
-- Variants: `primary` (bg-brand), `secondary` (bg-slate-100), `outline` (border), `ghost`, `danger` (bg-red-500)
-- Sizes: `sm` (h-8), `md` (h-9), `lg` (h-10), `xl` (h-12)
-
-**Step 7 — Dexie database (`src/lib/db.ts`)**
-
-7 tables: `transactions`, `partners`, `recurring`, `budgets`, `reminders`, `adjustments`, `goals`
-
+**`next.config.ts`** — Static export:
 ```ts
-export class MoneyMevaDB extends Dexie {
-  transactions!: Dexie.Table<Transaction, string>;
-  partners!: Dexie.Table<PartnerAccount, string>;
-  recurring!: Dexie.Table<RecurringTx, string>;
-  budgets!: Dexie.Table<Budget, string>;
-  reminders!: Dexie.Table<Reminder, string>;
-  adjustments!: Dexie.Table<Adjustment, string>;
-  goals!: Dexie.Table<Goal, string>;
+const nextConfig: NextConfig = {
+  output: 'export',
+  images: { unoptimized: true },
+};
+```
 
-  constructor() {
-    super('MoneyMevaDB');
-    this.version(1).stores({
-      transactions: 'id, userId, type, date, deletedAt, category, partnerAccountId',
-      partners: 'id, userId, deletedAt',
-      recurring: 'id, userId, deletedAt, status',
-      budgets: 'id, userId, deletedAt',
-      reminders: 'id, userId, deletedAt, status',
-      adjustments: 'id, userId, deletedAt',
-      goals: 'id, userId, deletedAt',
-    });
+**`capacitor.config.ts`:**
+```ts
+const config: CapacitorConfig = {
+  appId: 'com.moneymeva.app',
+  appName: 'Money Meva',
+  webDir: 'out',
+  plugins: {
+    LocalNotifications: { smallIcon: 'ic_stat_notify', iconColor: '#FF8A3D' },
+    StatusBar: { style: 'DARK', backgroundColor: '#1e1b4b' },
+  },
+};
+```
+
+**`tsconfig.json`** — Add path alias:
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   }
 }
-export const db = new MoneyMevaDB();
 ```
 
-**Step 8 — Types (`src/types/index.ts`)**
+---
 
-Types to create:
-- `TransactionType = 'income' | 'expense' | 'saving' | 'investment'`
-- `Transaction` — id, userId, amount, type, category, description, date, partnerAccountId?, isRecurring, recurringId?, deletedAt?, createdAt, updatedAt
-- `PartnerAccount` — id, userId, name, type, group (customer/vendor/contact), description?, budgetWindowStart/End?, initialInvestment?, deletedAt?
-- `RecurringTx` — id, userId, title, amount, category, frequency (daily/weekly/monthly/yearly/custom), customIntervalDays?, startDate, endDate?, status (active/stopped), nextDate, reminderDays
-- `Budget` — id, userId, category, limit, period (monthly/yearly)
-- `Reminder` — id, userId, title, description, dueDate, category, amount, frequency (once/daily/weekly/monthly/quarterly/half-yearly/yearly), status (pending/completed)
-- `Adjustment` — id, userId, amount, accountType (personal/partner), partnerAccountId?, notes, date
-- `Goal` — id, userId, name, target, saved
-- `ArchiveItemType` — union of all entity types
-- `ArchivedItem` — id, type, label, subtitle?, amount?, deletedAt, original
-- `UserProfile` — id, full_name, email?, phone?, currency, monthly_income?, primary_goal?, occupation?, business_name?, business_type?, onboarding_completed?, terms_accepted?
+## 2. TypeScript Types (`src/types/index.ts`)
 
-**Step 9 — Core data store (`src/lib/store.ts`)**
+Define all data entities. Key types:
 
-This is the largest file. Architecture:
+- **`Transaction`** — id, userId, transitionId, amount, type ('income'|'expense'|'saving'|'investment'), category, description, date, account ('cash'|'bank'|'upi'), savingTag?, transferId?, partnerAccountId?, isRecurring, recurringId?, deletedAt?, createdAt, updatedAt
+- **`PartnerAccount`** — id, userId, transitionId, name, type, group ('customer'|'vendor'|'contact'), description, budgetWindowStart, budgetWindowEnd, initialInvestment, deletedAt?, createdAt, updatedAt
+- **`RecurringTx`** — id, userId, transitionId, title, amount, category, txType, frequency, customIntervalDays?, startDate, endDate?, status, nextDate, reminderDays, deletedAt?, createdAt
+- **`Budget`** — id, userId, transitionId, category, limit, period ('monthly'|'yearly'), deletedAt?, createdAt
+- **`Reminder`** — id, userId, transitionId, title, description, dueDate, category, amount, frequency, status, deletedAt?, createdAt
+- **`Adjustment`** — id, userId, transitionId, amount, accountType ('personal'|'partner'), partnerAccountId?, notes, date, deletedAt?, createdAt
+- **`Goal`** — id, userId, transitionId, name, target, saved, deletedAt?, createdAt
+- **`Todo`** — id, userId, transitionId, title, description, dueDate, category, amount?, priority, important, status, completedAt?, deletedAt?, createdAt
+- **`MutationLog`** — id, transitionId, entityType, entityId, action, timestamp, userId, detail?
+- **`ArchivedItem`** — id, type, label, subtitle, amount, deletedAt, original
+- **`UserProfile`** — id, full_name, currency, onboarding_completed, email?, phone?, monthly_income?, etc.
 
-- **In-memory caches**: arrays for each entity (transactions, partners, recurring, budgets, reminders, adjustments, goals)
-- **`initDB()`** — Called on app mount:
-  1. Check `mm_migrated_v2` flag; migrate legacy data from old localStorage keys to IndexedDB
-  2. Hydrate all caches from IndexedDB
-  3. Call `autoDeleteExpiredArchived()` — deletes archived items > 30 days old
-  4. Call `deduplicatePartners()` — group by lowercase name, keep non-deleted over deleted, keep newer
-  5. Create default partners (Cash, Bank, UPI Wallet) if missing
-  6. Set `initialized = true`
-
-- **CRUD pattern** (example: transactions):
-  - `getTransactions(type?)` — filter cache by `!deletedAt` + optional type, sort by date desc
-  - `addTransaction(tx)` — generate ID, set timestamps, add to cache + IndexedDB
-  - `updateTransaction(id, updates)` — merge updates, update cache + IndexedDB
-  - `deleteTransaction(id)` — set `deletedAt`, update cache + IndexedDB (soft delete)
-  - `restoreTransaction(id)` — remove `deletedAt`
-  - `permanentDeleteTransaction(id)` — remove from cache + IndexedDB (hard delete)
-  - Same pattern for: partners, recurring, budgets, reminders, adjustments, goals
-
-- **Partner-specific**:
-  - `getPartnerPnL(partnerId)` — sum income - expenses from partner-linked transactions
-  - `addPartner(p)` — check duplicate by name (case-insensitive) before creating; if exists with `deletedAt`, restore it
-  - Default partners `['Cash', 'Bank', 'UPI Wallet']` are protected from deletion
-
-- **Recurring-specific**:
-  - `addRecurring(r)` — auto-calculate `nextDate` from `startDate` using `computeNextDate()`
-  - `computeNextDate(from, frequency)` — add 1 day/week/month/quarter(3mo)/half-year(6mo)/year
-
-- **Reminder-specific**:
-  - `completeAndRescheduleReminder(id)` — if frequency != 'once', compute next date; else mark completed
-
-- **Summary/Aggregates**:
-  - `getMonthlySummary(year, month)` — sum by type for month
-  - `getAggregates()` — overall `{ balance, income, expense, saving, investment }`
-  - `getCarryForward()` — last month's balance, current start, current balance
-
-- **Archive**:
-  - `getAllArchivedItems()` — collect all entities with `deletedAt`, sort by deletedAt desc
-  - `restoreArchivedItem(type, id)` — route to correct restore function
-  - `permanentDeleteArchivedItem(type, id)` / `permanentDeleteAllArchived()`
-  - `autoDeleteExpiredArchived()` — purge items > 30 days old
-  - `getDaysUntilDelete(deletedAt)` — days remaining before auto-delete
-  - `isKeepForever(id)` / `toggleKeepForever(id)` — localStorage `mm_archive_keep` set
-
-- **Other**:
-  - `checkDuplicateTransaction(tx)` — find matching tx by date, type, amount, category, partnerAccountId
-  - `getAllNotifications()` — recurring due + archive + budget >= 80% + backup reminder + cloud nudge
-  - `setUserId(id)` — sets active user for all operations
-
-- **Race condition guard**: Pages that read from `getAllArchivedItems()` on mount must `await initDB()` before reading, otherwise the cache is empty on page refresh (initDB hydrates asynchronously). Applied in archive page.
-
-### Phase C: Auth & Security (Steps 10–13)
+Use `TransactionType = 'income' | 'expense' | 'saving' | 'investment'`, `ReminderFrequency`, `TodoPriority`, `MutationAction`, `ArchiveItemType`.
 
 ---
 
-**Step 10 — Capacitor notifications (`src/lib/capacitor-notifications.ts`)**
-- Installed `@capacitor/local-notifications@8.2.0`
-- Created notification icon `android/app/src/main/res/drawable/ic_stat_notify.xml`
-- Utility functions: `initLocalNotifications()` — request permissions, `syncLocalNotifications()` — sync in-app notifications to Android tray
-- Native platform detection via `Capacitor.isNativePlatform()`
-- Deduplication via `mm_cap_shown_notifs` localStorage set
-- Integrated into `NotificationPanel.tsx`: calls `initLocalNotifications()` on mount + `syncLocalNotifications()` every 20s
-- Configured `smallIcon: 'ic_stat_notify'`, `iconColor: '#FF8A3D'` in `capacitor.config.ts`
+## 3. Database Layer (`src/lib/db.ts`)
 
-**Step 11 — Local auth (`src/lib/localAuth.ts`)**
+Uses **Dexie.js** (IndexedDB wrapper) for offline-first storage.
 
-- Users stored in `money_meva_users` localStorage (JSON array)
-- Session in `money_meva_session` localStorage
-- `registerUser(email, password, fullName)` — check duplicate, create, set session
-- `loginUser(email, password)` — find by email, verify, set session
-- `switchUser(userId)`, `getAllUsers()`, `removeUser(userId)`, `logoutUser()`
-- `updateProfile(userId, updates)` — update profile fields, sync session
-- Password validation: min 6 chars, letters + numbers, not containing full_name or email parts
-- Password strength scoring: 0-100 based on length, mixed case, numbers, special chars
-
-**Step 12 — PIN security (`src/lib/pinStore.ts`)**
-
-- Store: `mm_pins` (JSON array of 10 PINs), `mm_pin_index` (number, -1 initially), `mm_pins_shown` (boolean)
-- `generatePins(count=10)` — generate unique random 4-digit numbers, store, reset index
-- `validatePin(pin)` — compare against PIN at current index; if match, advance index (cyclic)
-- `getRemainingPins()` — count of unused PINs
-- Session auto-lock:
-  - `getAutoLockMinutes()` / `setAutoLockMinutes(minutes)` — `mm_auto_lock` key
-  - `updateLastActivity()` / `getLastActivity()` — `mm_last_activity` key
-  - `isLocked()` / `setLocked(locked)` — `mm_session_locked` key
-  - `checkAndLock()` — if elapsed > timeout, set locked = true
-
-**Step 13 — Activity logger (`src/lib/activityLog.ts`)**
-- `logActivity(type, detail?)` — push to `mm_activity_log`, keep max 200
-- `getActivityLog()`, `clearActivityLog()`
-
-### Phase D: Export & Supabase (Steps 14–15)
-
----
-
-**Step 14 — Export functions (`src/lib/export.ts`)**
-- `exportSummaryPDF(data)` — jsPDF table: Month, Income, Expense, Savings, Investment + totals
-- `exportSummaryExcel(data)` — XLSX workbook
-- `exportAllDataExcel()` — all transactions as XLSX
-- `exportAllDataPDF()` — all transactions (max 500) as PDF table
-
-**Step 15 — Optional Supabase (`src/lib/supabase.ts`)**
-- Read `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- If missing or 'placeholder', return mock client (all methods return null)
-- Else, create real Supabase client
-
-### Phase E: Providers & Layout (Steps 16–20)
-
----
-
-**Step 16 — AuthProvider (`src/components/AuthProvider.tsx`)**
-- Context: `{ user, profile, loading, signOut, refreshAuth }`
-- On mount: read `money_meva_session`, set user + profile
-- Profile fields: `full_name`, `email`, `phone`, `currency`, `monthly_income`, `primary_goal`, `occupation`, `business_name`, `business_type`, `terms_accepted`
-- `signOut()` → call `logoutUser()`, redirect to `/login`
-- `refreshAuth()` — re-read session
-
-**Step 17 — ThemeProvider (`src/components/ThemeProvider.tsx`)**
-- Context: `{ theme, setTheme, brand, setBrand }`
-- On mount: read `mm_theme` (default 'light'), `mm_brand` (default 'orange')
-- `setTheme`: toggle `dark` class on `<html>`, save to localStorage
-- `setBrand`: save to localStorage, set state
-- Brands: orange `#FF8A3D`, blue `#3B82F6`, green `#10B981`
-- CSS: `.brand-orange`, `.brand-blue`, `.brand-green` classes set `--color-brand`
-
-**Step 18 — DashboardLayout (`src/components/DashboardLayout.tsx`)**
-
-Main shell around all dashboard pages:
-
-- **Auth guard**: redirect to `/login` if no user, to `/onboarding` if not onboarded
-- **`ready` gate**: after `initDB()` completes, render children; else show loading spinner
-- **Desktop sidebar**: 64px wide, logo, nav items (all 12), archive badge, user profile, share button
-- **Mobile sidebar**: slide-over overlay (hamburger toggle), same content
-- **Floating FAB (mobile)**: bottom-right button, opens popup with filtered nav: Dashboard, Income, Expenses, Savings, Investments, Partners, Settings
-- **Session lock overlay**: full-screen PIN modal when locked
-- **Archive count polling**: `setInterval` every 5s
-- **Auto-lock**: listen to `mousedown/keydown/touchstart/scroll` → `updateLastActivity()`; `checkAndLock()` every 30s
-
-**Step 19 — Reveal animation (`src/components/Reveal.tsx`)**
-```tsx
-'use client';
-import { useInView } from '@/lib/utils';
-export default function Reveal({ children, delay = 0, className = '' }: {
-  children: React.ReactNode; delay?: number; className?: string;
-}) {
-  const { ref, inView } = useInView(0.15);
-  return (
-    <div ref={ref} className={`reveal ${inView ? 'revealed' : ''} ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}>
-      {children}
-    </div>
-  );
+```ts
+class MoneyMevaDB extends Dexie {
+  transactions!: Table<Transaction, string>;
+  partners!: Table<PartnerAccount, string>;
+  recurring!: Table<RecurringTx, string>;
+  budgets!: Table<Budget, string>;
+  reminders!: Table<Reminder, string>;
+  adjustments!: Table<Adjustment, string>;
+  goals!: Table<Goal, string>;
+  todos!: Table<Todo, string>;
+  mutation_log!: Table<MutationLog, string>;
 }
 ```
-> ⚠️ `.reveal` creates a stacking context via `transform`. Render modals OUTSIDE all Reveal wrappers.
 
-**Step 20 — Other components**
+**Schema (version 4):**
+| Table | Indexes |
+|---|---|
+| transactions | id, type, date, category, userId, deletedAt, account, transitionId |
+| partners | id, group, userId, deletedAt, transitionId |
+| recurring | id, txType, status, userId, deletedAt, nextDate, transitionId |
+| budgets | id, category, userId, deletedAt, transitionId |
+| reminders | id, status, userId, deletedAt, transitionId |
+| adjustments | id, accountType, userId, deletedAt, transitionId |
+| goals | id, name, userId, deletedAt, transitionId |
+| todos | id, status, category, priority, important, userId, deletedAt, transitionId |
+| mutation_log | id, transitionId, entityType, entityId, action, timestamp, userId |
 
-| Component | File | Purpose |
+---
+
+## 4. State Management (`src/lib/store.ts`)
+
+**Pattern:** In-memory cache + Dexie writes + PouchDB sync.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                React Components                  │
+│  (call store functions on user actions)          │
+└──────────┬──────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────┐
+│              Store Layer (store.ts)              │
+│                                                   │
+│  ┌─────────────┐   ┌──────────┐   ┌──────────┐ │
+│  │ In-Memory    │   │  Dexie   │   │ PouchDB  │ │
+│  │ Cache (sync) │──▶│ (local)  │──▶│ (sync)   │ │
+│  └─────────────┘   └──────────┘   └──────────┘ │
+└─────────────────────────────────────────────────┘
+```
+
+### Key Concepts
+
+- **`initDB()`**: Call once on app mount. Migrates from legacy localStorage, hydrates cache from Dexie, deduplicates partners, starts PouchDB sync.
+- **Unified CRUD pattern** for every entity type:
+  1. Generate `id` (timestamp+random) and `transitionId` (`tr_` + timestamp+random)
+  2. Push to in-memory cache array
+  3. Write to Dexie table (fire-and-forget `.catch(() => {})`)
+  4. Write to PouchDB (fire-and-forget)
+  5. Log mutation to `mutation_log` table
+- **Cache-first reads**: `getTransactions()`, `getPartners()`, etc. read from in-memory arrays for instant UI.
+- **Soft-delete** pattern: set `deletedAt` timestamp instead of removing. Permanent delete removes from cache + Dexie.
+- **Archive auto-cleanup**: Items deleted >30 days are auto-removed (unless marked "keep forever").
+
+### ID Generation
+
+```ts
+function id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function transitionId() { return 'tr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+```
+
+### Important Store Functions
+
+| Function | Purpose |
+|---|---|
+| `addTransaction()` / `updateTransaction()` / `deleteTransaction()` | CRUD with sync |
+| `addPartner()` / `getPartnerPnL()` | Party accounts with P&L |
+| `addRecurring()` / `advanceRecurring()` | Recurring with next-date computation |
+| `setBudgets()` / `upsertBudget()` | Budget management |
+| `addReminder()` / `completeAndRescheduleReminder()` | Reminders with frequency |
+| `addAdjustment()` / `deleteAdjustment()` | Balance corrections |
+| `addGoal()` / `updateGoal()` | Savings goals |
+| `addTodo()` / `completeTodo()` / `toggleTodoImportant()` | Task management |
+| `getAggregates()` / `getMonthlySummary()` / `getCarryForward()` | Dashboard calculations |
+| `getAllNotifications()` | Combined notifications |
+| `getAllArchivedItems()` / `restoreArchivedItem()` / `permanentDeleteAllArchived()` | Archive |
+
+---
+
+## 5. Authentication (`src/lib/localAuth.ts`)
+
+**Fully local** — no server. Uses `localStorage` for multi-user support.
+
+### Storage Keys
+- `mm_users` — Array of `LocalUser` objects (id, email, password, full_name, onboarding state, etc.)
+- `mm_session` — Currently logged-in user (password excluded)
+
+### Functions
+- `registerUser(email, password, fullName)` — Creates user, sets active session
+- `loginUser(email, password)` — Validates credentials, creates session
+- `logoutUser()` — Clears session
+- `switchUser(userId)` — Multi-user switching
+- `getAllUsers()` — Returns all users (passwords stripped)
+- `removeUser(userId)` — Deletes a user
+- `updateProfile(userId, updates)` — Updates profile fields
+- `getSession()` — Returns current user from localStorage
+
+### Auth Provider (`src/components/AuthProvider.tsx`)
+React context that wraps the app. Provides `user`, `profile`, `loading`, `signOut`, `refreshAuth`. On mount, reads session from localStorage and sets the user ID.
+
+---
+
+## 6. PIN Security System (`src/lib/pinStore.ts`)
+
+One-time-use 4-digit PINs for sensitive operations.
+
+### Flow
+1. User generates 10 random PINs (shown only once)
+2. Each PIN can be used exactly once
+3. Used index is tracked — no PIN is reused
+4. After all 10 are consumed, they auto-rotate back to index 0
+
+### Session Auto-Lock
+- Configurable timeout (1h–24h, or disabled)
+- `checkAndLock()` compares last activity time vs current time
+- Lock triggers PIN prompt before allowing access
+
+### Keys in localStorage
+- `mm_pins` — Array of 10 PIN strings
+- `mm_pins_used_idx` — Current position in the PIN array
+- `mm_pins_shown` — Whether PINs have been displayed to user
+- `mm_auto_lock_minutes` — Auto-lock timeout
+- `mm_last_activity` — Timestamp of last user activity
+- `mm_locked` — Whether session is locked
+
+### Functions
+- `generatePins()` — Creates 10 unique 4-digit PINs
+- `validatePin(pin)` — Validates against next available PIN, advances index
+- `getRemainingPins()` — Count remaining PINs
+- `checkAndLock()` — Returns true if session should be locked
+
+---
+
+## 7. UI & Theming
+
+### Tailwind CSS v4 (`src/app/globals.css`)
+
+```css
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-light: var(--brand-light);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-muted: var(--brand-muted);
+}
+```
+
+### Brand Colors (3 themes)
+| Brand | Primary | Secondary | Light | Dark | Muted |
+|---|---|---|---|---|---|
+| Orange (default) | #FF8A3D | #FFCF9A | #FFF6EC | #1B1B1D | #3D332F |
+| Royal Blue | #1E40AF | #FCD34D | #FFF7ED | #0F172A | #1E3A5F |
+| Emerald Green | #047857 | #FCD34D | #FFF7ED | #0F2918 | #064E3B |
+
+Brand applied via CSS class on `<html>`: `brand-blue` or `brand-green`.
+
+### Theme Provider (`src/components/ThemeProvider.tsx`)
+React context providing `theme` (light/dark), `brand` selection, and `toggle` function. Persisted to localStorage (`mm_theme`, `mm_brand`).
+
+### Animation Utilities
+```css
+.slide-up { animation: slideUp 0.6s ease-out both; }
+.reveal { opacity: 0; transform: translateY(30px); transition: ...; }
+.revealed { opacity: 1; transform: translateY(0); }
+```
+
+### Reusable UI Component (`src/components/ui/button.tsx`)
+Use `clsx` + `tailwind-merge` for class merging.
+
+### Utility Functions (`src/lib/utils.ts`)
+- `cn(...inputs)` — Combines `clsx` + `tailwind-merge`
+- `formatCurrency(amount)` — Formats INR with `Intl.NumberFormat('en-IN')`
+- `useInView(threshold)` — IntersectionObserver hook for scroll animations
+- `getSortedCategories()` — Categories sorted by usage frequency (most-used first)
+
+---
+
+## 8. Page Structure
+
+### App Router Layout
+
+```
+src/app/
+├── layout.tsx              # Root layout: ThemeProvider + AuthProvider + RegisterSW
+├── page.tsx                # Landing page (marketing, demo chart, Login/Register CTA)
+├── loading.tsx             # Global loading skeleton
+├── globals.css             # Tailwind v4 + brand variables + animations
+├── login/page.tsx          # Login/Register page with multi-user switching
+├── onboarding/page.tsx     # 6-step wizard (Personal Info → Financial Profile → Work → Partners → Savings Goal → Complete)
+├── terms/page.tsx          # Terms & Conditions (public, no auth required)
+├── privacy/page.tsx        # Privacy Policy (public, no auth required)
+├── auth/callback/page.tsx  # Auth callback (legacy, kept for compatibility)
+│
+└── dashboard/
+    ├── page.tsx            # Dashboard: summary cards, charts, recent txns, goals, reminders
+    ├── layout.tsx          # DashboardLayout wrapper (see below)
+    ├── income/page.tsx     # Income CRUD (wraps TransactionPage)
+    ├── expenses/page.tsx   # Expenses CRUD (wraps TransactionPage)
+    ├── investments/page.tsx# Investments CRUD (wraps TransactionPage)
+    ├── savings/page.tsx    # Goals + Savings (dual-tab: savings list / goals grid)
+    ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal
+    ├── accounts/page.tsx   # Account overview
+    ├── adjustments/page.tsx# Balance corrections
+    ├── recurring/page.tsx  # Recurring transactions management + "Advance" button
+    ├── budgets/page.tsx    # Category budgets with overrun warnings
+    ├── reminders/page.tsx  # Reminders with "Mark as Paid" (creates expense + reschedules)
+    ├── todos/page.tsx      # Todo list with priorities, categories, importance flag
+    ├── ledger/page.tsx     # Audit log — mutation history with filters, CSV export
+    ├── summary/page.tsx    # Charts: cash flow, spending breakdown, month-by-month
+    ├── archive/page.tsx    # Soft-deleted items: restore, permanent delete, empty all
+    ├── settings/page.tsx   # PIN setup, sync config, export/import, themes, brand, auto-lock, clear data
+    ├── support/page.tsx    # Contact support (Telegram, email, website)
+    ├── about/page.tsx      # App info, version, edit profile
+    ├── privacy/page.tsx    # Privacy (dashboard version)
+    └── terms/page.tsx      # Terms (dashboard version)
+```
+
+### Dashboard Layout Wrapping
+
+Each dashboard page wraps its content in `<DashboardLayout>` component (NOT a Next.js layout file). The `DashboardLayout` handles:
+
+1. Auth guard — redirects to `/login` if no session
+2. Onboarding guard — redirects to `/onboarding` if not completed
+3. InitDB — calls `initDB()` on mount, shows loading skeleton until ready
+4. Desktop sidebar nav (collapsible)
+5. Mobile bottom FAB (floating action button, filtered nav items)
+6. Dark/light theme toggle
+7. PIN lock check — `checkAndLock()` on navigation
+8. Auto-lock — `updateLastActivity()` on click
+9. InstallPrompt component (PWA install)
+10. StatusBar (Capacitor native)
+11. `store-ready` event dispatch (for child components to refresh)
+
+### TransactionPage Component (`src/components/TransactionPage.tsx`)
+
+A reusable CRUD page used by Income, Expenses, and Investments.
+
+**Features:**
+- Add modal with form (amount, category, description, date, account type, partner)
+- Duplicate detection on save
+- PIN-protected edit for non-today entries
+- PIN-protected delete
+- Inline search + filter panel (category, date range, amount range)
+- Sort by date/amount, ascending/descending
+- Group by day/week/month
+- Desktop table view
+- Mobile minimal list view (icon + description + date + amount)
+- Tap-to-view detail modal on mobile (full info)
+- Archive view with restore permanent delete
+
+---
+
+## 9. Default Categories (`src/lib/defaultCategories.ts`)
+
+Per-profession categories:
+
+| Profession | Income Categories | Expense Categories |
 |---|---|---|
-| `ShareButton` | `src/components/ShareButton.tsx` | `navigator.share()` / clipboard fallback |
-| `NotificationPanel` | `src/components/NotificationPanel.tsx` | Bell icon + dropdown with notification types |
-| `DataSafetyNotice` | `src/components/DataSafetyNotice.tsx` | Random popup (2-4 days, 50% chance) |
-| `InstallPrompt` | `src/components/InstallPrompt.tsx` | PWA install prompt (4-7 days, 40% chance); suppressed on Capacitor native |
-| `CloudUpgradePopup` | `src/components/CloudUpgradePopup.tsx` | Cloud upgrade nudge (3-5 days, 45% chance) |
-| `SecurityTipNotice` | `src/components/SecurityTipNotice.tsx` | Rotates 3 tips (3-7 days, 40% chance) |
-| `PinPrompt` | `src/components/PinPrompt.tsx` | Modal: enter 4-digit PIN #N, calls `onSuccess` |
-| `PinSetupGuide` | `src/components/PinSetupGuide.tsx` | Educational modal, "Go to Settings" link |
-| `LoadingOverlay` | `src/components/LoadingOverlay.tsx` | Full-screen spinner, 100ms delay |
-| `RegisterSW` | `src/components/RegisterSW.tsx` | Unregisters all service workers on mount |
+| Salaried | Salary, Freelance, Bonus, Refund, Gift | Food, Transport, Rent, Bills, Shopping, Entertainment, Health, Education, Dining Out, Groceries, Subscription, EMI, Insurance, Tax |
+| Business | Sales Revenue, Client Payment, Investment Income, Refund | Plus Software, Inventory, Marketing, Travel, Salary |
+| Freelancer | Client Project, Consultation, Retainer, Royalty, Refund | Software, Equipment, Travel + shared |
+| Student | Allowance, Part-time Job, Scholarship, Gift, Refund | Education + shared (no EMI/Insurance/Tax) |
+| Homemaker | Allowance, Rental Income, Gift, Refund | Groceries + shared |
+| Retired | Pension, Investment Income, Rental Income, Gift, Refund | Insurance + shared |
+| Investor | Dividend, Capital Gains, Interest, Rental Income, Refund | Brokerage + shared |
+| Medical | Consultation, Procedure, Hospital, Refund | Equipment + shared |
 
-### Phase F: Pages — Public (Steps 21–23)
+All sets get "Other" appended.
 
 ---
 
-**Step 21 — Landing page (`src/app/page.tsx`)**
+## 10. Cloud Sync (`src/lib/pouchdb.ts`)
 
-- Top bar: logo + "Get started" link to `/login`
-- Hero: "Meet your money, deeply." + glassmorphism net worth card (AreaChart)
-- Stats row: 4 cards (Income ₹85k, Expense ₹42.3k, Savings ₹1,20,000, Investments ₹2,60,000)
-- Features: 3 cards with icons, responsive layouts
-- Footer: logo, copyright, ShareButton
-- **Redirect logic**: if user is logged in and no `?from=dashboard`, redirect to `/dashboard` (or `/onboarding` if incomplete)
-- **Authenticated header**: when `?from=dashboard`, show "Edit Profile" (PIN-protected) + "Dashboard" buttons
+### Architecture
 
-**Step 22 — Login page (`src/app/login/page.tsx`)**
-
-- Back button at top-left of card
-- Toggle: Login / Register
-- **Login**: email + password, "Sign in"
-- **Register**: full_name, email, password with strength bar + inline validation errors
-- Password rules: min 6 chars, letters + numbers, must not contain full_name or email
-- "or continue with" + Google OAuth (shows "Coming Soon" modal)
-- Quick Login: clickable cards for recent local users
-- **Incomplete onboarding cleanup**: on load, if session exists with `onboarding_completed === false`, delete user + clear session
-- **Name autofill**: on register success, save `fullName` to `mm_last_name` localStorage; auto-fill from it on register form mount
-- LoadingOverlay during submit
-- On success: redirect to `/dashboard` if onboarded, else `/onboarding`
-
-**Step 23 — Onboarding wizard (`src/app/onboarding/page.tsx`)**
-
-6 steps with step indicator bar:
-
-| Step | Title | Fields | Required |
-|---|---|---|---|
-| 1 | Personal Info | Full Name, Phone, T&C checkbox, Import Backup | Name + T&C |
-| 2 | Financial Profile | Monthly Income (4 buttons), Primary Goal (6 buttons), Currency | Income + Goal |
-| 3 | Work & Business | Occupation, Business Name, Business Type | Optional |
-| 4 | Partner | Add Partner toggle → Name, Group, Type, Description | Optional |
-| 5 | Goal | Goal Name + Target Amount | Optional |
-| 6 | Complete | Success animation + summary + redirect | — |
-
-- **T&C**: checkbox required on Step 1; import backup button disabled until checked; links to public `/terms` and `/privacy`; `terms_accepted` saved in profile
-- **Name autofill**: name field pre-filled from `mm_last_name` localStorage
-- **Edit mode** (`?edit=true`): pre-fills all fields from existing profile, skips `onboarding_completed` flag, skips goal/partner creation, redirects to `/dashboard/about`
-- Navigation: Back (steps 2-5), Skip for now (steps 3-5), Next/Continue/Finish
-- Button text: Step 1 "Continue", Steps 2-4 "Next", Step 5 "Finish", Step 6 "Go to Dashboard"
-
-### Phase G: Pages — Dashboard (Steps 24–34)
-
----
-
-**Step 24 — Dashboard (`src/app/dashboard/page.tsx`)**
-
-- Header: "At a glance | Your money, simplified."
-- Welcome Back card: user name, Fast mode badge, Lock Session button
-- 6 summary cards (responsive grid): Available to Spend, Total Balance, Total Income, Total Expenses, Investments, Partner Invested
-- Balance Carry Forward: gradient section with 3 glassmorphism sub-cards
-- Cash Flow Analysis: 6-month AreaChart (Income=indigo, Expense=red)
-- Upcoming Reminders: list + "Manage Reminders" modal
-- Spending Breakdown: donut PieChart (top 6 categories)
-- Recent Transactions: last 5
-- Goals section: grid with progress bars, Contribute/Withdraw/Edit/Delete
-- Add Money modal: amount + destination
-- Wrap sections in `<Reveal>` with delays
-- **Cleanup**: unused `getSortedCategories` import removed (only `useSortedCategories` hook is used)
-
-**Step 25 — TransactionPage (`src/components/TransactionPage.tsx`)**
-
-Reusable for income/expense/investment pages. Props: `type`, `title`, `description`.
-
-- **Filter bar**: search, category, date range, amount range, quick filters (This Week/Month/Last Month/Quarter), sort toggle
-- **Content**: mobile cards / desktop table (Date, Category, Description, Amount, Actions)
-- **Group by**: none/day/week/month with headers
-- **Add/Edit modal**: Amount, Category (datalist), Date, Description; duplicate warning
-- **Delete flow**: if `createdAt` is today → skip PIN; else PIN or PinSetupGuide; soft delete + undo toast
-- **Archive panel**: toggleable list of deleted items with Restore/Delete
-
-**Step 26 — Income/Expenses/Investments pages**
-
-Thin wrappers:
-```tsx
-export default function IncomePage() {
-  return <TransactionPage type="income" title="Income" description="Track your earnings" />;
-}
+```
+Device A (PouchDB) ←──live sync──→ CouchDB (Remote) ←──live sync──→ Device B (PouchDB)
+       │                                                                    │
+  IndexedDB                                                            IndexedDB
 ```
 
-**Step 27 — Savings (`src/app/dashboard/savings/page.tsx`)**
+### Implementation
 
-Two tabs:
-- **Savings**: TransactionPage for `type="saving"` + Source of Funds (Available/partner)
-- **Goals**: grid of goal cards with progress bars; Contribute/Withdraw; Edit/Delete
+- **Local DB**: PouchDB instance named `mm_pouch` with compound index on `[_entity, updatedAt]`
+- **Remote DB**: User-configurable CouchDB URL (e.g. Railway.app), stored in localStorage `mm_pouch_url`
+- **Live sync**: `localDB.sync(remoteDB, { live: true, retry: true })` — bi-directional, continuous
+- **Change events**: `syncHandler.on('change', ...)` fires listeners
 
-**Step 28 — Partners (`src/app/dashboard/partners/page.tsx`)**
+### Entity Mapping
+Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`:
+- `transaction:abc123` → `_entity: 'transaction'`
+- `partner:def456` → `_entity: 'partner'`
+- etc.
 
-- Summary cards: Total Invested, Net P&L, Total Portfolio Value
-- Group tabs: All / Vendors / Customers / Contacts
-- Partner cards: name, type badge, budget, investment, P&L, total value
-- Actions: Add Transaction (with companion entry), View History
-- Add Partner modal: compact layout — Account Name (full width), Group + Type (2-col), Initial Investment (full width), Description (full width); Type uses dropdown + "Create New" option
-- Delete protection: 3 default partners (Cash, Bank, UPI Wallet) cannot be deleted
+### Key Functions
 
-**Step 29 — Recurring (`src/app/dashboard/recurring/page.tsx`)**
+| Function | Purpose |
+|---|---|
+| `initPouchDB()` | Creates local PouchDB instance, creates indexes |
+| `connectRemote(url)` | Connects to remote CouchDB, starts live sync |
+| `disconnectRemote()` | Cancels sync, clears handlers |
+| `checkConnection()` | Tests connection, reconnects if needed |
+| `ensureConnected()` | Ensures live sync is active, starts reconnect timer if not |
+| `putDoc(entity, data)` | Writes doc to local PouchDB (for sync to remote) |
+| `removeDoc(entity, id)` | Removes doc from local PouchDB |
+| `pullAll()` | Replicates from remote, returns all non-deleted docs with `_entity` |
+| `clearPouch()` | Destroys local DB, reinitializes |
+| `onRemoteChange(fn)` | Subscribes to sync change events |
 
-- Empty state with CTA
-- Add modal: Title, Amount, Category, Frequency, Start/End Date, Reminder Days
-- Table: name, amount, frequency, next date, status badge (green/gray), Play/Pause toggle, Delete
-- Wrapped in `<Reveal>` with delay=100 for scroll animations
+### Reconnect Strategy
+- 30-second interval timer (`RECONNECT_INTERVAL`)
+- Only active when not already connected
+- Creates a test connection with `skip_setup: true`
+- Replaces `syncHandler` on successful reconnect
 
-**Step 30 — Adjustments (`src/app/dashboard/adjustments/page.tsx`)**
+### Periodic Pull (in store.ts)
+Every 2 minutes, calls `processRemoteChanges()` which:
+1. Checks connection
+2. Replicates from remote to local PouchDB
+3. Reads all docs with `_entity`
+4. Merges into cache (respects `updatedAt` timestamps — skips if local is newer)
 
-- Add modal: Amount (±99,99,99,999), Account Type (Personal/Partner), Date, Notes
-- Guard: amount validated BEFORE PIN prompt
-- List: date, amount (red/green), account type badge, notes, delete
-
-**Step 31 — Summary (`src/app/dashboard/summary/page.tsx`)**
-
-- Stat cards: Total Income, Expenses, Savings, Investments
-- P&L Trend: 6-month grouped BarChart
-- Goal Progress: progress bars
-- **User & System Activity History**: combined timeline of user actions (transactions, partner additions) + system events (notifications, backups), date-grouped (Today / Yesterday / date), shows 2 days by default with "Show All Data" inline expand + full modal overlay, color-coded badges for system events
-- Export: PDF (monthly summary table) + Excel (.xlsx)
-- Title responsive: `text-lg md:text-3xl`; subtitle hidden on mobile
-
-**Step 32 — Settings (`src/app/dashboard/settings/page.tsx`)**
-
-Sections (in order):
-1. **Edit Profile & Visit Landing Page** — gradient card (orange-to-amber) at the very top with `UserCog` icon in brand gradient circle, description, feature badges (Personal Info / Financial Profile / Landing Preview), and "Open Profile Settings" button linking to `/?from=dashboard`
-2. **CSV Import/Export** — download CSV, upload CSV with header parsing
-3. **Cloud Upgrade** — gradient card with Telegram CTA
-4. **Full Data Backup** — Export/Import JSON with cross-user detection
-5. **App Color** — 3 theme buttons (Orange/Blue/Green)
-6. **Security** — PIN generation (show once + confirmation), remaining count, Regenerate, Auto-lock dropdown
-7. **Danger Zone** — Clear User Data / All Data (CAPTCHA + confirmation)
-
-**Step 33 — Archive (`src/app/dashboard/archive/page.tsx`)**
-
-- Empty state with icon
-- "Empty Archive" button (PIN-protected)
-- Mobile: cards / Desktop: table with columns (ratio 3:6:2:2:2:3 auto-fit):
-  - Item (3), Details (6), Amount (2), Archived (2), Auto-Delete (2), Actions (3)
-- Items from all entity types via `getAllArchivedItems()`
-- **Race condition fix**: `refresh()` awaits `initDB()` before reading cache so data survives page refresh
-- Auto-delete countdown badges: "Xd left" / "Expiring today" / "Kept"
-- Protect/Unprotect per item (shield icon, localStorage `mm_archive_keep`)
-- PIN required for restore, delete, clear
-
-**Step 34 — About / Privacy / Terms pages**
-
-- **About**: Logo, version, stats, profile, contact, links to Privacy/Terms. Sections wrapped in `<Reveal>` with staggered delays.
-- **Privacy Policy**: static — no data collection, local-only, security, deletion rights. Back link, header, and content wrapped in `<Reveal>` with delays.
-- **Terms of Service**: static — acceptance, responsibilities, disclaimer, liability, IP. Same Reveal animated structure as Privacy.
-- Public standalone versions at `/terms` and `/privacy` (no DashboardLayout)
-
-### Phase H: PWA & Polish (Steps 35–37)
+### Sync Flow (Settings Page)
+1. User enters CouchDB URL → `connectRemote(url)`
+2. URL saved to localStorage
+3. Status indicators: idle → connecting → connected / error
+4. Sync failure popup after 2 consecutive errors (Telegram/Website support link)
+5. Disconnect button + confirmation
 
 ---
 
-**Step 35 — PWA support**
+## 11. Activity Log (`src/lib/activityLog.ts`)
+
+Simple localStorage-based activity tracker. Max 200 entries.
+
+```ts
+type ActivityType = 'pin_used' | 'login' | 'login_failed' | 'logout' | 'register'
+  | 'session_lock' | 'session_unlock' | 'auto_lock_off' | 'data_cleared'
+  | 'entry_created' | 'entry_deleted' | 'entry_restored' | 'entry_edited'
+  | 'entry_exported' | 'entry_imported';
+```
+
+Storage key: `mm_activity_log`
+
+---
+
+## 12. Export/Import (`src/lib/export.ts`)
+
+| Function | Format | Libraries |
+|---|---|---|
+| `exportSummaryPDF()` | PDF with auto-table | `jspdf`, `jspdf-autotable` |
+| `exportAllDataPDF()` | PDF of all transactions | `jspdf`, `jspdf-autotable` |
+| `exportSummaryExcel()` | Excel (.xlsx) | `xlsx` |
+| `exportAllDataExcel()` | Excel of all transactions | `xlsx` |
+| JSON export (in Settings) | Full JSON backup | Built-in JSON |
+| JSON import (in Settings) | Cross-user detection + reassignment | Built-in JSON |
+
+---
+
+## 13. Notifications (`src/lib/capacitor-notifications.ts`)
+
+- Uses `@capacitor/local-notifications` for native Android notifications
+- `initLocalNotifications()` — Requests permissions
+- `syncLocalNotifications()` — Checks for new in-app notifications, schedules up to 3 native notifications
+- Only fires on native Capacitor platform (`Capacitor.isNativePlatform()`)
+
+### In-App Notification Types (from `getAllNotifications()`)
+| Type | Trigger | Severity |
+|---|---|---|
+| Recurring due | `nextDate` within reminder days | danger/warning/info |
+| Archive alert | Most recent archived item | info |
+| Budget overrun | ≥80% of limit used | danger (≥100%) / warning (≥80%) |
+| Overdue reminders | `dueDate <= today` | info |
+| Weekend backup | Saturday/Sunday (once per day) | warning |
+
+---
+
+## 14. PWA Setup
 
 **`public/manifest.webmanifest`**:
 ```json
@@ -535,167 +491,242 @@ Sections (in order):
   "short_name": "Money Meva",
   "start_url": "/",
   "display": "standalone",
+  "background_color": "#FFF6EC",
   "theme_color": "#FF8A3D",
-  "background_color": "#FAF5F0",
-  "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+  "icons": [...]
 }
 ```
 
-**Service worker** (`public/sw.js`): cache-first for `/`, `/login`, `/onboarding`, `/dashboard` routes + icons. Versioned cache name.
+**Root layout** includes:
+```tsx
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<link rel="apple-touch-icon" href="/icon-512.png" />
+```
 
-**`src/app/layout.tsx`**: manifest link, apple-touch-icon, theme-color meta, icon links.
+**`InstallPrompt` component** (`src/components/InstallPrompt.tsx`):
+- Listens for `beforeinstallprompt` event
+- Suppresses default browser banner (`preventDefault()`)
+- Shows a custom install button (guarded: not in Capacitor, not standalone)
+- On click, triggers `prompt()` on the deferred event
 
-**Icons**: `favicon-32.png`, `icon-192.png`, `icon-512.png`, `logo.png`, `icon.svg`, `icon-app.svg` — all orange rupee design via `scripts/generate-web-icons.mjs`.
-
-**Step 36 — Root layout (`src/app/layout.tsx`)**
-- HTML with `suppressHydrationWarning`
-- `<ThemeProvider>` → `<AuthProvider>` → `<RegisterSW />`
-- Metadata: title, description, icons, manifest, theme-color
-
-**Step 37 — Global styles (`src/app/globals.css`)**
-- `@import "tailwindcss"`
-- `.reveal` / `.revealed` utilities
-- `@keyframes slideUp`
+**`RegisterSW` component** (`src/components/RegisterSW.tsx`):
+- Registers service worker for offline caching
 
 ---
 
-## 4. Scripts & Config
+## 15. Build Scripts
 
-### Scripts
+### `scripts/bump-version.cjs`
+Reads `VERSION` file (format `v{major}.{minor}.{patch}.{build}`), bumps the appropriate component. Used as `prebuild` script in `package.json`.
 
-| Script | Purpose |
+### `scripts/update-android-version.cjs`
+Updates `android/app/build.gradle` versionCode and versionName from `VERSION` file.
+
+### `scripts/package-webapp.ps1`
+PowerShell script for packaging web app.
+
+### `package.json` scripts
+```json
+{
+  "dev": "next dev",
+  "build": "next build",
+  "prebuild": "node scripts/bump-version.cjs patch",
+  "lint": "eslint",
+  "cap:sync": "npx cap sync android",
+  "cap:copy": "npx cap copy android",
+  "cap:build": "npx cap build android",
+  "cap:open": "npx cap open android",
+  "android:apk": "npm run build && npm run version:patch && node scripts/update-android-version.cjs && npx cap copy android && cd android && gradlew assembleDebug",
+  "version:patch|minor|major": "node scripts/bump-version.cjs {patch|minor|major}"
+}
+```
+
+---
+
+## 16. CI/CD
+
+### Cloudflare Pages Deploy (`.github/workflows/nextjs.yml`)
+Triggered on push to `master`:
+1. Checkout + Node 22 setup
+2. `npm ci`
+3. `npm run build` (static export → `out/`)
+4. `wrangler pages deploy out --project-name=money-meva-premium --branch=master`
+
+Requires `CLOUDFLARE_API_TOKEN` GitHub secret.
+
+### Android APK Build (`.github/workflows/build-apk.yml`)
+Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json) or workflow_dispatch:
+1. Checkout + Node 22 + Java 21 + Android SDK
+2. `npm ci`
+3. Optional version bump
+4. `npm run build`
+5. `npx cap sync android`
+6. Node script to sync version
+7. `./gradlew assembleDebug` in `android/`
+8. Upload APK artifact (`MoneyMeva-APK`)
+
+---
+
+## 17. Component Library (`src/components/`)
+
+| Component | Purpose |
 |---|---|
-| `scripts/bump-version.cjs` | Read VERSION (`vX.Y.Z.B`), increment (patch/minor/major/build) |
-| `scripts/update-android-version.cjs` | Sync VERSION to `android/app/build.gradle` (versionCode = build+10, versionName) |
-| `scripts/generate-web-icons.mjs` | Generate web PNG icons (sharp, orange rupee design) |
-| `scripts/generate-android-icons.mjs` | Generate Android mipmap icons (adaptive, orange rupee) |
-| `scripts/seed-data.js` | Browser console: generate 10 partners, 15 txs, 10 recurring, etc. |
-| `scripts/package-webapp.ps1` | Build + copy to `dist/` + zip |
-| `start-dev.bat` | `npm run dev` shortcut |
-
-### Deployment
-
-**`netlify.toml`**:
-```toml
-[build]
-  command = "npm run build"
-  publish = "out/"
-```
-
-**`VERSION`** file at root: `vX.Y.Z` format, auto-bumped on each build.
+| `AuthProvider` | Auth context wrapper |
+| `ThemeProvider` | Theme/brand context |
+| `DashboardLayout` | Main dashboard shell (nav, auth guard, DB init, PIN lock) |
+| `TransactionPage` | Reusable CRUD for income/expense/investment |
+| `NotificationPanel` | Dropdown panel showing all notifications |
+| `PinPrompt` | Modal for PIN code input |
+| `PinSetupGuide` | Shows generated PINs to user (one-time) |
+| `Reveal` | Scroll-triggered reveal animation wrapper |
+| `ShareButton` | Web Share API button |
+| `InstallPrompt` | PWA install banner |
+| `DataSafetyNotice` | Data safety information banner |
+| `SecurityTipNotice` | Security tip banner |
+| `LoadingOverlay` | Full-screen loading overlay |
+| `RegisterSW` | Service worker registration |
+| `ui/button` | Base button component |
 
 ---
 
-## 5. Android APK Build (GitHub Actions)
+## 18. Data Flow Summary
 
-Workflow at `.github/workflows/build-apk.yml` — manual trigger only.
+### Write Operation (e.g., adding an expense)
+```
+User clicks "Save"
+  → TransactionPage.handleAdd()
+  → store.addTransaction(formData)
+    → Generate id() + transitionId()
+    → Push to cache.transactions[]
+    → Dexie: db.transactions.put(tx)
+    → PouchDB: putDoc('transaction', tx)
+    → mutation_log: logMutation('transaction', id, tId, 'created', detail)
+  → setTransactions(getTransactions(type))
+  → UI re-renders from cache
+```
 
-**Workflow steps:**
-1. Checkout code
-2. Setup Java 21 (Temurin)
-3. Setup Node.js 22
-4. `npm ci` + install Capacitor deps if missing
-5. `node scripts/bump-version.cjs patch` — bumps VERSION
-6. `node scripts/update-android-version.cjs` — syncs versionCode/Name
-7. Generate `debug.keystore` if missing (for consistent signing)
-8. `npx next build` (static export)
-9. `npx cap sync` (copy web to Android)
-10. Install Android SDK platform 36 + build-tools
-11. `./gradlew assembleDebug` in `android/`
-12. Upload APK artifact
-13. Upload `debug.keystore` as artifact (first run, commit it to repo)
+### Sync Flow (from remote)
+```
+Live sync change detected
+  → processRemoteChanges()
+    → checkConnection()
+    → localDB.replicate.from(remoteDB)
+    → localDB.allDocs({ include_docs: true })
+    → Filter by _entity + !_deleted
+    → For each doc:
+      → Find in cache by id
+      → If local.updatedAt >= doc.updatedAt, skip
+      → Else update cache + write to Dexie
+```
 
-**Requirements:**
-- Android project at `android/` (via `npx cap add android`)
-- `capacitor.config.ts` with appId, appName, webDir
-- `android/app/build.gradle`: target API 36, minSdk 24, `signingConfigs.debug` pointing to `debug.keystore`
-- Gradle 8.14+
-- **Consistent signing**: commit `android/app/debug.keystore` so APK updates work across CI runs
-
-**In-app trigger** (Settings page):
-- Shows last build status from GitHub API
-- "Build APK" button with instructions, opens workflow URL
+### Dashboard Data Flow
+```
+DashboardPage mounts
+  → DashboardLayout calls initDB()
+    → Hydrates cache from Dexie
+    → Starts periodic pull (2min)
+    → Dispatches 'store-ready'
+  → DashboardPage reads from store:
+    → getAggregates() → balance, income, expense, etc.
+    → getMonthlySummary() → chart data
+    → getCarryForward() → rollover balance
+    → getGoals() → progress bars
+    → getReminders() + getRecurring() → upcoming
+    → getAllNotifications() → notification panel
+  → All reads are from in-memory cache (instant)
+```
 
 ---
 
-## 6. UI Patterns & Edge Cases
+## 19. Key Implementation Details
 
-### Modal pattern
-```html
-fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4
-<div class="my-4">...</div>
-```
+### Recurring Transaction Advancement
+`advanceRecurring(id)`:
+1. Creates a transaction with current `nextDate`
+2. Computes new `nextDate` based on frequency (daily/weekly/monthly/yearly/custom)
+3. Updates the recurring record in cache + Dexie + PouchDB
+4. Returns the created transaction
 
-### Mobile/Desktop switching
-```html
-<div class="hidden md:block">Desktop</div>
-<div class="md:hidden">Mobile</div>
-```
+### Reminder "Mark as Paid"
+`completeAndRescheduleReminder(id)`:
+- For `once` frequency: mark as completed
+- For recurring: compute next date (daily/weekly/monthly/quarterly/half-yearly/yearly), update `dueDate`
+- Does NOT auto-create an expense (user creates manually or uses recurring)
 
-### PIN security rules
-- Required for: delete/edit of items not created today, clearing archive, creating adjustments, export/import, clearing data, disabling auto-lock, editing profile from About/landing
-- Validation is cyclic (10 PINs, then restart from index 0)
-- Events that do NOT reset auto-lock: page refresh, browser back/forward, URL bar changes
+### Partner P&L
+`getPartnerPnL(partnerId)`:
+- Filters transactions by `partnerAccountId`
+- Sums income and expense separately
+- Returns `{ income, expense, net }`
 
-### Edge cases
-1. **Duplicate transaction guard**: `checkDuplicateTransaction()` prevents accidental re-entries
-2. **Partner deduplication**: case-insensitive name matching, prefer non-deleted, prefer newer
-3. **Adjustment amount guard**: validated before PIN prompt, rejects 0 and > ±₹99,99,99,999
-4. **Delete today-rule**: skip PIN if entry `createdAt` matches today
-5. **Cross-user import**: detect different user, show confirmation to reassign
-6. **Archive overflow**: max 200 activity log entries
-7. **Loading state delay**: LoadingOverlay has 100ms delay
-8. **PWA install**: capture `beforeinstallprompt` event
-9. **Random popups**: independent timers in localStorage, Math.random() chance
-10. **Landing page redirect**: logged-in users redirected unless `?from=dashboard`
-11. **Incomplete registration cleanup**: session with `onboarding_completed=false` triggers user deletion on login page load
-12. **Edit mode guard**: `?edit=true` skips `onboarding_completed` flag and goal/partner creation
-13. **Archive race condition**: `refresh()` must `await initDB()` before reading cache, otherwise data is empty on page refresh
-14. **Capacitor notification dedup**: tracks shown notifications via `mm_cap_shown_notifs` localStorage Set to avoid re-sending to Android tray
-15. **Activity History merge**: combines user actions (transaction CRUD, partner adds) from Dexie + system events from `mm_activity_log`; sorts by timestamp desc; date-grouped with Today/Yesterday headers
-16. **Partner form validation**: name required; type dropdown with "Create New" text input fallback; Group/Type in 2-col layout on desktop
-17. **InstallPrompt native guard**: suppressed when `Capacitor.isNativePlatform()` returns true, so APK users never see the PWA install popup
+### Duplicate Detection
+`checkDuplicateTransaction(tx)`:
+- Looks for existing transaction with same date, type, amount, category, and optional partnerAccountId
+- Returns the matching transaction or null
+
+### Dashboard Calculations
+- **Available to Spend** = cash/bank/upi income - cash/bank/upi expense (current month)
+- **Balance** = total income - total expense (all time, cash/bank/upi)
+- **Carry Forward** = last month's cash/bank/upi balance (positive only)
+- **Total Income/Expense** = across all accounts
+
+### Mobile Responsiveness
+- Desktop: sidebar nav + full table views
+- Mobile: bottom FAB nav + minimal list views + tap-through detail modals
+- Audit ledger: subtitle truncated to 4 words on mobile
+- Buttons: full labels on desktop, icons only on mobile (or smaller variants)
 
 ---
 
-## 7. Final Checklist
+## 20. Version File
 
-- [ ] All pages render without errors
-- [ ] Static export builds successfully (`next build`)
-- [ ] Dark mode toggles correctly
-- [ ] Brand colors change in Settings
-- [ ] Landing page redirects logged-in users; `?from=dashboard` skips redirect
-- [ ] Landing page shows Edit Profile + Dashboard for existing users (PIN-protected)
-- [ ] Onboarding requires T&C agreement; import backup disabled until accepted
-- [ ] Name auto-fills from registration history
-- [ ] Onboarding edit mode (`?edit=true`) pre-fills all fields
-- [ ] Edit Profile from About page requires PIN (if set)
-- [ ] Incomplete onboarding users are cleaned up on next visit
-- [ ] `/terms` and `/privacy` public pages accessible without login
-- [ ] CRUD works on all entity types
-- [ ] PIN creation, viewing, and validation works
-- [ ] Session auto-lock locks and unlocks correctly
-- [ ] Archive stores and restores all entity types
-- [ ] Archive columns auto-fit with 3:6:2:2:2:3 ratio
-- [ ] Archive auto-delete after 30 days works with countdown badges
-- [ ] Export CSV, JSON, PDF, Excel all work
-- [ ] Import CSV and JSON work with duplicate detection
-- [ ] PWA install prompt works
-- [ ] Service worker caches core routes
-- [ ] Mobile responsive: no overflow, all forms fit on 375px+ screens
-- [ ] Reveal animations play on scroll
-- [ ] Floating nav shows only filtered items
-- [ ] Google OAuth shows "Coming Soon" (mock)
-- [ ] Netlify deployment succeeds from `out/`
-- [ ] APK builds via GitHub Actions with consistent signing
-- [ ] Archive data persists on page refresh (await `initDB()` before reading cache)
-- [ ] Android local notifications appear in system tray (20s polling in NotificationPanel)
-- [ ] Local notification dedup works (same notification not sent twice)
-- [ ] Partner creation form compact layout works (Group+Type 2-col on desktop)
-- [ ] Activity History shows combined user + system events on Summary page
-- [ ] Activity History date-grouped (Today/Yesterday/date) with "Show All Data" expand
-- [ ] Activity History removed from Settings page entirely
-- [ ] Summary title responsive (`text-lg md:text-3xl`); subtitle hidden on mobile
+`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v6.1.0.0`).
+
+The build number (4th component) is incremented on each `npm run build` via the `prebuild` script. On CI, this bumps locally in the runner; the repo isn't modified.
+
+---
+
+## 21. File Skeleton Reference
+
+```
+money-meva-premium/
+├── .github/workflows/
+│   ├── nextjs.yml              # Cloudflare Pages deploy
+│   └── build-apk.yml           # Android APK build
+├── android/                    # Capacitor Android project
+│   ├── app/build.gradle        # Version synced from VERSION
+│   └── app/src/main/res/       # Icons, notifications
+├── public/
+│   ├── manifest.webmanifest
+│   ├── icon-512.png
+│   ├── icon.svg
+│   └── favicon-32.png
+├── scripts/
+│   ├── bump-version.cjs        # Version increment
+│   ├── update-android-version.cjs
+│   ├── package-webapp.ps1
+│   └── seed-data.js
+├── src/
+│   ├── app/                    # Next.js App Router pages
+│   ├── components/             # React components
+│   ├── lib/                    # Business logic
+│   │   ├── db.ts               # Dexie schema
+│   │   ├── store.ts            # State management + CRUD
+│   │   ├── pouchdb.ts          # CouchDB sync engine
+│   │   ├── localAuth.ts        # Local auth system
+│   │   ├── pinStore.ts         # PIN security
+│   │   ├── export.ts           # PDF/Excel export
+│   │   ├── activityLog.ts      # Activity tracking
+│   │   ├── defaultCategories.ts# Category definitions
+│   │   ├── utils.ts            # Shared utilities
+│   │   ├── supabase.ts         # Legacy (unused)
+│   │   └── capacitor-notifications.ts
+│   └── types/index.ts          # TypeScript interfaces
+├── VERSION                     # Current version string
+├── capacitor.config.ts         # Capacitor configuration
+├── next.config.ts              # Next.js config (static export)
+├── tsconfig.json               # TypeScript config
+├── package.json                # Dependencies + scripts
+├── postcss.config.mjs          # PostCSS for Tailwind
+└── eslint.config.mjs           # ESLint flat config
+```

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Wallet, TrendingUp, TrendingDown, MoreVertical, Trash2, X, Undo2, AlertTriangle } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, MoreVertical, Trash2, X, Undo2, AlertTriangle, PlusCircle } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
@@ -45,10 +45,12 @@ const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> =
 
 export default function PartnersPage() {
   const [partners, setPartners] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const refresh = () => {
     if (!isStoreReady()) return;
     setPartners(getPartners().map(p => ({ ...p, ...getPartnerPnL(p.id) })));
+    setRefreshKey(k => k + 1);
   };
 
   useEffect(() => {
@@ -66,9 +68,37 @@ export default function PartnersPage() {
   const [pinDeleteId, setPinDeleteId] = useState<string | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [dupWarning, setDupWarning] = useState<any | null>(null);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [focusCatIdx, setFocusCatIdx] = useState(0);
 
   const [form, setForm] = useState({ name: '', type: 'supplier', group: 'vendor' as 'customer' | 'vendor' | 'contact', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
   const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: new Date().toISOString().split('T')[0] });
+
+  const allCategories = useMemo(() => {
+    const cats = new Map<string, number>();
+    getTransactions().forEach(t => { if (t.category) cats.set(t.category, (cats.get(t.category) || 0) + 1); });
+    return Array.from(cats.entries()).sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  }, [refreshKey]);
+
+  const typeCategories = useMemo(() => {
+    const cats = new Map<string, number>();
+    getTransactions().filter(t => t.type === txForm.type).forEach(t => { if (t.category) cats.set(t.category, (cats.get(t.category) || 0) + 1); });
+    return Array.from(cats.entries()).sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  }, [refreshKey, txForm.type]);
+
+  const displayCategories = useMemo(() => {
+    if (typeCategories.length > 0) return typeCategories;
+    return allCategories;
+  }, [typeCategories, allCategories]);
+
+  const recentCategories = useMemo(() => displayCategories.slice(0, 3), [displayCategories]);
+
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch) return recentCategories;
+    const s = categorySearch.toLowerCase();
+    return displayCategories.filter(c => c.toLowerCase().includes(s)).slice(0, 10);
+  }, [categorySearch, displayCategories, recentCategories]);
 
   const filteredPartners = activeGroup === 'all' ? partners : partners.filter(p => p.group === activeGroup);
 
@@ -163,8 +193,8 @@ export default function PartnersPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">Party Accounts</h1>
-              <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Track your joint ventures and project budgets.".split(' ').slice(0, 5).join(' ')}{"Track your joint ventures and project budgets.".split(' ').length > 5 ? '...' : ''}</p>
-              <p className="text-slate-500 dark:text-slate-400 hidden md:block">Track your joint ventures and project budgets.</p>
+              <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Manage vendors, customers and contacts.".split(' ').slice(0, 3).join(' ')}{"Manage vendors, customers and contacts.".split(' ').length > 3 ? '...' : ''}</p>
+              <p className="text-slate-500 dark:text-slate-400 hidden md:block">Manage vendors, customers and contacts.</p>
             </div>
             <button onClick={() => setShowAddModal(true)} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" type="button" title="Add Party Account">
               <Plus className="h-5 w-5" />
@@ -205,7 +235,7 @@ export default function PartnersPage() {
                   className={cn("px-3 py-2 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-colors",
                     activeGroup === g.key ? "bg-brand text-white shadow-sm" : "bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   )}>
-                  {g.label} ({g.count})
+                  {g.label} <span className="hidden md:inline">({g.count})</span>
                 </button>
               ))}
             </div>
@@ -342,12 +372,12 @@ export default function PartnersPage() {
       {showTxModal && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowTxModal(null)}>
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add Partner Transaction</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add Party Transaction</h2>
             <form onSubmit={handleAddTx} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Type</label>
-                  <select value={txForm.type} onChange={e => setTxForm({ ...txForm, type: e.target.value as any })}
+                  <select value={txForm.type} onChange={e => { setTxForm({ ...txForm, type: e.target.value as any }); setCategorySearch(''); }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
@@ -360,10 +390,50 @@ export default function PartnersPage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Custom Category</label>
-                  <input required value={txForm.category} onChange={e => setTxForm({ ...txForm, category: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Enter category" />
+                <div className="space-y-2 relative">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Category</label>
+                  <input
+                    required
+                    value={txForm.category}
+                    onChange={e => { setTxForm({ ...txForm, category: e.target.value }); setCategorySearch(e.target.value); setShowCategoryDropdown(true); setFocusCatIdx(0); }}
+                    onFocus={() => { setShowCategoryDropdown(true); setFocusCatIdx(0); }}
+                    onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                    onKeyDown={e => {
+                      if (!showCategoryDropdown) return;
+                      const hasCreate = categorySearch && !filteredCategories.includes(categorySearch);
+                      const total = filteredCategories.length + (hasCreate ? 1 : 0);
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusCatIdx(i => (i + 1) % total); }
+                      else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusCatIdx(i => (i - 1 + total) % total); }
+                      else if (e.key === 'Escape') { setShowCategoryDropdown(false); setFocusCatIdx(0); }
+                      else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (hasCreate && focusCatIdx === filteredCategories.length) {
+                          setTxForm({ ...txForm, category: categorySearch });
+                        } else if (focusCatIdx < filteredCategories.length) {
+                          setTxForm({ ...txForm, category: filteredCategories[focusCatIdx] });
+                        }
+                        setShowCategoryDropdown(false); setCategorySearch(''); setFocusCatIdx(0);
+                      }
+                    }}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
+                    placeholder="Search or type new category"
+                  />
+                  {showCategoryDropdown && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredCategories.map((c, i) => (
+                        <button key={c} type="button" onMouseDown={e => { e.preventDefault(); setTxForm({ ...txForm, category: c }); setShowCategoryDropdown(false); setCategorySearch(''); }}
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusCatIdx === i ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", txForm.category === c && !focusCatIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}>
+                          {c}
+                        </button>
+                      ))}
+                      {categorySearch && !filteredCategories.includes(categorySearch) && (
+                        <button type="button" onMouseDown={e => { e.preventDefault(); setTxForm({ ...txForm, category: categorySearch }); setShowCategoryDropdown(false); setCategorySearch(''); }}
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2", focusCatIdx === filteredCategories.length ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium text-brand" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30 text-brand font-medium")}>
+                          <PlusCircle className="h-3.5 w-3.5" /> Create "{categorySearch}"
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Date</label>

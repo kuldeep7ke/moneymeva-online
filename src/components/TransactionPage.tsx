@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown, UserPlus } from 'lucide-react';
 import { formatCurrency, cn, getSortedCategories, useSortedCategories } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
-import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
+import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, checkDuplicateTransaction, addAdjustment, isStoreReady, addPartner } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -44,6 +44,25 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [archived, setArchived] = useState<Transaction[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
+  const [partnerSearch, setPartnerSearch] = useState('');
+  const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
+  const [showNewPartner, setShowNewPartner] = useState(false);
+  const [newPartnerName, setNewPartnerName] = useState('');
+  const [newPartnerGroup, setNewPartnerGroup] = useState<'customer' | 'vendor' | 'contact'>('contact');
+
+  const recentPartners = useMemo(() => {
+    const freq = new Map<string, number>();
+    transactions.forEach(t => {
+      if (t.partnerAccountId) freq.set(t.partnerAccountId, (freq.get(t.partnerAccountId) || 0) + 1);
+    });
+    return [...partners].sort((a, b) => (freq.get(b.id) || 0) - (freq.get(a.id) || 0)).slice(0, 3);
+  }, [partners, transactions]);
+
+  const filteredPartners = useMemo(() => {
+    if (!partnerSearch) return recentPartners;
+    const s = partnerSearch.toLowerCase();
+    return partners.filter(p => p.name.toLowerCase().includes(s));
+  }, [partnerSearch, partners, recentPartners]);
 
   const refresh = () => {
     if (!isStoreReady()) return;
@@ -117,6 +136,7 @@ export default function TransactionPage({ type, title, description }: Transactio
 
     setShowAddModal(false);
     setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash' });
+    setPartnerSearch('');
     refresh();
   };
 
@@ -139,6 +159,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     setDupWarning(null);
     setShowAddModal(false);
     setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash' });
+    setPartnerSearch('');
     refresh();
   };
 
@@ -266,6 +287,9 @@ export default function TransactionPage({ type, title, description }: Transactio
 
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [focusCatIdx, setFocusCatIdx] = useState(0);
+  const [focusPartyIdx, setFocusPartyIdx] = useState(0);
+  const [focusEditCatIdx, setFocusEditCatIdx] = useState(0);
   const filteredCategories = useMemo(() => {
     if (!categorySearch) return recentCategories.slice(0, 3);
     const search = categorySearch.toLowerCase();
@@ -604,20 +628,37 @@ export default function TransactionPage({ type, title, description }: Transactio
                   <input
                     required
                     value={form.category}
-                    onChange={e => { setForm({ ...form, category: e.target.value }); setCategorySearch(e.target.value); setShowCategoryDropdown(true); }}
-                    onFocus={() => setShowCategoryDropdown(true)}
+                    onChange={e => { setForm({ ...form, category: e.target.value }); setCategorySearch(e.target.value); setShowCategoryDropdown(true); setFocusCatIdx(0); }}
+                    onFocus={() => { setShowCategoryDropdown(true); setFocusCatIdx(0); }}
                     onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                    onKeyDown={e => {
+                      if (!showCategoryDropdown) return;
+                      const hasCreate = categorySearch && !filteredCategories.includes(categorySearch);
+                      const total = filteredCategories.length + (hasCreate ? 1 : 0);
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusCatIdx(i => (i + 1) % total); }
+                      else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusCatIdx(i => (i - 1 + total) % total); }
+                      else if (e.key === 'Escape') { setShowCategoryDropdown(false); setFocusCatIdx(0); }
+                      else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (hasCreate && focusCatIdx === filteredCategories.length) {
+                          setForm({ ...form, category: categorySearch });
+                        } else if (focusCatIdx < filteredCategories.length) {
+                          setForm({ ...form, category: filteredCategories[focusCatIdx] });
+                        }
+                        setShowCategoryDropdown(false); setCategorySearch(''); setFocusCatIdx(0);
+                      }
+                    }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
                     placeholder="Search or type new category"
                   />
                   {showCategoryDropdown && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCategories.map((c: string) => (
+                      {filteredCategories.map((c: string, i: number) => (
                         <button
                           key={c}
                           type="button"
                           onMouseDown={e => { e.preventDefault(); setForm({ ...form, category: c }); setShowCategoryDropdown(false); setCategorySearch(''); }}
-                          className={cn("w-full px-4 py-2 text-left text-sm hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors", form.category === c && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusCatIdx === i ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", form.category === c && !focusCatIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}
                         >
                           {c}
                         </button>
@@ -626,7 +667,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                         <button
                           type="button"
                           onMouseDown={e => { e.preventDefault(); setForm({ ...form, category: categorySearch }); setShowCategoryDropdown(false); setCategorySearch(''); }}
-                          className="w-full px-4 py-2 text-left text-sm text-brand font-medium hover:bg-brand-secondary dark:hover:bg-brand-muted/30"
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2", focusCatIdx === filteredCategories.length ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium text-brand" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30 text-brand font-medium")}
                         >
                           + Create "{categorySearch}"
                         </button>
@@ -639,11 +680,6 @@ export default function TransactionPage({ type, title, description }: Transactio
                   <input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Description</label>
-                <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Add a note..." />
               </div>
               {(type === 'income' || type === 'expense') && (
                 <div className="space-y-2">
@@ -667,6 +703,55 @@ export default function TransactionPage({ type, title, description }: Transactio
                   <p className="text-xs text-slate-400 dark:text-slate-500">A corresponding outflow entry will be created from this source</p>
                 </div>
               )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Description</label>
+                <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Add a note..." />
+              </div>
+              <div className="space-y-2 relative">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
+                <input
+                  value={form.partnerAccountId ? (partners.find(p => p.id === form.partnerAccountId)?.name || '') : partnerSearch}
+                  onChange={e => { setForm({ ...form, partnerAccountId: '' }); setPartnerSearch(e.target.value); setShowPartnerDropdown(true); setFocusPartyIdx(0); }}
+                  onFocus={() => { setShowPartnerDropdown(true); setFocusPartyIdx(0); }}
+                  onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
+                  onKeyDown={e => {
+                    if (!showPartnerDropdown) return;
+                    const hasCreate = partnerSearch && !partners.some(p => p.name.toLowerCase() === partnerSearch.toLowerCase());
+                    const total = 1 + filteredPartners.length + (hasCreate ? 1 : 0);
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusPartyIdx(i => (i + 1) % total); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusPartyIdx(i => (i - 1 + total) % total); }
+                    else if (e.key === 'Escape') { setShowPartnerDropdown(false); setFocusPartyIdx(0); }
+                    else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (focusPartyIdx === 0) { setForm({ ...form, partnerAccountId: '' }); }
+                      else if (focusPartyIdx <= filteredPartners.length) { setForm({ ...form, partnerAccountId: filteredPartners[focusPartyIdx - 1].id }); }
+                      else if (hasCreate) { setNewPartnerName(partnerSearch); setShowNewPartner(true); }
+                      setPartnerSearch(''); setShowPartnerDropdown(false); setFocusPartyIdx(0);
+                    }
+                  }}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
+                  placeholder="None"
+                />
+                {showPartnerDropdown && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <button type="button" onMouseDown={e => { e.preventDefault(); setForm({ ...form, partnerAccountId: '' }); setPartnerSearch(''); setShowPartnerDropdown(false); }}
+                      className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusPartyIdx === 0 ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", !form.partnerAccountId && !focusPartyIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}>None</button>
+                    {filteredPartners.map((p, i) => (
+                      <button key={p.id} type="button" onMouseDown={e => { e.preventDefault(); setForm({ ...form, partnerAccountId: p.id }); setPartnerSearch(''); setShowPartnerDropdown(false); }}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusPartyIdx === i + 1 ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", form.partnerAccountId === p.id && !focusPartyIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}>
+                        {p.name}
+                      </button>
+                    ))}
+                    {partnerSearch && !partners.some(p => p.name.toLowerCase() === partnerSearch.toLowerCase()) && (
+                      <button type="button" onMouseDown={e => { e.preventDefault(); setNewPartnerName(partnerSearch); setShowNewPartner(true); }}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2", focusPartyIdx === 1 + filteredPartners.length ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium text-brand" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30 text-brand font-medium")}>
+                        <UserPlus className="h-3.5 w-3.5" /> Create "{partnerSearch}"
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-end gap-2 pt-6">
                 <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>Cancel</Button>
                 <Button type="submit" size="sm">Save Transaction</Button>
@@ -693,20 +778,37 @@ export default function TransactionPage({ type, title, description }: Transactio
                   <input
                     required
                     value={editForm.category}
-                    onChange={e => { setEditForm({ ...editForm, category: e.target.value }); setEditCategorySearch(e.target.value); setShowEditCategoryDropdown(true); }}
-                    onFocus={() => setShowEditCategoryDropdown(true)}
+                    onChange={e => { setEditForm({ ...editForm, category: e.target.value }); setEditCategorySearch(e.target.value); setShowEditCategoryDropdown(true); setFocusEditCatIdx(0); }}
+                    onFocus={() => { setShowEditCategoryDropdown(true); setFocusEditCatIdx(0); }}
                     onBlur={() => setTimeout(() => setShowEditCategoryDropdown(false), 200)}
+                    onKeyDown={e => {
+                      if (!showEditCategoryDropdown) return;
+                      const hasCreate = editCategorySearch && !filteredCategories.includes(editCategorySearch);
+                      const total = filteredCategories.length + (hasCreate ? 1 : 0);
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusEditCatIdx(i => (i + 1) % total); }
+                      else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusEditCatIdx(i => (i - 1 + total) % total); }
+                      else if (e.key === 'Escape') { setShowEditCategoryDropdown(false); setFocusEditCatIdx(0); }
+                      else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (hasCreate && focusEditCatIdx === filteredCategories.length) {
+                          setEditForm({ ...editForm, category: editCategorySearch });
+                        } else if (focusEditCatIdx < filteredCategories.length) {
+                          setEditForm({ ...editForm, category: filteredCategories[focusEditCatIdx] });
+                        }
+                        setShowEditCategoryDropdown(false); setEditCategorySearch(''); setFocusEditCatIdx(0);
+                      }
+                    }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
                     placeholder="Search or type new"
                   />
                   {showEditCategoryDropdown && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCategories.map((c: string) => (
+                      {filteredCategories.map((c: string, i: number) => (
                         <button
                           key={c}
                           type="button"
                           onMouseDown={e => { e.preventDefault(); setEditForm({ ...editForm, category: c }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); }}
-                          className={cn("w-full px-4 py-2 text-left text-sm hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors", editForm.category === c && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusEditCatIdx === i ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", editForm.category === c && !focusEditCatIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}
                         >
                           {c}
                         </button>
@@ -715,7 +817,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                         <button
                           type="button"
                           onMouseDown={e => { e.preventDefault(); setEditForm({ ...editForm, category: editCategorySearch }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); }}
-                          className="w-full px-4 py-2 text-left text-sm text-brand font-medium hover:bg-brand-secondary dark:hover:bg-brand-muted/30"
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2", focusEditCatIdx === filteredCategories.length ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium text-brand" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30 text-brand font-medium")}
                         >
                           + Create "{editCategorySearch}"
                         </button>
@@ -734,9 +836,95 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <input value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
               </div>
+              <div className="space-y-2 relative">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
+                <input
+                  value={editForm.partnerAccountId ? (partners.find(p => p.id === editForm.partnerAccountId)?.name || '') : ''}
+                  onChange={e => { setEditForm({ ...editForm, partnerAccountId: '' }); setPartnerSearch(e.target.value); setShowPartnerDropdown(true); setFocusPartyIdx(0); }}
+                  onFocus={() => { setShowPartnerDropdown(true); setFocusPartyIdx(0); }}
+                  onBlur={() => setTimeout(() => setShowPartnerDropdown(false), 200)}
+                  onKeyDown={e => {
+                    if (!showPartnerDropdown) return;
+                    const hasCreate = partnerSearch && !partners.some(p => p.name.toLowerCase() === partnerSearch.toLowerCase());
+                    const total = 1 + filteredPartners.length + (hasCreate ? 1 : 0);
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusPartyIdx(i => (i + 1) % total); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusPartyIdx(i => (i - 1 + total) % total); }
+                    else if (e.key === 'Escape') { setShowPartnerDropdown(false); setFocusPartyIdx(0); }
+                    else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (focusPartyIdx === 0) { setEditForm({ ...editForm, partnerAccountId: '' }); }
+                      else if (focusPartyIdx <= filteredPartners.length) { setEditForm({ ...editForm, partnerAccountId: filteredPartners[focusPartyIdx - 1].id }); }
+                      else if (hasCreate) { setNewPartnerName(partnerSearch); setShowNewPartner(true); }
+                      setPartnerSearch(''); setShowPartnerDropdown(false); setFocusPartyIdx(0);
+                    }
+                  }}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
+                  placeholder="None"
+                />
+                {showPartnerDropdown && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    <button type="button" onMouseDown={e => { e.preventDefault(); setEditForm({ ...editForm, partnerAccountId: '' }); setPartnerSearch(''); setShowPartnerDropdown(false); }}
+                      className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusPartyIdx === 0 ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", !editForm.partnerAccountId && !focusPartyIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}>None</button>
+                    {filteredPartners.map((p, i) => (
+                      <button key={p.id} type="button" onMouseDown={e => { e.preventDefault(); setEditForm({ ...editForm, partnerAccountId: p.id }); setPartnerSearch(''); setShowPartnerDropdown(false); }}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", focusPartyIdx === i + 1 ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", editForm.partnerAccountId === p.id && !focusPartyIdx && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}>
+                        {p.name}
+                      </button>
+                    ))}
+                    {partnerSearch && !partners.some(p => p.name.toLowerCase() === partnerSearch.toLowerCase()) && (
+                      <button type="button" onMouseDown={e => { e.preventDefault(); setNewPartnerName(partnerSearch); setShowNewPartner(true); }}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2", focusPartyIdx === 1 + filteredPartners.length ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium text-brand" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30 text-brand font-medium")}>
+                        <UserPlus className="h-3.5 w-3.5" /> Create "{partnerSearch}"
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-end gap-2 pt-6">
-                <Button variant="ghost" size="sm" type="button" onClick={() => setEditingTransaction(null)}>Cancel</Button>
+                <Button variant="ghost" size="sm" type="button" onClick={() => { setEditingTransaction(null); setPartnerSearch(''); }}>Cancel</Button>
                 <Button type="submit" size="sm">Save Changes</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Party Modal */}
+      {showNewPartner && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowNewPartner(false)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">Create New Party</h2>
+            <form onSubmit={e => {
+              e.preventDefault();
+              if (!newPartnerName.trim()) return;
+              const partner = addPartner({ name: newPartnerName.trim(), type: 'individual', group: newPartnerGroup, description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
+              if (partner) {
+                setForm({ ...form, partnerAccountId: partner.id });
+                setEditForm({ ...editForm, partnerAccountId: partner.id });
+              }
+              setPartners(getPartners());
+              setShowNewPartner(false);
+              setNewPartnerName('');
+              setPartnerSearch('');
+              setShowPartnerDropdown(false);
+            }} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Name</label>
+                <input required value={newPartnerName} onChange={e => setNewPartnerName(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Group</label>
+                <select value={newPartnerGroup} onChange={e => setNewPartnerGroup(e.target.value as any)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
+                  <option value="contact">Contact</option>
+                  <option value="customer">Customer</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" type="button" onClick={() => setShowNewPartner(false)}>Cancel</Button>
+                <Button type="submit" size="sm">Create</Button>
               </div>
             </form>
           </div>
