@@ -13,14 +13,14 @@ import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
 import { switchUser, getAllUsers, getSession, updateProfile } from '@/lib/localAuth';
 import { useAuth } from '@/components/AuthProvider';
 import { useTheme, getBrands } from '@/components/ThemeProvider';
-import { clearAllDB } from '@/lib/store';
+import { clearAllDB, processRemoteChanges } from '@/lib/store';
 import { db } from '@/lib/db';
 import { generatePins, getPins, arePinsShown, markPinsShown, hasPins, getRemainingPins, getAutoLockMinutes, setAutoLockMinutes } from '@/lib/pinStore';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
-import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync } from '@/lib/pouchdb';
 
 export default function SettingsPage() {
   const { refreshAuth } = useAuth();
@@ -243,10 +243,11 @@ export default function SettingsPage() {
     setSyncStatus('connecting');
     setSyncError('');
     try {
-      const ok = await checkConnection();
-      setSyncConnected(ok);
+      const ok = await manualSync();
       if (ok) {
+        await processRemoteChanges();
         setSyncStatus('connected');
+        setSyncConnected(true);
         setSyncFailCount(0);
       } else {
         failSync('Sync failed. Check connection.');

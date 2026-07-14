@@ -83,14 +83,18 @@ export async function connectRemote(url: string) {
     remoteDB = new Pouch(url, { skip_setup: true });
     await remoteDB.info();
     saveConfig(url);
-    syncHandler = localDB.sync(remoteDB, { live: true, retry: true });
-    syncHandler.on('change', () => notifyChange());
-    syncHandler.on('error', () => {
-      if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
-      remoteDB = null;
-    });
     return true;
-  } catch { remoteDB = null; startReconnectTimer(url); return false; }
+  } catch { remoteDB = null; return false; }
+}
+
+export async function manualSync(): Promise<boolean> {
+  if (!localDB || !remoteDB) return false;
+  try {
+    await localDB.replicate.to(remoteDB);
+    await localDB.replicate.from(remoteDB);
+    notifyChange();
+    return true;
+  } catch { return false; }
 }
 
 export function disconnectRemote() {
@@ -112,8 +116,7 @@ export async function ensureConnected() {
   if (!cfg.url) return;
   if (!localDB) await initPouchDB();
   if (connected()) return;
-  const ok = await connectRemote(cfg.url);
-  if (!ok) startReconnectTimer(cfg.url);
+  await connectRemote(cfg.url);
 }
 
 export async function putDoc(entity: EntityType, data: any) {

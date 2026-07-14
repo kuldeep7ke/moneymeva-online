@@ -144,12 +144,6 @@ export async function initDB() {
   await autoDeleteExpiredArchived();
   autoCleanupCompletedTodos();
   initialized = true;
-  // Pull remote changes if connected
-  processRemoteChanges().catch(() => {});
-  // Listen for live sync changes
-  onRemoteChange(() => { processRemoteChanges().catch(() => {}); });
-  // Periodic pull every 2 minutes when connected
-  setInterval(() => { processRemoteChanges().catch(() => {}); }, 120000);
 }
 
 // Re-init (used by Clear All Data)
