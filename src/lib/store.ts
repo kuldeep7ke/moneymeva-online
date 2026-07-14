@@ -421,8 +421,15 @@ export function addTransaction(tx: Omit<Transaction, 'id' | 'transitionId' | 'us
   cache.transactions.push(t);
   db.transactions.put(t).catch(() => {});
   syncWriteDoc('transactions', t);
-  logMutation('transaction', t.id, t.transitionId, 'created', `${t.type} ₹${t.amount} · ${t.category}`);
+  const partnerName = t.partnerAccountId ? getPartnerName(t.partnerAccountId) : null;
+  const detail = partnerName ? `${t.type} ₹${t.amount} · ${t.category} · ${partnerName}` : `${t.type} ₹${t.amount} · ${t.category}`;
+  logMutation('transaction', t.id, t.transitionId, 'created', detail);
   return t;
+}
+
+function getPartnerName(partnerId: string): string | null {
+  const partner = cache.partners.find(p => p.id === partnerId);
+  return partner?.name || null;
 }
 
 export function updateTransaction(id: string, updates: Partial<Transaction>): Transaction | null {
@@ -434,7 +441,9 @@ export function updateTransaction(id: string, updates: Partial<Transaction>): Tr
   db.transactions.put(cache.transactions[idx]).catch(() => {});
   syncWriteDoc('transactions', cache.transactions[idx]);
   const action: MutationAction = updates.deletedAt ? 'deleted' : updates.deletedAt === undefined && prev.deletedAt ? 'restored' : 'updated';
-  logMutation('transaction', id, tId, action, `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category}`);
+  const partnerName = cache.transactions[idx].partnerAccountId ? getPartnerName(cache.transactions[idx].partnerAccountId) : null;
+  const detail = partnerName ? `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category} · ${partnerName}` : `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category}`;
+  logMutation('transaction', id, tId, action, detail);
   return cache.transactions[idx];
 }
 
