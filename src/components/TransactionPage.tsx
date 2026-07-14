@@ -30,6 +30,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [dupWarning, setDupWarning] = useState<any | null>(null);
+  const [showDetail, setShowDetail] = useState<Transaction | null>(null);
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
@@ -425,7 +426,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                   {getGroupLabel(groupKey, groupBy)}
                 </div>
                 {txns.map((t, idx) => (
-                  <div key={t.id} className="px-4 py-2.5 flex items-center justify-between">
+                  <div key={t.id} className="px-4 py-2.5 flex items-center justify-between active:bg-slate-50 dark:active:bg-brand-muted/20 cursor-pointer" onClick={() => setShowDetail(t)}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className={cn("shrink-0", type === 'income' || type === 'saving' ? "text-green-500" : "text-red-500")}>
                         {type === 'income' || type === 'saving' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
@@ -446,8 +447,8 @@ export default function TransactionPage({ type, title, description }: Transactio
                         </div>
                       ) : (
                         <>
-                          <button className="p-1 rounded text-slate-300 hover:text-blue-500" onClick={() => openEdit(t)}><Pencil className="h-3 w-3" /></button>
-                          <button className="p-1 rounded text-slate-300 hover:text-red-500" onClick={() => setConfirmDelete(t.id)}><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button className="p-1 rounded text-slate-300 hover:text-blue-500" onClick={e => { e.stopPropagation(); openEdit(t); }}><Pencil className="h-3 w-3" /></button>
+                          <button className="p-1 rounded text-slate-300 hover:text-red-500" onClick={e => { e.stopPropagation(); setConfirmDelete(t.id); }}><Trash2 className="h-3.5 w-3.5" /></button>
                         </>
                       )}
                     </div>
@@ -757,6 +758,60 @@ export default function TransactionPage({ type, title, description }: Transactio
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setDupWarning(null)}>Cancel</Button>
               <Button variant="primary" size="sm" onClick={handleDupConfirm}>Add Anyway</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetail && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowDetail(null)}>
+          <div className="bg-white dark:bg-[#2A2522] w-full max-w-sm rounded-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-brand-muted">
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Transaction Details</h2>
+              <button onClick={() => setShowDetail(null)} className="p-1 text-slate-400"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-4 space-y-3 text-sm">
+              <div className={cn("p-3 rounded-xl text-center", type === 'income' || type === 'saving' ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20")}>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Amount</p>
+                <p className={cn("text-2xl font-bold", type === 'income' || type === 'saving' ? "text-green-600" : "text-red-600")}>
+                  {type === 'income' || type === 'saving' ? '+' : '-'}{formatCurrency(showDetail.amount)}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Category</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{showDetail.category}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Date</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{showDetail.date}</p>
+                </div>
+              </div>
+              {showDetail.description && (
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Description</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{showDetail.description}</p>
+                </div>
+              )}
+              {showDetail.partnerAccountId && (
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Party</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{partners.find(p => p.id === showDetail.partnerAccountId)?.name || 'Unknown'}</p>
+                </div>
+              )}
+              {'account' in showDetail && showDetail.account && (
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Source Account</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100 capitalize">{(showDetail as any).account}</p>
+                </div>
+              )}
+              {showDetail.type === 'investment' && 'investSource' in showDetail && (showDetail as any).investSource && (
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Investment Source</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100 capitalize">{(showDetail as any).investSource}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
