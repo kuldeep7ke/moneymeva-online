@@ -389,31 +389,27 @@ export default function DashboardPage() {
                 <Cloud className={cn("h-5 w-5", syncConnected ? "text-green-600" : "text-slate-400")} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cloud Sync</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cloud Sync</p>
+                  <div className={cn("w-1.5 h-1.5 rounded-full", syncConnected ? "bg-green-500" : syncing ? "bg-amber-500 animate-pulse" : "bg-slate-300")} />
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {syncConnected ? 'Connected — data syncing in real-time' : 'Not connected'}
+                  {syncing ? 'Syncing...' : syncConnected ? 'Connected — real-time sync active' : 'Tap to sync'}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className={cn("w-2 h-2 rounded-full", syncConnected ? "bg-green-500" : "bg-slate-300")} />
-              <Button variant="ghost" size="sm" className="text-xs gap-1.5" onClick={async () => {
-                if (syncing) return;
-                setSyncing(true);
-                if (syncConnected) {
-                  await checkConnection();
-                } else {
-                  const cfg = getConfig();
-                  if (cfg.url) {
-                    const ok = await checkConnection();
-                    setSyncConnected(ok);
-                  }
-                }
-                setSyncing(false);
-              }} disabled={syncing}>
-                <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> Sync
-              </Button>
-            </div>
+            <Button variant={syncConnected ? "outline" : "primary"} size="sm" className={cn("text-xs gap-1.5", syncConnected && "border-sky-200 text-sky-700 dark:border-sky-800 dark:text-sky-400")} onClick={async () => {
+              if (syncing) return;
+              setSyncing(true);
+              const cfg = getConfig();
+              if (cfg.url) {
+                const ok = await checkConnection();
+                setSyncConnected(ok);
+              }
+              setTimeout(() => setSyncing(false), 1000);
+            }} disabled={syncing}>
+              <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
+            </Button>
           </div>
         </div>
         </Reveal>

@@ -6,7 +6,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink } from 'lucide-react';
+import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
@@ -235,7 +235,19 @@ export default function SettingsPage() {
     disconnectRemote();
     setSyncStatus('idle');
     setSyncConnected(false);
-    setSyncUrl('');
+  };
+
+  const handleSyncNow = async () => {
+    setSyncStatus('connecting');
+    try {
+      const ok = await checkConnection();
+      setSyncConnected(ok);
+      setSyncStatus(ok ? 'connected' : 'error');
+      if (!ok) setSyncError('Sync failed. Check connection.');
+    } catch {
+      setSyncStatus('error');
+      setSyncError('Sync failed.');
+    }
   };
 
   return (
@@ -283,34 +295,57 @@ export default function SettingsPage() {
               <Cloud className="h-6 w-6 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Multi-Device Sync</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Connect to a CouchDB server to sync data across devices in real-time.
-              </p>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Multi-Device Sync</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">CouchDB real-time sync</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
                   <div className={cn("w-2 h-2 rounded-full", syncStatus === 'connected' ? 'bg-green-500' : syncStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-300')} />
-                  <span className="text-sm text-slate-600 dark:text-slate-400">
-                    {syncStatus === 'connected' ? 'Connected' : syncStatus === 'connecting' ? 'Connecting...' : syncStatus === 'error' ? 'Connection failed' : 'Not connected'}
+                  <span className={cn("text-xs font-medium", syncStatus === 'connected' ? 'text-green-600' : syncStatus === 'connecting' ? 'text-amber-600' : syncStatus === 'error' ? 'text-red-600' : 'text-slate-400')}>
+                    {syncStatus === 'connected' ? 'Connected' : syncStatus === 'connecting' ? 'Connecting...' : syncStatus === 'error' ? 'Offline' : 'Offline'}
                   </span>
                 </div>
-                {syncStatus === 'connected' ? (
-                  <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20">
-                    Disconnect
-                  </Button>
-                ) : (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      value={syncUrl}
-                      onChange={e => { setSyncUrl(e.target.value); setSyncError(''); }}
-                      placeholder="https://your-server.railway.app/db-name"
-                      className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark text-sm outline-none focus:ring-2 focus:ring-sky-500"
-                    />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {/* URL row */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
+                    {syncStatus === 'connected' ? (
+                      <span className="text-slate-600 dark:text-slate-300 truncate flex-1">{syncUrl}</span>
+                    ) : (
+                      <input
+                        value={syncUrl}
+                        onChange={e => { setSyncUrl(e.target.value); setSyncError(''); }}
+                        placeholder="https://your-server.railway.app/db-name"
+                        className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
+                      />
+                    )}
+                    <button onClick={() => { navigator.clipboard.writeText(syncUrl); }} className="p-1 text-slate-400 hover:text-sky-600 shrink-0" title="Copy URL">
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {syncStatus === 'connected' ? (
+                    <>
+                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleSyncNow} disabled={syncStatus === 'connecting'}>
+                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Sync Now
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20">
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
                     <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim()}>
                       <Cloud className="h-3.5 w-3.5" /> Connect
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
+
                 {syncError && <p className="text-xs text-red-500">{syncError}</p>}
               </div>
             </div>
