@@ -145,7 +145,7 @@ export async function pullAll(): Promise<any[]> {
       .filter((r: any) => (r.doc as any)?._entity && !(r.doc as any)._deleted)
       .map((r: any) => {
         const doc = { ...r.doc };
-        delete doc._id; delete doc._rev; delete doc._entity;
+        delete doc._id; delete doc._rev;
         return doc;
       });
   } catch { return []; }
