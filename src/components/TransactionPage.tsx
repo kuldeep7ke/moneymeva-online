@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil } from 'lucide-react';
+import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCurrency, cn, getSortedCategories, useSortedCategories } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
@@ -414,8 +414,8 @@ export default function TransactionPage({ type, title, description }: Transactio
         <Reveal delay={300}>
         {/* Main List - Cards on mobile, Table on desktop */}
         <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm">
-          {/* Mobile Card View */}
-          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+          {/* Mobile List View */}
+          <div className="md:hidden divide-y divide-slate-100 dark:divide-brand-muted">
             {filtered.length === 0 && (
               <p className="px-6 py-12 text-center text-slate-400 dark:text-slate-500">No transactions yet. Tap "Add" to create one.</p>
             )}
@@ -425,38 +425,31 @@ export default function TransactionPage({ type, title, description }: Transactio
                   {getGroupLabel(groupKey, groupBy)}
                 </div>
                 {txns.map((t, idx) => (
-                  <div key={t.id} className="px-4 py-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.description || 'No description'}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t.date}</p>
+                  <div key={t.id} className="px-4 py-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className={cn("shrink-0", type === 'income' || type === 'saving' ? "text-green-500" : "text-red-500")}>
+                        {type === 'income' || type === 'saving' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
+                        <p className="text-[11px] text-slate-400">{t.date}</p>
                       </div>
-                      <p className={cn("text-sm font-bold shrink-0", type === 'income' || type === 'saving' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <p className={cn("text-sm font-semibold", type === 'income' || type === 'saving' ? "text-green-600" : "text-red-600")}>
                         {formatCurrency(t.amount)}
                       </p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300 text-[11px] font-medium">{t.category}</span>
-                        {t.partnerAccountId && <span className="px-2 py-0.5 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-[11px]">Party</span>}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {confirmDelete === t.id ? (
-                          <div className="flex gap-1">
-                            <button className="px-2 py-1 rounded bg-red-500 text-white text-xs font-medium" onClick={() => handleDelete(t.id)}>Yes</button>
-                            <button className="px-2 py-1 rounded bg-slate-200 dark:bg-brand-muted text-xs font-medium" onClick={() => setConfirmDelete(null)}>No</button>
-                          </div>
-                        ) : (
-                          <>
-                            <button className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-brand-muted/50" onClick={() => openEdit(t)}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-brand-muted/50" onClick={() => setConfirmDelete(t.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {confirmDelete === t.id ? (
+                        <div className="flex gap-1 ml-1">
+                          <button className="w-6 h-6 rounded bg-red-500 text-white text-xs font-medium" onClick={() => handleDelete(t.id)}>Y</button>
+                          <button className="w-6 h-6 rounded bg-slate-200 dark:bg-brand-muted text-xs font-medium" onClick={() => setConfirmDelete(null)}>N</button>
+                        </div>
+                      ) : (
+                        <>
+                          <button className="p-1 rounded text-slate-300 hover:text-blue-500" onClick={() => openEdit(t)}><Pencil className="h-3 w-3" /></button>
+                          <button className="p-1 rounded text-slate-300 hover:text-red-500" onClick={() => setConfirmDelete(t.id)}><Trash2 className="h-3.5 w-3.5" /></button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
