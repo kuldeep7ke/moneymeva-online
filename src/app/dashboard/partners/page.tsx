@@ -423,8 +423,8 @@ export default function PartnersPage() {
 
       {/* Party Ledger Modal */}
       {showLedger && partnerSummary && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center sm:justify-center" onClick={() => setShowLedger(null)}>
-          <div className="bg-white dark:bg-[#2A2522] w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowLedger(null)}>
+          <div className="bg-white dark:bg-[#2A2522] w-full max-w-sm rounded-2xl max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-brand-muted">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">{partnerSummary.name}</h2>
               <button onClick={() => setShowLedger(null)} className="p-1 text-slate-400"><X className="h-5 w-5" /></button>
