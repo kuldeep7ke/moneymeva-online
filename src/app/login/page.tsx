@@ -9,6 +9,8 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { useRouter } from 'next/navigation';
 import { loginUser, registerUser, getAllUsers, switchUser, removeUser, getSession, LocalUser } from '@/lib/localAuth';
 import { useAuth } from '@/components/AuthProvider';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 function getPasswordStrength(password: string, name: string, email: string): { score: number; label: string; color: string; error?: string } {
   let error: string | undefined;
@@ -73,6 +75,18 @@ export default function LoginPage() {
       router.replace('/dashboard');
     }
   }, [router, refreshAuth]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handler = App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        App.exitApp();
+      }
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, []);
 
   useEffect(() => {
     if (mode === 'register' && !fullName) {

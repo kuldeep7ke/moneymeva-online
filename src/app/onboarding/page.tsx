@@ -10,6 +10,8 @@ import { updateProfile } from '@/lib/localAuth';
 import { addGoal, addPartner } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 const STEPS = [
   { key: 'personal', label: 'Personal', icon: User },
@@ -149,6 +151,18 @@ export default function OnboardingPage() {
       terms_accepted: profile?.terms_accepted || false,
     }));
   }, [user?.id, profile?.id]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handler = App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        App.exitApp();
+      }
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;

@@ -39,6 +39,7 @@ import InstallPrompt from '@/components/InstallPrompt';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -95,6 +96,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       StatusBar.setStyle({ style: StatusBarStyle.Dark });
       StatusBar.setBackgroundColor({ color: '#1e1b4b' });
     }
+  }, []);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handler = App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        App.exitApp();
+      }
+    });
+    return () => { handler.then(h => h.remove()); };
   }, []);
 
   useEffect(() => {

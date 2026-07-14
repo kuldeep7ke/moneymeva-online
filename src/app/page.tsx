@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { useInView } from '@/lib/utils';
 import { getSession } from '@/lib/localAuth';
 import { hasPins, getRemainingPins, validatePin } from '@/lib/pinStore';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 
 const chartData = [
   { m: 'Jan', i: 4200, e: 2800 }, { m: 'Feb', i: 4800, e: 3100 },
@@ -50,6 +52,18 @@ export default function HomePage() {
       }
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handler = App.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        App.exitApp();
+      }
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, []);
 
   const handleEditProfile = () => {
     if (hasPins()) {
