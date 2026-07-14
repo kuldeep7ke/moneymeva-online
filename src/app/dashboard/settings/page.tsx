@@ -667,7 +667,7 @@ export default function SettingsPage() {
                   <p className="font-medium text-red-700 dark:text-red-300">Before proceeding:</p>
                   <ul className="list-disc list-inside text-red-600 dark:text-red-400 space-y-1">
                     <li>All actions <strong>cannot be reversed</strong></li>
-                    <li>Make sure to <strong>export your data</strong> first (CSV / PDF / Excel / JSON)</li>
+                    <li>Make sure to <strong>export your data</strong> first</li>
                   </ul>
                 </div>
                 <div className="flex flex-wrap gap-3">
