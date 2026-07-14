@@ -37,6 +37,7 @@ import DataSafetyNotice from '@/components/DataSafetyNotice';
 import SecurityTipNotice from '@/components/SecurityTipNotice';
 import InstallPrompt from '@/components/InstallPrompt';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -86,6 +87,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setReady(true);
       setTimeout(() => window.dispatchEvent(new CustomEvent('store-ready')), 0);
     });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform()) {
+      StatusBar.setStyle({ style: StatusBarStyle.Dark });
+      StatusBar.setBackgroundColor({ color: '#1e1b4b' });
+    }
   }, []);
 
   useEffect(() => {

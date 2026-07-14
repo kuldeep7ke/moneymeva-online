@@ -9,6 +9,10 @@ const config: CapacitorConfig = {
       smallIcon: 'ic_stat_notify',
       iconColor: '#FF8A3D',
     },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#1e1b4b',
+    },
   },
 };
 

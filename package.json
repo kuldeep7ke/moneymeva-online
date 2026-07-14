@@ -11,13 +11,19 @@
     "package:webapp": "powershell -ExecutionPolicy Bypass -File scripts/package-webapp.ps1",
     "version:patch": "node scripts/bump-version.cjs patch",
     "version:minor": "node scripts/bump-version.cjs minor",
-    "version:major": "node scripts/bump-version.cjs major"
+    "version:major": "node scripts/bump-version.cjs major",
+    "cap:sync": "npx cap sync android",
+    "cap:copy": "npx cap copy android",
+    "cap:build": "npx cap build android",
+    "cap:open": "npx cap open android",
+    "android:apk": "npm run build && npm run version:patch && node scripts/update-android-version.cjs && npx cap copy android && cd android && gradlew assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/status-bar": "^8.0.2",
     "@supabase/supabase-js": "^2.110.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
