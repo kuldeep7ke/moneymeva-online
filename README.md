@@ -1,6 +1,6 @@
 # Money Meva Premium
 
-**v6.0.0** — The premium edition of Money Meva, featuring PouchDB cloud sync for seamless multi-device access. Built with Next.js.
+**v6.1.0** — The premium edition of Money Meva, featuring CouchDB cloud sync for seamless multi-device access. Built with Next.js.
 
 Track income, expenses, savings, investments, and partner accounts with real-time synchronization across all your devices. Your financial data, everywhere you need it.
 
@@ -8,16 +8,17 @@ Track income, expenses, savings, investments, and partner accounts with real-tim
 
 ## Features
 
-- **Cloud Sync** — Real-time synchronization across devices using PouchDB with remote database support
-- **Dashboard** — Summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders
-- **Income / Expenses / Investments** — Full CRUD with search, filter, sort (newest/oldest), group (day/week/month), duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore
+- **Cloud Sync** — Real-time synchronization across devices using PouchDB with CouchDB remote database support. Configure via Settings → Multi-Device Sync (supports Railway.app, custom servers). Sync Now, auto-reconnect, and live bi-directional replication.
+- **Dashboard** — Summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with Sync Now button
+- **Income / Expenses / Investments** — Full CRUD with search, filter, sort (newest/oldest), group (day/week/month), duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal
 - **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars
-- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions (reflect in personal account)
+- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions (reflect in personal account), mini ledger modal per party with transaction history
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days
 - **Adjustments** — Balance corrections between personal and partner accounts with amount guards (±₹99Cr)
 - **Budgets** — Category-based monthly/yearly spending limits with overrun warnings (≥80%)
 - **Reminders** — One-time or recurring (daily to yearly) with "Mark as Paid" that creates expense transactions and auto-reschedules
 - **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected)
+- **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable life-cycle chain, copy transition ID, CSV export, entity/action filters, search
 - **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), and full JSON backup with cross-user detection and reassignment
 - **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data); session auto-lock (1h–24h)
 - **Activity Log** — Tracks 200 most recent security and CRUD events with color-coded timeline in Settings
@@ -26,7 +27,7 @@ Track income, expenses, savings, investments, and partner accounts with real-tim
 - **Edit Profile** — Re-open onboarding from About page or landing page (PIN-protected) to update registration info
 - **Incomplete Registration Cleanup** — Unfinished onboarding sessions are auto-cleared on next visit
 - **Landing Page Redirect** — Logged-in users skip landing page; existing users can visit via `/?from=dashboard`
-- **Public Terms & Privacy Pages** — Standalone `/terms` and `/privacy` pages accessible without login
+- **Public Terms, Privacy & About Pages** — Standalone `/terms`, `/privacy`, and `/about` pages accessible without login
 - **Name Autofill** — Full name remembered from registration and auto-filled on subsequent sign-ups
 - **Multi-User** — Multiple profiles with quick-switch from login screen
 - **Dark / Light Theme** — Toggleable, persisted in localStorage
