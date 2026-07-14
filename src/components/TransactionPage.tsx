@@ -433,7 +433,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
-                        <p className="text-[11px] text-slate-400">{t.date}</p>
+                        <p className="text-[11px] text-slate-400">{t.date}{t.partnerAccountId && <span className="ml-2 px-1.5 py-0.5 rounded bg-brand-secondary/20 dark:bg-brand-muted text-brand dark:text-brand-secondary text-[10px]">{partners.find(p => p.id === t.partnerAccountId)?.name || 'Party'}</span>}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
