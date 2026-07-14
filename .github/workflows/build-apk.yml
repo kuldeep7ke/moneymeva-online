@@ -52,11 +52,11 @@ jobs:
       - name: Build web app
         run: npm run build
 
+      - name: Sync Capacitor
+        run: npx cap sync android
+
       - name: Sync Android version
         run: node scripts/update-android-version.cjs
-
-      - name: Sync Capacitor
-        run: npx cap copy android
 
       - name: Build debug APK
         working-directory: ./android
