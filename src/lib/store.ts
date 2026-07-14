@@ -1,6 +1,6 @@
 import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationAction, MutationLog, ArchiveItemType, ArchivedItem } from '@/types';
 import { db } from './db';
-import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange } from './pouchdb';
+import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected } from './pouchdb';
 
 // ─── localStorage keys (tiny settings only) ─────────────────
 const LS_KEYS = {
@@ -144,6 +144,11 @@ export async function initDB() {
   await autoDeleteExpiredArchived();
   autoCleanupCompletedTodos();
   initialized = true;
+  // Auto-sync every 12 hours if connected
+  setInterval(async () => {
+    if (!connected()) return;
+    try { await manualSync(); await processRemoteChanges(); } catch {}
+  }, 12 * 60 * 60 * 1000);
 }
 
 // Re-init (used by Clear All Data)
