@@ -61,6 +61,7 @@ export default function PartnersPage() {
   const [activeGroup, setActiveGroup] = useState<'all' | 'customer' | 'vendor' | 'contact'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTxModal, setShowTxModal] = useState<string | null>(null);
+  const [showLedger, setShowLedger] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [pinDeleteId, setPinDeleteId] = useState<string | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
@@ -70,6 +71,21 @@ export default function PartnersPage() {
   const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: new Date().toISOString().split('T')[0] });
 
   const filteredPartners = activeGroup === 'all' ? partners : partners.filter(p => p.group === activeGroup);
+
+  const partnerTransactions = useMemo(() => {
+    if (!showLedger) return [];
+    return getTransactions().filter(t => t.partnerAccountId === showLedger).sort((a, b) => b.date.localeCompare(a.date));
+  }, [showLedger, partners]);
+
+  const partnerSummary = useMemo(() => {
+    if (!showLedger) return null;
+    const p = partners.find(p => p.id === showLedger);
+    if (!p) return null;
+    const txs = partnerTransactions;
+    const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    return { ...p, income, expense, net: income - expense, count: txs.length };
+  }, [showLedger, partnerTransactions, partners]);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,10 +280,7 @@ export default function PartnersPage() {
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowTxModal(partner.id)}>
                   Add Transaction
                 </Button>
-                <Button variant="ghost" size="sm" className="ml-auto text-slate-500 dark:text-slate-400" onClick={() => {
-                  const txs = getTransactions().filter(t => t.partnerAccountId === partner.id);
-                  alert(`Transactions: ${txs.length}\nTotal Income: ${formatCurrency(partner.income)}\nTotal Expense: ${formatCurrency(partner.expense)}`);
-                }}>
+                <Button variant="ghost" size="sm" className="ml-auto text-slate-500 dark:text-slate-400" onClick={() => setShowLedger(partner.id)}>
                   View History
                 </Button>
               </div>
@@ -407,6 +420,85 @@ export default function PartnersPage() {
         onClose={() => setShowPinSetup(null)}
         action={showPinSetup || ''}
       />
+
+      {/* Party Ledger Modal */}
+      {showLedger && partnerSummary && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowLedger(null)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl my-4 flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-200 dark:border-brand-muted flex items-center justify-between sticky top-0 bg-white dark:bg-[#2A2522]">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{partnerSummary.name}</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Transaction History</p>
+              </div>
+              <button onClick={() => setShowLedger(null)} className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-brand-muted transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-brand-muted/30 border-b border-slate-200 dark:border-brand-muted">
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Transactions</p>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">{partnerSummary.count}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Income</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(partnerSummary.income)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Expense</p>
+                  <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(partnerSummary.expense)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Net P&L</p>
+                  <p className={cn("text-lg font-bold", partnerSummary.net >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>{formatCurrency(partnerSummary.net)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {partnerTransactions.length === 0 ? (
+                <div className="p-12 text-center">
+                  <Wallet className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-400 dark:text-slate-500">No transactions yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-brand-muted">
+                  {partnerTransactions.map(t => (
+                    <div key={t.id} className="p-4 hover:bg-slate-50 dark:hover:bg-brand-muted/20 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("p-2 rounded-lg", t.type === 'income' ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600")}>
+                            {t.type === 'income' ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-slate-100">{t.description || t.category}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{t.date} · {t.category}</p>
+                          </div>
+                        </div>
+                        <p className={cn("font-bold", t.type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                          {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-200 dark:border-brand-muted bg-slate-50 dark:bg-brand-muted/30 flex justify-between items-center sticky bottom-0">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Total: <span className="font-bold text-slate-900 dark:text-slate-100">{partnerSummary.count} transactions</span>
+              </div>
+              <div className="flex gap-2">
+                <div className={cn("px-3 py-1.5 rounded-lg text-sm font-medium", partnerSummary.net >= 0 ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400")}>
+                  Net: {formatCurrency(partnerSummary.net)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
