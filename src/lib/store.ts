@@ -1,6 +1,6 @@
 import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationAction, MutationLog, ArchiveItemType, ArchivedItem } from '@/types';
 import { db } from './db';
-import { putDoc, removeDoc, pullAll, checkConnection, EntityType, initPouchDB, clearPouch } from './pouchdb';
+import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange } from './pouchdb';
 
 // ─── localStorage keys (tiny settings only) ─────────────────
 const LS_KEYS = {
@@ -146,6 +146,10 @@ export async function initDB() {
   initialized = true;
   // Pull remote changes if connected
   processRemoteChanges().catch(() => {});
+  // Listen for live sync changes
+  onRemoteChange(() => { processRemoteChanges().catch(() => {}); });
+  // Periodic pull every 2 minutes when connected
+  setInterval(() => { processRemoteChanges().catch(() => {}); }, 120000);
 }
 
 // Re-init (used by Clear All Data)
@@ -372,8 +376,7 @@ const entityTableMap: Record<EntityType, string> = {
 };
 
 async function triggerSync() {
-  const connected = await checkConnection();
-  if (!connected) return;
+  await ensureConnected();
 }
 
 async function syncWriteDoc(table: string, data: any) {

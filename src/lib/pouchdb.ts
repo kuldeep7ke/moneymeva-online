@@ -1,9 +1,12 @@
 const LS_URL = 'mm_pouch_url';
+const RECONNECT_INTERVAL = 30000;
 
 let _PouchDB: any = null;
 let localDB: any = null;
 let remoteDB: any = null;
 let syncHandler: any = null;
+let reconnectTimer: any = null;
+let changeListeners: Array<() => void> = [];
 
 export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'todo';
 
@@ -29,6 +32,15 @@ function saveConfig(url: string) {
 
 export function connected(): boolean { return !!(localDB && remoteDB && syncHandler); }
 
+export function onRemoteChange(fn: () => void) {
+  changeListeners.push(fn);
+  return () => { changeListeners = changeListeners.filter(f => f !== fn); };
+}
+
+function notifyChange() {
+  changeListeners.forEach(fn => fn());
+}
+
 export async function initPouchDB() {
   if (localDB) return localDB;
   const Pouch = await ensurePouch();
@@ -36,6 +48,30 @@ export async function initPouchDB() {
   localDB = new Pouch('mm_pouch');
   await localDB.createIndex({ index: { fields: ['_entity', 'updatedAt'] } });
   return localDB;
+}
+
+function startReconnectTimer(url: string) {
+  stopReconnectTimer();
+  reconnectTimer = setInterval(async () => {
+    if (connected()) return;
+    const Pouch = await ensurePouch();
+    if (!Pouch || !localDB) return;
+    try {
+      const rd = new Pouch(url, { skip_setup: true });
+      await rd.info();
+      remoteDB = rd;
+      syncHandler = localDB.sync(rd, { live: true, retry: true });
+      syncHandler.on('change', () => notifyChange());
+      syncHandler.on('error', () => {
+        if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
+        remoteDB = null;
+      });
+    } catch {}
+  }, RECONNECT_INTERVAL);
+}
+
+function stopReconnectTimer() {
+  if (reconnectTimer) { clearInterval(reconnectTimer); reconnectTimer = null; }
 }
 
 export async function connectRemote(url: string) {
@@ -48,12 +84,17 @@ export async function connectRemote(url: string) {
     await remoteDB.info();
     saveConfig(url);
     syncHandler = localDB.sync(remoteDB, { live: true, retry: true });
-    syncHandler.on('error', () => {});
+    syncHandler.on('change', () => notifyChange());
+    syncHandler.on('error', () => {
+      if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
+      remoteDB = null;
+    });
     return true;
-  } catch { remoteDB = null; return false; }
+  } catch { remoteDB = null; startReconnectTimer(url); return false; }
 }
 
 export function disconnectRemote() {
+  stopReconnectTimer();
   if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
   remoteDB = null;
   localStorage.removeItem(LS_URL);
@@ -66,8 +107,18 @@ export async function checkConnection(): Promise<boolean> {
   return await connectRemote(cfg.url);
 }
 
+export async function ensureConnected() {
+  const cfg = getConfig();
+  if (!cfg.url) return;
+  if (!localDB) await initPouchDB();
+  if (connected()) return;
+  const ok = await connectRemote(cfg.url);
+  if (!ok) startReconnectTimer(cfg.url);
+}
+
 export async function putDoc(entity: EntityType, data: any) {
-  if (!localDB || !remoteDB) return;
+  if (!localDB) await initPouchDB();
+  if (!localDB) return;
   try {
     const id = `${entity}:${data.id}`;
     const existing = await localDB.get(id).catch(() => null);
@@ -77,6 +128,7 @@ export async function putDoc(entity: EntityType, data: any) {
 }
 
 export async function removeDoc(entity: EntityType, id: string) {
+  if (!localDB) await initPouchDB();
   if (!localDB) return;
   try {
     const doc = await localDB.get(`${entity}:${id}`);
@@ -100,6 +152,7 @@ export async function pullAll(): Promise<any[]> {
 }
 
 export async function clearPouch() {
+  stopReconnectTimer();
   if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
   remoteDB = null;
   if (localDB) { try { await localDB.destroy(); } catch {} localDB = null; }
