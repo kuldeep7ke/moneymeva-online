@@ -433,7 +433,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
-                        <p className="text-[11px] text-slate-400">{t.date}{t.partnerAccountId && <span className="ml-2 px-1.5 py-0.5 rounded bg-brand-secondary/20 dark:bg-brand-muted text-brand dark:text-brand-secondary text-[10px]">{partners.find(p => p.id === t.partnerAccountId)?.name || 'Party'}</span>}</p>
+                        <p className="text-[11px] text-slate-400">{t.date}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -499,7 +499,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                       <td className="px-6 py-4 text-sm text-center text-slate-400 dark:text-slate-500 font-mono">{idx + 1}</td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 rounded-full bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300 text-xs font-medium">{t.category}</span>
-                        {t.partnerAccountId && <span className="ml-1 px-2 py-1 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-xs">Party</span>}
+                        {t.partnerAccountId && <span className="ml-1 px-2 py-1 rounded-full bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-xs">{partners.find(p => p.id === t.partnerAccountId)?.name || 'Party'}</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{t.description}</td>
                       <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' || type === 'saving' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
