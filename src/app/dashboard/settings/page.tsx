@@ -348,8 +348,8 @@ export default function SettingsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   {syncStatus === 'connected' ? (
                     <>
-                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleSyncNow} disabled={syncStatus === 'connecting'}>
-                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Sync Now
+                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleSyncNow}>
+                        <RefreshCw className="h-3.5 w-3.5" /> Sync Now
                       </Button>
                       <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20">
                         Disconnect
@@ -357,7 +357,7 @@ export default function SettingsPage() {
                     </>
                   ) : (
                     <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim()}>
-                      <Cloud className="h-3.5 w-3.5" /> Connect
+                      <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Connect
                     </Button>
                   )}
                 </div>
