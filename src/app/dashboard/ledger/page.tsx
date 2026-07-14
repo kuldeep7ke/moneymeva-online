@@ -164,10 +164,10 @@ export default function LedgerPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Audit Ledger</h1>
-              <p className="text-slate-500 dark:text-slate-400">Full traceability of every data transition</p>
+              <p className="text-slate-500 dark:text-slate-400"><span className="sm:hidden">Full traceability of every data...</span><span className="hidden sm:inline">Full traceability of every data transition</span></p>
             </div>
-            <Button onClick={exportToCSV} className="gap-2 bg-brand hover:bg-brand-dark text-white">
-              <Download className="h-4 w-4" /> Export CSV
+            <Button onClick={exportToCSV} className="gap-1.5 bg-brand hover:bg-brand-dark text-white sm:gap-2 sm:px-4 sm:py-2 px-3 py-1.5 text-xs sm:text-sm">
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="sm:hidden">CSV</span><span className="hidden sm:inline">Export CSV</span>
             </Button>
           </div>
         </Reveal>
