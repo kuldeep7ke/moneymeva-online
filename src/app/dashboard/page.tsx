@@ -68,6 +68,8 @@ export default function DashboardPage() {
   const [editingQuota, setEditingQuota] = useState<'expense' | 'invest' | null>(null);
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [welcomeFading, setWelcomeFading] = useState(false);
 
   const refreshGoals = () => { setGoals(getGoals()); };
 
@@ -130,6 +132,12 @@ export default function DashboardPage() {
     if (cfg.url) {
       checkConnection().then(setSyncConnected);
     }
+  }, []);
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setWelcomeFading(true), 5000);
+    const hideTimer = setTimeout(() => setShowWelcome(false), 6000);
+    return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
   }, []);
 
   useEffect(() => {
@@ -257,11 +265,14 @@ export default function DashboardPage() {
         </div>
 
         <Reveal>
-        <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm p-5">
+        <div className={cn(
+          "rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm overflow-hidden transition-all duration-700 ease-in-out",
+          showWelcome ? (welcomeFading ? "opacity-0 max-h-0 border-0 mb-0" : "opacity-100 max-h-96 bg-white dark:bg-[#2A2522] p-5 mb-0") : "max-h-0 border-0 mb-0 p-0"
+        )}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-brand">Welcome back</p>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{profile?.full_name || 'User'}, you’re set to move fast today.</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{profile?.full_name || 'User'}, you're set to move fast today.</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">Your dashboard is ready with live balances, alerts, goals, and quick actions.</p>
               <div className="flex items-center gap-2 mt-4">
                 <div className="flex items-center gap-2 rounded-xl bg-brand-light dark:bg-brand-muted/30 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300">
