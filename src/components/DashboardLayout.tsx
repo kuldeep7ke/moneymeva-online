@@ -95,6 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (Capacitor.isNativePlatform()) {
       StatusBar.setStyle({ style: StatusBarStyle.Dark });
       StatusBar.setBackgroundColor({ color: '#1e1b4b' });
+      StatusBar.setOverlaysWebView({ overlay: false });
     }
   }, []);
 

@@ -14,6 +14,7 @@ import { getSession } from '@/lib/localAuth';
 import { hasPins, getRemainingPins, validatePin } from '@/lib/pinStore';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 
 const chartData = [
   { m: 'Jan', i: 4200, e: 2800 }, { m: 'Feb', i: 4800, e: 3100 },
@@ -55,6 +56,8 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
+    StatusBar.setStyle({ style: StatusBarStyle.Dark });
+    StatusBar.setOverlaysWebView({ overlay: false });
     const handler = App.addListener('backButton', ({ canGoBack }) => {
       if (canGoBack) {
         window.history.back();
