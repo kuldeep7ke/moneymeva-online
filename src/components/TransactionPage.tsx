@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCurrency, cn, getSortedCategories, useSortedCategories } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
-import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
+import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, addPartner, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -111,6 +111,52 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [partyHighlightIndex, setPartyHighlightIndex] = useState(-1);
   const partyRef = useRef<HTMLDivElement>(null);
+  const [showCreateParty, setShowCreateParty] = useState<string | null>(null);
+  const [createPartyForm, setCreatePartyForm] = useState({ group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
+
+  const PARTY_TYPES: Record<string, { value: string; label: string }[]> = {
+    vendor: [
+      { value: 'supplier', label: 'Supplier' },
+      { value: 'wholesaler', label: 'Wholesaler' },
+      { value: 'contractor', label: 'Contractor' },
+      { value: 'service_provider', label: 'Service Provider' },
+      { value: 'freelancer', label: 'Freelancer' },
+      { value: 'shop', label: 'Shop / Retailer' },
+      { value: 'other', label: 'Other' },
+    ],
+    customer: [
+      { value: 'client', label: 'Client' },
+      { value: 'retail', label: 'Retail Customer' },
+      { value: 'regular', label: 'Regular' },
+      { value: 'corporate', label: 'Corporate' },
+      { value: 'other', label: 'Other' },
+    ],
+    contact: [
+      { value: 'individual', label: 'Individual / Person' },
+      { value: 'friend', label: 'Friend / Family' },
+      { value: 'employee', label: 'Employee' },
+      { value: 'landlord', label: 'Landlord / Tenant' },
+      { value: 'investor', label: 'Investor' },
+      { value: 'consultant', label: 'Consultant' },
+      { value: 'other', label: 'Other' },
+    ],
+  };
+
+  const handleCreateParty = () => {
+    if (!showCreateParty) return;
+    const result = addPartner({ name: showCreateParty, type: createPartyForm.type, group: createPartyForm.group, description: createPartyForm.description, budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
+    if (result) {
+      refresh();
+      if (editingTransaction) {
+        setEditForm({ ...editForm, partnerAccountId: result.id, party: result.name });
+      } else {
+        setForm({ ...form, partnerAccountId: result.id, party: result.name });
+        setPartySearch(result.name);
+      }
+    }
+    setShowCreateParty(null);
+    setCreatePartyForm({ group: 'contact', type: 'individual', description: '' });
+  };
 
   const handleEdit = () => {
     if (!editingTransaction) return;
@@ -746,35 +792,42 @@ export default function TransactionPage({ type, title, description }: Transactio
               )}
               <div className="space-y-2 relative" ref={partyRef}>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
-                <input value={partySearch} onChange={e => { setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
-                  onFocus={() => setShowPartyDropdown(true)}
-                  onKeyDown={e => {
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, filteredParties.length - 1)); }
-                    else if (e.key === 'ArrowUp') { e.preventDefault(); setPartyHighlightIndex(i => Math.max(i - 1, 0)); }
-                    else if (e.key === 'Enter' && showPartyDropdown && partyHighlightIndex >= 0) { e.preventDefault(); const p = filteredParties[partyHighlightIndex]; if (p) { setForm({ ...form, partnerAccountId: p.id, party: p.name }); setPartySearch(p.name); } setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
-                    else if (e.key === 'Escape') { setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
-                  }}
-                  placeholder="Search or type party name"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
-                {showPartyDropdown && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {filteredParties.map((p, i) => (
-                      <button key={p.id} type="button"
-                        onClick={() => { setForm({ ...form, partnerAccountId: p.id, party: p.name }); setPartySearch(p.name); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
-                        onMouseEnter={() => setPartyHighlightIndex(i)}
-                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", partyHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
-                        {p.name}
-                      </button>
-                    ))}
-                    {partySearch && !filteredParties.some(p => p.name.toLowerCase() === partySearch.toLowerCase()) && (
-                      <button type="button"
-                        onClick={() => { setForm({ ...form, partnerAccountId: '', party: partySearch }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
-                        onMouseEnter={() => setPartyHighlightIndex(filteredParties.length)}
-                        className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", partyHighlightIndex === filteredParties.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
-                        + Create "{partySearch}"
-                      </button>
+                {partners.length === 0 && !partySearch ? (
+                  <input disabled value="None" className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted bg-slate-50 dark:bg-brand-muted/20 text-slate-400 dark:text-slate-500 cursor-not-allowed" />
+                ) : (
+                  <>
+                    <input value={partySearch} onChange={e => { setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
+                      onFocus={() => setShowPartyDropdown(true)}
+                      onKeyDown={e => {
+                        const totalItems = filteredParties.length + (partySearch && !filteredParties.some(p => p.name.toLowerCase() === partySearch.toLowerCase()) ? 1 : 0);
+                        if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
+                        else if (e.key === 'ArrowUp') { e.preventDefault(); setPartyHighlightIndex(i => Math.max(i - 1, 0)); }
+                        else if (e.key === 'Enter' && showPartyDropdown && partyHighlightIndex >= 0) { e.preventDefault(); if (partyHighlightIndex < filteredParties.length) { const p = filteredParties[partyHighlightIndex]; if (p) { setForm({ ...form, partnerAccountId: p.id, party: p.name }); setPartySearch(p.name); } } else { setShowCreateParty(partySearch); setPartySearch(''); } setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                        else if (e.key === 'Escape') { setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                      }}
+                      placeholder="Search or type party name"
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                    {showPartyDropdown && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredParties.map((p, i) => (
+                          <button key={p.id} type="button"
+                            onClick={() => { setForm({ ...form, partnerAccountId: p.id, party: p.name }); setPartySearch(p.name); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                            onMouseEnter={() => setPartyHighlightIndex(i)}
+                            className={cn("w-full px-4 py-2 text-left text-sm transition-colors", partyHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                            {p.name}
+                          </button>
+                        ))}
+                        {partySearch && !filteredParties.some(p => p.name.toLowerCase() === partySearch.toLowerCase()) && (
+                          <button type="button"
+                            onClick={() => { setShowCreateParty(partySearch); setPartySearch(''); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                            onMouseEnter={() => setPartyHighlightIndex(filteredParties.length)}
+                            className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", partyHighlightIndex === filteredParties.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                            Create Party "{partySearch}"
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 pt-6">
@@ -853,35 +906,42 @@ export default function TransactionPage({ type, title, description }: Transactio
               </div>
               <div className="space-y-2 relative">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
-                <input value={editForm.party} onChange={e => { setEditForm({ ...editForm, party: e.target.value, partnerAccountId: '' }); setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
-                  onFocus={() => setShowPartyDropdown(true)}
-                  onKeyDown={e => {
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, filteredParties.length - 1)); }
-                    else if (e.key === 'ArrowUp') { e.preventDefault(); setPartyHighlightIndex(i => Math.max(i - 1, 0)); }
-                    else if (e.key === 'Enter' && showPartyDropdown && partyHighlightIndex >= 0) { e.preventDefault(); const p = filteredParties[partyHighlightIndex]; if (p) { setEditForm({ ...editForm, partnerAccountId: p.id, party: p.name }); } setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
-                    else if (e.key === 'Escape') { setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
-                  }}
-                  placeholder="Search or type party name"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
-                {showPartyDropdown && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {filteredParties.map((p, i) => (
-                      <button key={p.id} type="button"
-                        onClick={() => { setEditForm({ ...editForm, partnerAccountId: p.id, party: p.name }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
-                        onMouseEnter={() => setPartyHighlightIndex(i)}
-                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", partyHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
-                        {p.name}
-                      </button>
-                    ))}
-                    {editForm.party && !filteredParties.some(p => p.name.toLowerCase() === editForm.party.toLowerCase()) && (
-                      <button type="button"
-                        onClick={() => { setEditForm({ ...editForm, party: editForm.party }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
-                        onMouseEnter={() => setPartyHighlightIndex(filteredParties.length)}
-                        className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", partyHighlightIndex === filteredParties.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
-                        + Create "{editForm.party}"
-                      </button>
+                {partners.length === 0 && !editForm.party ? (
+                  <input disabled value="None" className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted bg-slate-50 dark:bg-brand-muted/20 text-slate-400 dark:text-slate-500 cursor-not-allowed" />
+                ) : (
+                  <>
+                    <input value={editForm.party} onChange={e => { setEditForm({ ...editForm, party: e.target.value, partnerAccountId: '' }); setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
+                      onFocus={() => setShowPartyDropdown(true)}
+                      onKeyDown={e => {
+                        const totalItems = filteredParties.length + (editForm.party && !filteredParties.some(p => p.name.toLowerCase() === editForm.party.toLowerCase()) ? 1 : 0);
+                        if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
+                        else if (e.key === 'ArrowUp') { e.preventDefault(); setPartyHighlightIndex(i => Math.max(i - 1, 0)); }
+                        else if (e.key === 'Enter' && showPartyDropdown && partyHighlightIndex >= 0) { e.preventDefault(); if (partyHighlightIndex < filteredParties.length) { const p = filteredParties[partyHighlightIndex]; if (p) { setEditForm({ ...editForm, partnerAccountId: p.id, party: p.name }); } } else { setShowCreateParty(editForm.party); setEditForm({ ...editForm, party: '' }); } setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                        else if (e.key === 'Escape') { setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                      }}
+                      placeholder="Search or type party name"
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                    {showPartyDropdown && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredParties.map((p, i) => (
+                          <button key={p.id} type="button"
+                            onClick={() => { setEditForm({ ...editForm, partnerAccountId: p.id, party: p.name }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                            onMouseEnter={() => setPartyHighlightIndex(i)}
+                            className={cn("w-full px-4 py-2 text-left text-sm transition-colors", partyHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                            {p.name}
+                          </button>
+                        ))}
+                        {editForm.party && !filteredParties.some(p => p.name.toLowerCase() === editForm.party.toLowerCase()) && (
+                          <button type="button"
+                            onClick={() => { setShowCreateParty(editForm.party); setEditForm({ ...editForm, party: '' }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                            onMouseEnter={() => setPartyHighlightIndex(filteredParties.length)}
+                            className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", partyHighlightIndex === filteredParties.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                            Create Party "{editForm.party}"
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 pt-6">
@@ -889,6 +949,47 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <Button type="submit" size="sm">Save Changes</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Party Modal */}
+      {showCreateParty && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-[60] p-4 overflow-y-auto" onClick={() => { setShowCreateParty(null); setCreatePartyForm({ group: 'contact', type: 'individual', description: '' }); }}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">New Party</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Creating "<span className="font-medium text-slate-700 dark:text-slate-300">{showCreateParty}</span>"</p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Group</label>
+                  <select value={createPartyForm.group} onChange={e => { const g = e.target.value as 'vendor' | 'customer' | 'contact'; setCreatePartyForm({ ...createPartyForm, group: g, type: PARTY_TYPES[g]?.[0]?.value || 'other' }); }}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-sm outline-none focus:ring-2 focus:ring-brand">
+                    <option value="contact">Contact</option>
+                    <option value="vendor">Vendor</option>
+                    <option value="customer">Customer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Type</label>
+                  <select value={createPartyForm.type} onChange={e => setCreatePartyForm({ ...createPartyForm, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-sm outline-none focus:ring-2 focus:ring-brand">
+                    {(PARTY_TYPES[createPartyForm.group] || PARTY_TYPES.contact).map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Description (optional)</label>
+                <input value={createPartyForm.description} onChange={e => setCreatePartyForm({ ...createPartyForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-sm outline-none focus:ring-2 focus:ring-brand" placeholder="Optional notes..." />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => { setShowCreateParty(null); setCreatePartyForm({ group: 'contact', type: 'individual', description: '' }); }}>Cancel</Button>
+                <Button size="sm" onClick={handleCreateParty}>Create & Select</Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

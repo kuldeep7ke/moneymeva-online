@@ -6,7 +6,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy } from 'lucide-react';
+import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
@@ -20,6 +20,7 @@ import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
+import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync } from '@/lib/pouchdb';
 
 export default function SettingsPage() {
@@ -311,8 +312,26 @@ export default function SettingsPage() {
         </div>
         </Reveal>
 
-        {/* Multi-Device Sync */}
+        {/* Language */}
         <Reveal delay={150}>
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
+              <Globe className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Language</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Choose your app language</p>
+              <div className="mt-4">
+                <LanguageSelector />
+              </div>
+            </div>
+          </div>
+        </div>
+        </Reveal>
+
+        {/* Multi-Device Sync */}
+        <Reveal delay={200}>
         <div className="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-6">
           <div className="flex items-start gap-4">
             <div className="p-3 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl">

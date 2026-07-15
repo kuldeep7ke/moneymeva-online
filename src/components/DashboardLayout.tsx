@@ -40,25 +40,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
-
-const navItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Income', href: '/dashboard/income', icon: ArrowUpCircle },
-  { name: 'Expenses', href: '/dashboard/expenses', icon: ArrowDownCircle },
-  { name: 'Goals', href: '/dashboard/savings', icon: PiggyBank },
-  { name: 'Investments', href: '/dashboard/investments', icon: TrendingUp },
-  { name: 'Party', href: '/dashboard/partners', icon: Users },
-  { name: 'Recurring', href: '/dashboard/recurring', icon: Calendar },
-  { name: 'Accounts', href: '/dashboard/accounts', icon: Landmark },
-  { name: 'Adjustments', href: '/dashboard/adjustments', icon: SlidersHorizontal },
-  { name: 'Summary', href: '/dashboard/summary', icon: BarChart3 },
-  { name: 'Ledger', href: '/dashboard/ledger', icon: ScrollText },
-  { name: 'Archive', href: '/dashboard/archive', icon: Archive },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-  { name: 'About', href: '/dashboard/about', icon: Info },
-];
-
-const FLOATING_NAV_NAMES = new Set(['Dashboard', 'Income', 'Expenses', 'Goals', 'Investments', 'Party', 'Accounts', 'Settings', 'Ledger']);
+import { useTranslation } from '@/lib/i18n';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -74,6 +56,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [loading, user, profile, router]);
   const { theme, toggle: toggleTheme } = useTheme();
+  const { t } = useTranslation();
+
+  const navItems = React.useMemo(() => [
+    { name: t('nav.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+    { name: t('nav.income'), href: '/dashboard/income', icon: ArrowUpCircle },
+    { name: t('nav.expenses'), href: '/dashboard/expenses', icon: ArrowDownCircle },
+    { name: t('nav.savings'), href: '/dashboard/savings', icon: PiggyBank },
+    { name: t('nav.investments'), href: '/dashboard/investments', icon: TrendingUp },
+    { name: t('nav.partners'), href: '/dashboard/partners', icon: Users },
+    { name: t('nav.recurring'), href: '/dashboard/recurring', icon: Calendar },
+    { name: t('nav.accounts'), href: '/dashboard/accounts', icon: Landmark },
+    { name: t('nav.adjustments'), href: '/dashboard/adjustments', icon: SlidersHorizontal },
+    { name: t('nav.summary'), href: '/dashboard/summary', icon: BarChart3 },
+    { name: t('nav.ledger'), href: '/dashboard/ledger', icon: ScrollText },
+    { name: t('nav.archive'), href: '/dashboard/archive', icon: Archive },
+    { name: t('nav.settings'), href: '/dashboard/settings', icon: Settings },
+    { name: t('nav.about'), href: '/dashboard/about', icon: Info },
+  ], [t]);
+
+  const FLOATING_NAV_NAMES = React.useMemo(() => new Set([
+    t('nav.dashboard'), t('nav.income'), t('nav.expenses'), t('nav.savings'),
+    t('nav.investments'), t('nav.partners'), t('nav.accounts'), t('nav.settings'), t('nav.ledger'),
+  ]), [t]);
+
   const [ready, setReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [locked, setLockedState] = useState(false);
@@ -243,7 +249,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
             try { await navigator.clipboard.writeText(url); } catch { /* */ }
           }} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-brand-secondary dark:hover:bg-brand-muted/50 hover:text-brand transition-colors cursor-pointer active:scale-[0.98]">
-            <Share2 className="h-3.5 w-3.5" /> Share Money Meva
+            <Share2 className="h-3.5 w-3.5" /> {t('common.share')} Money Meva
           </button>
         </div>
       </div>
@@ -254,7 +260,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen items-center justify-center bg-brand-light dark:bg-brand-dark">
       <div className="text-center">
         <div className="animate-spin h-8 w-8 border-4 border-brand border-t-transparent rounded-full mx-auto mb-4"></div>
-        <p className="text-slate-500 dark:text-slate-400">Loading...</p>
+        <p className="text-slate-500 dark:text-slate-400">{t('common.loading')}</p>
       </div>
     </div>
   );
@@ -316,8 +322,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Lock className="h-8 w-8 text-brand dark:text-brand-secondary" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Session Locked</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Enter your PIN to unlock</p>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('common.lockSession')}</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('common.enterPin')}</p>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); handleUnlock(); }} className="space-y-4">
               <input type="password" inputMode="numeric" autoFocus maxLength={4} value={pinInput}
@@ -328,7 +334,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {pinError && <p className="text-xs text-red-500 font-medium">Invalid PIN. Try another one.</p>}
               {remaining > 0 && <p className="text-xs text-slate-400 dark:text-slate-500">{remaining} PIN{remaining > 1 ? 's' : ''} remaining</p>}
               <Button type="submit" className="w-full py-3" disabled={pinInput.length < 4}>
-                <Unlock className="h-4 w-4 mr-2" /> Unlock
+                <Unlock className="h-4 w-4 mr-2" /> {t('common.unlock')}
               </Button>
             </form>
           </div>
@@ -354,7 +360,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowLockConfirm(false)}>Cancel</Button>
               <Button className="flex-1" onClick={handleInstantLock}>
-                <Lock className="h-4 w-4 mr-2" /> Lock Now
+                <Lock className="h-4 w-4 mr-2" /> {t('common.lockNow')}
               </Button>
             </div>
           </div>
@@ -368,7 +374,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={() => setMobileOpen(true)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#2A2522] transition-colors">
               <Menu className="h-5 w-5" />
             </button>
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{navItems.find(i => pathname === i.href)?.name || 'Dashboard'}</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{navItems.find(i => pathname === i.href)?.name || t('nav.dashboard')}</span>
           </div>
         </div>
         {ready && children}
