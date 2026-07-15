@@ -13,7 +13,7 @@ import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
 import { switchUser, getAllUsers, getSession, updateProfile } from '@/lib/localAuth';
 import { useAuth } from '@/components/AuthProvider';
 import { useTheme, getBrands } from '@/components/ThemeProvider';
-import { clearAllDB, processRemoteChanges } from '@/lib/store';
+import { clearAllDB, processRemoteChanges, pushAllToPouch } from '@/lib/store';
 import { db } from '@/lib/db';
 import { generatePins, getPins, arePinsShown, markPinsShown, hasPins, getRemainingPins, getAutoLockMinutes, setAutoLockMinutes } from '@/lib/pinStore';
 import PinPrompt from '@/components/PinPrompt';
@@ -224,6 +224,10 @@ export default function SettingsPage() {
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
+        const pushed = await pushAllToPouch();
+        await manualSync();
+        await processRemoteChanges();
+        if (pushed > 0) setSyncError(`Connected. Pushed ${pushed} existing item(s) to cloud.`);
       } else {
         failSync('Could not connect. Check the URL and ensure the server is running.');
       }
@@ -243,14 +247,17 @@ export default function SettingsPage() {
     setSyncStatus('connecting');
     setSyncError('');
     try {
+      const pushed = await pushAllToPouch();
       const ok = await manualSync();
       if (ok) {
         await processRemoteChanges();
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
+        setSyncError(pushed > 0 ? `Synced! Pushed ${pushed} item(s) to cloud.` : 'Synced successfully.');
+        setTimeout(() => { if (syncStatus === 'connected') setSyncError(''); }, 4000);
       } else {
-        failSync('Sync failed. Check connection.');
+        failSync('Sync failed. Ensure you are connected first.');
       }
     } catch {
       failSync('Sync failed.');

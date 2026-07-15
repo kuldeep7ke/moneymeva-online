@@ -30,7 +30,7 @@ function saveConfig(url: string) {
   localStorage.setItem(LS_URL, url);
 }
 
-export function connected(): boolean { return !!(localDB && remoteDB && syncHandler); }
+export function connected(): boolean { return !!(localDB && remoteDB); }
 
 export function onRemoteChange(fn: () => void) {
   changeListeners.push(fn);

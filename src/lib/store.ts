@@ -147,7 +147,7 @@ export async function initDB() {
   // Auto-sync every 12 hours if connected
   setInterval(async () => {
     if (!connected()) return;
-    try { await manualSync(); await processRemoteChanges(); } catch {}
+    try { await pushAllToPouch(); await manualSync(); await processRemoteChanges(); } catch {}
   }, 12 * 60 * 60 * 1000);
 }
 
@@ -400,22 +400,47 @@ export async function processRemoteChanges() {
   for (const doc of docs) {
     const entity = doc._entity as EntityType;
     if (!entity || !doc.id) continue;
+    if (doc.deletedAt) continue;
     const dexieTable = entityTableMap[entity];
     const cacheKey = dexieTable;
     const list = (cache as any)[cacheKey];
     if (!list) continue;
-    const idx = list.findIndex((x: any) => x.id === doc.id);
+    const { _entity, ...cleanDoc } = doc;
+    const idx = list.findIndex((x: any) => x.id === cleanDoc.id);
     if (idx >= 0) {
       const local = list[idx];
-      if (doc.updatedAt && local.updatedAt && doc.updatedAt <= local.updatedAt) continue;
-      list[idx] = doc;
+      if (cleanDoc.updatedAt && local.updatedAt && cleanDoc.updatedAt <= local.updatedAt) continue;
+      list[idx] = cleanDoc;
     } else {
-      list.push(doc);
+      list.push(cleanDoc);
     }
-    try { await (db as any)[dexieTable].put(doc); } catch {}
+    try { await (db as any)[dexieTable].put(cleanDoc); } catch {}
     updated++;
   }
   if (updated > 0) console.log(`Sync: ${updated} remote change(s) applied`);
+}
+
+export async function pushAllToPouch() {
+  const tables: [string, EntityType][] = [
+    ['transactions', 'transaction'],
+    ['partners', 'partner'],
+    ['recurring', 'recurring'],
+    ['budgets', 'budget'],
+    ['reminders', 'reminder'],
+    ['adjustments', 'adjustment'],
+    ['goals', 'goal'],
+    ['todos', 'todo'],
+  ];
+  let count = 0;
+  for (const [cacheKey, entity] of tables) {
+    const items = (cache as any)[cacheKey] || [];
+    for (const item of items) {
+      if (!item.id) continue;
+      await putDoc(entity, item);
+      count++;
+    }
+  }
+  return count;
 }
 
 export function addTransaction(tx: Omit<Transaction, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Transaction {
