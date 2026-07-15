@@ -26,7 +26,7 @@ npm install -D @types/pouchdb-browser @types/pouchdb-find
 
 # For Capacitor (Android app)
 npm install @capacitor/cli @capacitor/core @capacitor/android \
-  @capacitor/local-notifications @capacitor/status-bar
+  @capacitor/local-notifications @capacitor/status-bar @capacitor/app
 
 npx cap init Money Meva com.moneymeva.app
 npx cap add android

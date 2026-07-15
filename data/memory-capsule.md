@@ -1,10 +1,10 @@
 # Money Meva Premium — Memory Capsule
 
-**Version:** v6.1.0.0 (incremented on every build)
+**Version:** v6.1.0.8 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/money-meva-premium
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
-**Android:** Capacitor APK via GitHub Actions
-**Last Updated:** 2026-07-14
+**Android:** Capacitor APK via GitHub Actions (auto-build on push)
+**Last Updated:** 2026-07-15
 
 ---
 
@@ -16,7 +16,7 @@
 | Framework | Next.js 16.2.9 (App Router) | Static export for cheap hosting; React 19 for latest features |
 | Styling | Tailwind CSS v4 + CSS variables | Rapid prototyping; 3-brand theme via CSS custom properties |
 | Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 9 tables with compound indexes |
-| Sync | PouchDB ↔ CouchDB (live replication) | Bi-directional multi-device sync; works with Railway.app CouchDB |
+| Sync | PouchDB ↔ CouchDB (manual + 12hr auto) | Quota-saving: manual "Sync Now" button + auto-sync every 12 hours |
 | State | In-memory cache + Dexie + PouchDB | Cache for instant reads, Dexie for persistence, PouchDB for sync |
 | Auth | Fully local (localStorage) | No server dependency; multi-user with session switching |
 | Security | One-time 4-digit PINs | Simple but effective; no PII stored remotely; auto-rotate after 10 uses |
@@ -60,14 +60,14 @@ This allows undo, restore, and prevents accidental data loss.
 
 Every entity gets a `transitionId` at creation. This links all mutations of an entity across its lifecycle. The `mutation_log` table records every action (`created → updated → deleted → restored → permanent_deleted`) linked by `transitionId`. Used in the Audit Ledger to show an entity's full life-cycle chain.
 
-### 4. Offline-First Sync
+### 4. Offline-First Sync (Quota-Saving)
 
-PouchDB → CouchDB sync is completely optional. The app:
+PouchDB → CouchDB sync is completely optional and manual-first. The app:
 - Works fully offline with zero configuration
-- When sync URL is configured, connects via live bi-directional replication
-- Auto-reconnects every 30 seconds if disconnected
-- Pulls remote changes every 2 minutes
-- Change events from live sync trigger immediate cache refresh
+- When sync URL is configured, connects and verifies (no live sync)
+- "Sync Now" button does a one-shot push (local→remote) then pull (remote→local)
+- Auto-sync runs once every 12 hours if connected (saves cloud quota)
+- No live replication — data only moves on explicit user action or 12hr auto-sync
 - Never blocks the UI — all sync operations are background
 
 ### 5. Local Auth with Multi-User
@@ -470,3 +470,23 @@ npm run lint
 8. **Conflict resolution** — current strategy is last-write-wins based on `updatedAt`
 9. **Automated tests** — currently no test suite
 10. **Database backup** to cloud storage (Google Drive, iCloud)
+
+---
+
+## 📝 Recent Changes (v6.1.0.8)
+
+### Android Fixes
+- **Status bar overlap** — Added `viewport-fit=cover` meta tag + `env(safe-area-inset-*)` CSS + `StatusBar.setOverlaysWebView({ overlay: false })` to prevent content from hiding behind the Android status bar
+- **Back button** — Added `@capacitor/app` plugin with `backButton` listener on all pages (DashboardLayout, landing, login, onboarding). Navigates back if history exists, otherwise exits app
+
+### Cloud Sync Fixes
+- **_entity field bug** — `pullAll()` was deleting `_entity` from docs before returning, causing `processRemoteChanges()` to skip all remote docs. Fixed by preserving `_entity`
+- **Manual sync only** — Removed live replication and periodic 2-min pull. "Sync Now" button does one-shot push+pull. Auto-sync runs every 12 hours. Saves cloud quota
+
+### UI Improvements
+- **Welcome card** — Auto-hides after 5s with fade+collapse animation on dashboard. Uses `sessionStorage` so it shows once per app session (not on refresh)
+- **Party dropdown** — Added to Income/Expenses/Investments Add+Edit forms (recent 3, search, create new)
+- **Category dropdown** — Partners page and Recurring page use searchable dropdown with keyboard nav (ArrowUp/Down/Enter/Escape)
+- **Recurring form** — Category shows 3 options by default, search shows all. Reminder is dropdown (1-7 days, default 3). Start date auto-sets end date to +1 month
+- **Form field reorder** — Amount → Category+Date → Account → Description → Party
+- **Keyboard nav** — All custom dropdowns support ArrowUp/Down/Enter/Escape navigation

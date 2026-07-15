@@ -1,15 +1,15 @@
 # Money Meva Premium
 
-**v6.1.0** — The premium edition of Money Meva, featuring CouchDB cloud sync for seamless multi-device access. Built with Next.js.
+**v6.1.0** — The premium edition of Money Meva, featuring manual cloud sync for multi-device access with quota-saving strategy. Built with Next.js.
 
-Track income, expenses, savings, investments, and partner accounts with real-time synchronization across all your devices. Your financial data, everywhere you need it.
+Track income, expenses, savings, investments, and partner accounts with controlled synchronization across all your devices. Your financial data, everywhere you need it.
 
 ---
 
 ## Features
 
-- **Cloud Sync** — Real-time synchronization across devices using PouchDB with CouchDB remote database support. Configure via Settings → Multi-Device Sync (supports Railway.app, custom servers). Sync Now, auto-reconnect, and live bi-directional replication.
-- **Dashboard** — Summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with Sync Now button
+- **Cloud Sync** — Manual + auto sync with CouchDB via PouchDB. Sync only when you press "Sync Now" to save cloud quota. Auto-sync runs every 12 hours if connected. Configure via Settings → Multi-Device Sync.
+- **Dashboard** — Auto-hiding welcome card (5s), summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with Sync Now button
 - **Income / Expenses / Investments** — Full CRUD with search, filter, sort (newest/oldest), group (day/week/month), duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal
 - **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars
 - **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions (reflect in personal account), mini ledger modal per party with transaction history
@@ -33,25 +33,27 @@ Track income, expenses, savings, investments, and partner accounts with real-tim
 - **Dark / Light Theme** — Toggleable, persisted in localStorage
 - **3 Brand Colors** — Orange (default), Royal Blue, Emerald Green — changeable in Settings
 - **Scroll Animations** — Staggered Reveal animations on all major sections
+- **Android APK** — Capacitor-wrapped native Android app with back button navigation, proper status bar handling, and offline-first architecture
 - **PWA Ready** — Install as a standalone app with service worker caching
+- **Keyboard Navigation** — ArrowUp/Down/Enter/Escape for all custom dropdowns (category, party, etc.)
 - **Floating Mobile Nav** — Bottom-right FAB with filtered nav (Dashboard, Income, Expenses, Savings, Investments, Partners, Settings)
 
 ---
 
 ## Cloud Sync Setup
 
-Money Meva Premium uses **PouchDB** (local) + **CouchDB** (remote) for real-time, bi-directional sync across all your devices.
+Money Meva Premium uses **PouchDB** (local) + **CouchDB** (remote) for manual, quota-saving sync across your devices.
 
 ### How it works
 
 ```
-Device A ──→ Local PouchDB ──→ Remote CouchDB ──→ Local PouchDB ──→ Device B
+Device A ──→ Local PouchDB ──→ [Manual Sync] ──→ Remote CouchDB ──→ [Manual Sync] ──→ Local PouchDB ──→ Device B
                  │                                        │
             IndexedDB                                IndexedDB
            (offline-capable)                      (offline-capable)
 ```
 
-Every change you make (add/edit/delete transaction, partner, budget, etc.) is written to local IndexedDB, then synced to the remote CouchDB server via PouchDB. Other connected devices receive the changes in real-time via live replication.
+Sync is manual by default to save cloud quota. Press "Sync Now" in Settings or Dashboard to push and pull data. Auto-sync runs once every 12 hours if connected.
 
 ### Prerequisites
 
@@ -70,8 +72,8 @@ A CouchDB server URL (e.g., deployed on [Railway.app](https://railway.app), or a
 
 | Indicator | Meaning |
 |---|---|
-| 🟢 Green dot | Connected — real-time sync active |
-| 🟡 Amber dot (pulse) | Connecting — attempting to reach server |
+| 🟢 Green dot | Connected — sync available |
+| 🟡 Amber dot (pulse) | Syncing — push + pull in progress |
 | 🔴 Red dot | Offline — connection failed or no URL configured |
 
 ### Dashboard Sync Card
@@ -134,16 +136,14 @@ Extract `dist/money-meva-webapp-<version>.zip` and run `node server.js`.
 
 ### Android APK
 
-An Android APK can be built on-demand via **GitHub Actions**:
+An Android APK is built automatically via **GitHub Actions** on every push to master:
 
-1. Go to [Build Android APK](https://github.com/kuldeep7ke/money-meva/actions/workflows/build-apk.yml) workflow
-2. Click **"Run workflow"** → select branch `master` → click **"Run workflow"**
-3. Wait ~2–3 minutes for the build to finish
+1. Go to [Build Android APK](https://github.com/kuldeep7ke/money-meva-premium/actions/workflows/build-apk.yml) workflow
+2. The build triggers automatically on push, or click **"Run workflow"** to build manually
+3. Wait ~3–4 minutes for the build to finish
 4. Download `MoneyMeva-APK.zip` from the run's **Summary** page under **Artifacts**
 
-The APK is a debug build (unsigned) and works on Android 7+ (API 24+).
-
-You can also trigger a build directly from the app's **Settings → Android APK** section.
+The APK is a debug build and works on Android 7+ (API 24+). Features include back button navigation and proper status bar handling.
 
 ---
 
