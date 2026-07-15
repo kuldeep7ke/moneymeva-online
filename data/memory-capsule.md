@@ -4,7 +4,7 @@
 **Repository:** github.com/kuldeep7ke/money-meva-premium
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
-**Last Updated:** 2026-07-15
+**Last Updated:** 2026-07-16
 
 ---
 
@@ -230,34 +230,25 @@ npm run lint
 
 ---
 
-## Recent Changes (v6.1.0.8)
+## Recent Changes (v6.1.0.9)
 
-### i18n Multi-Language Support
-- **3 languages**: Marathi (default), Hindi, English
-- **Custom hook**: `useTranslation()` with `t(key, params?)` interpolation
-- **LanguageSelector**: Portal-based dropdown to avoid parent clipping
-- **Nav items**: Natural everyday words (Marathi: ध्येय, लेजर, एडजस्टमेंट, आर्काइव्ह; Hindi: कमाई, बचत, लेजर, एडजस्टमेंट, आर्काइव्ह)
-- **Landing page**: Hero text, features, stats, PIN prompt all translated
-- **DashboardLayout**: All nav items use `t()` calls
-- **Footer**: English copyright across all languages
+### Bug Fixes (Comprehensive Audit 2026-07-16)
 
-### Party Field in Transaction Forms
-- **No parties**: Disabled "None" input
-- **With parties**: Dropdown shows latest 3 most-used
-- **Search**: Typing filters all parties by name
-- **Create Party**: "Create Party (Name)" option opens inline modal
-- **Create & Select**: Creates party, refreshes list, auto-selects in form
-- **Works in both** Add and Edit transaction modals
+#### Critical Financial Fixes
+- **Investment source double-counting**: Investment from non-cash sources (savings/adjustment/partner) now sets `account: 'invest'` — excluded from cash/bank balance. Only the fund-source entry affects cash balance. Fixes ₹2000 reduction for ₹1000 investment. (`TransactionPage.tsx:191-196`, `store.ts:947-949`)
+- **Budget notifications ignore period**: `getBudgetNotifications()` now filters by `budget.period` (monthly/yearly), matching the period-specific budget calculation. Previously showed inflated percentages. (`store.ts:1052-1071`)
+- **Sync skips remote deletes**: `processRemoteChanges()` now applies `deletedAt` from remote documents to local cache, ensuring deletes sync across devices. (`store.ts:423-442`)
+- **Stale category data**: `getSortedCategories()` reads from in-memory store cache instead of deleted `localStorage` (which was cleared during v4 migration). (`utils.ts:41-53`)
 
-### Android Fixes
-- Status bar overlap fix with `viewport-fit=cover` + `env(safe-area-inset-*)`
-- Back button with `@capacitor/app` plugin
+#### i18n Additions
+- New dashboard keys: `dashboard.available`, `dashboard.totalIncome`, `dashboard.totalExpenses`, `dashboard.investments`, `dashboard.partners` — all 3 languages (mr/hi/en)
 
-### Cloud Sync Fixes
-- `_entity` field preservation in pull
-- Manual sync only (removed live replication)
-
-### UI Improvements
-- Welcome card auto-hides after 5s
-- Category dropdown with keyboard nav
-- Form field reorder
+### File Changes
+| File | Change |
+|---|---|
+| `src/lib/store.ts` | Investment `account='invest'` filtering (cashBankTransactions), budget period filter, remote delete sync |
+| `src/components/TransactionPage.tsx` | Investment account assignment by investSource |
+| `src/lib/utils.ts` | getSortedCategories uses in-memory cache |
+| `src/types/index.ts` | Account type widened to include `'invest'` |
+| `src/lib/i18n/translations.ts` | New dashboard i18n keys for mr/hi/en |
+| `src/app/dashboard/page.tsx` | useTranslation hook + translated cards |

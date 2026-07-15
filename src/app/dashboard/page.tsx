@@ -14,6 +14,7 @@ import { hasPins } from '@/lib/pinStore';
 import { ReminderFrequency } from '@/types';
 import Reveal from '@/components/Reveal';
 import { checkConnection, getConfig, connected as pouchConnected } from '@/lib/pouchdb';
+import { useTranslation } from '@/lib/i18n';
 
 function CardSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -40,6 +41,7 @@ function ChartSkeleton({ className = "" }: { className?: string }) {
 export default function DashboardPage() {
   const router = useRouter();
   const { profile } = useAuth();
+  const { t } = useTranslation();
   const lockSession = () => window.dispatchEvent(new Event('request-lock-session'));
   const [isLoading, setIsLoading] = useState(true);
   const [aggregates, setAggregates] = useState({ balance: 0, income: 0, expense: 0, saving: 0, investment: 0, cashBankBalance: 0 });
@@ -241,12 +243,12 @@ export default function DashboardPage() {
     .slice(0, 6);
 
   const summaryCards = [
-    { title: 'Available to Spend', amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
-    { title: 'Total Balance', amount: aggregates.cashBankBalance, icon: PiggyBank, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { title: 'Total Income', amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
-    { title: 'Total Expenses', amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50' },
-    { title: 'Investments', amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary' },
-    { title: 'Partners', amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    { title: t('dashboard.available'), amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
+    { title: t('dashboard.balance'), amount: aggregates.cashBankBalance, icon: PiggyBank, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { title: t('dashboard.totalIncome'), amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
+    { title: t('dashboard.totalExpenses'), amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50' },
+    { title: t('dashboard.investments'), amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary' },
+    { title: t('dashboard.partners'), amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50' },
   ];
 
   return (

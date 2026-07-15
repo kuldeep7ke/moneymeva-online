@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getTransactions } from './store';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -40,9 +41,7 @@ export const formatCurrency = (amount: number) => {
 
 export function getSortedCategories(baseCategories: string[], type?: string): string[] {
   try {
-    const raw = localStorage.getItem('mm_transactions');
-    if (!raw) return baseCategories;
-    const txs = JSON.parse(raw).filter((t: any) => !t.deletedAt && (!type || t.type === type));
+    const txs = getTransactions(type);
     const freq: Record<string, number> = {};
     txs.forEach((t: any) => { freq[t.category] = (freq[t.category] || 0) + 1; });
     const categories = Array.from(new Set([...baseCategories, ...Object.keys(freq)]));

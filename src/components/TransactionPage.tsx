@@ -190,7 +190,12 @@ export default function TransactionPage({ type, title, description }: Transactio
       setDupWarning({ ...tx, existing: dup, investSource: form.investSource });
       return;
     }
-    const account = (type === 'income' || type === 'expense') ? form.account : undefined;
+    let account: Transaction['account'];
+    if (type === 'income' || type === 'expense') {
+      account = form.account;
+    } else if (type === 'investment') {
+      account = form.investSource === 'cash' ? form.account : 'invest';
+    }
     addTransaction({ ...tx, account, isRecurring: false });
     logActivity('entry_created', `${type} — ${form.category}`);
 

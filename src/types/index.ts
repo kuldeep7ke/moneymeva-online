@@ -9,7 +9,7 @@ export interface Transaction {
   category: string;
   description: string;
   date: string;
-  account?: 'cash' | 'bank' | 'upi';
+  account?: 'cash' | 'bank' | 'upi' | 'invest';
   savingTag?: string;
   transferId?: string;
   partnerAccountId?: string;

@@ -420,12 +420,22 @@ export async function processRemoteChanges() {
   for (const doc of docs) {
     const entity = doc._entity as EntityType;
     if (!entity || !doc.id) continue;
-    if (doc.deletedAt) continue;
     const dexieTable = entityTableMap[entity];
     const cacheKey = dexieTable;
     const list = (cache as any)[cacheKey];
     if (!list) continue;
     const { _entity, ...cleanDoc } = doc;
+    if (doc.deletedAt) {
+      const idx = list.findIndex((x: any) => x.id === cleanDoc.id);
+      if (idx >= 0) {
+        const local = list[idx];
+        if (!local.deletedAt || cleanDoc.deletedAt > local.deletedAt) {
+          list[idx] = cleanDoc;
+          try { await (db as any)[dexieTable].put(cleanDoc); } catch {}
+        }
+      }
+      continue;
+    }
     const idx = list.findIndex((x: any) => x.id === cleanDoc.id);
     if (idx >= 0) {
       const local = list[idx];
@@ -944,7 +954,7 @@ export function completeTodo(id: string) {
 
 // ─── Summary helpers ─────────────────────────────────────────
 function cashBankTransactions(txs: Transaction[]): Transaction[] {
-  return txs.filter(t => !t.account || t.account === 'cash' || t.account === 'bank' || t.account === 'upi');
+  return txs.filter(t => !t.account || (t.account !== 'invest' && (t.account === 'cash' || t.account === 'bank' || t.account === 'upi')));
 }
 
 export function getCashBankBalance(): number {
@@ -1051,8 +1061,14 @@ export function getArchiveNotifications(): AppNotification[] {
 export function getBudgetNotifications(): AppNotification[] {
   const budgets = getBudgets();
   const notifs: AppNotification[] = [];
+  const now = new Date();
   for (const b of budgets) {
-    const txs = getTransactions().filter(t => t.type === 'expense' && t.category === b.category);
+    const txs = getTransactions().filter(t => {
+      if (t.type !== 'expense' || t.category !== b.category) return false;
+      const d = new Date(t.date);
+      if (b.period === 'monthly') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      return d.getFullYear() === now.getFullYear();
+    });
     const spent = txs.reduce((s, t) => s + t.amount, 0);
     const pct = b.limit > 0 ? Math.round((spent / b.limit) * 100) : 0;
     if (pct >= 80) {
