@@ -1,6 +1,7 @@
 import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationAction, MutationLog, ArchiveItemType, ArchivedItem } from '@/types';
 import { db } from './db';
 import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected } from './pouchdb';
+import { dispatchSyncEvent, getLastSyncEvent } from './sync-notify';
 
 // ─── localStorage keys (tiny settings only) ─────────────────
 const LS_KEYS = {
@@ -147,7 +148,26 @@ export async function initDB() {
   // Auto-sync every 12 hours if connected
   setInterval(async () => {
     if (!connected()) return;
-    try { await pushAllToPouch(); await manualSync(); await processRemoteChanges(); } catch {}
+    dispatchSyncEvent({ status: 'started', message: 'Auto-sync started…' });
+    let pushed = 0;
+    let pulled = 0;
+    try {
+      dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
+      pushed = await pushAllToPouch();
+      dispatchSyncEvent({ status: 'pushing', message: `Pushing complete (${pushed} item(s))` });
+      dispatchSyncEvent({ status: 'pushing', message: 'Pulling remote changes…' });
+      const ok = await manualSync();
+      if (ok) {
+        dispatchSyncEvent({ status: 'pulled', message: 'Pulled remote changes...', pulled });
+        dispatchSyncEvent({ status: 'processing', message: 'Applying remote changes…' });
+        await processRemoteChanges();
+        dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed} item(s), pulled latest changes`, pushed, pulled });
+      } else {
+        dispatchSyncEvent({ status: 'error', message: 'Sync failed during pull', error: 'Pull failed' });
+      }
+    } catch (err) {
+      dispatchSyncEvent({ status: 'error', message: 'Auto-sync failed', error: String(err) });
+    }
   }, 12 * 60 * 60 * 1000);
 }
 
@@ -985,7 +1005,7 @@ export function getBudgetForCategory(category: string): { budget: Budget | undef
 // ─── Notifications ───────────────────────────────────────────
 export interface AppNotification {
   id: string;
-  type: 'recurring' | 'trash' | 'budget' | 'reminder';
+  type: 'recurring' | 'trash' | 'budget' | 'reminder' | 'sync';
   title: string;
   message: string;
   severity: 'danger' | 'warning' | 'info';
@@ -1061,7 +1081,26 @@ export function getAllNotifications(): AppNotification[] {
       severity: 'info',
       amount: r.amount,
     }));
+  const syncNotifs: AppNotification[] = [];
+  const lastSync = getLastSyncEvent();
+  if (lastSync && lastSync.status === 'complete') {
+    const key = `sync-notif-${Date.now()}`;
+    const lastShownKey = 'mm_last_sync_notif_ts';
+    const lastShown = parseInt(localStorage.getItem(lastShownKey) || '0', 10);
+    if (Date.now() - lastShown > 120000) {
+      syncNotifs.push({
+        id: key,
+        type: 'sync',
+        title: 'Sync Complete',
+        message: `Pushed ${lastSync.pushed || 0} item(s) · Pulled latest changes`,
+        severity: lastSync.error ? 'warning' : 'info',
+        amount: 0,
+      });
+      localStorage.setItem(lastShownKey, String(Date.now()));
+    }
+  }
   return [
+    ...syncNotifs,
     ...getRecurringNotifications(),
     ...getArchiveNotifications(),
     ...getBudgetNotifications(),

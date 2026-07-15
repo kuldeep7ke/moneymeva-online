@@ -22,6 +22,7 @@ import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync } from '@/lib/pouchdb';
+import { dispatchSyncEvent } from '@/lib/sync-notify';
 
 export default function SettingsPage() {
   const { refreshAuth } = useAuth();
@@ -219,20 +220,25 @@ export default function SettingsPage() {
     if (!syncUrl.trim()) return;
     setSyncStatus('connecting');
     setSyncError('');
+    dispatchSyncEvent({ status: 'started', message: 'Connecting to remote…' });
     try {
       const ok = await connectRemote(syncUrl.trim());
       if (ok) {
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
+        dispatchSyncEvent({ status: 'pushing', message: 'Pushing existing data…' });
         const pushed = await pushAllToPouch();
         await manualSync();
         await processRemoteChanges();
         if (pushed > 0) setSyncError(`Connected. Pushed ${pushed} existing item(s) to cloud.`);
+        dispatchSyncEvent({ status: 'complete', message: `Connected & synced — pushed ${pushed} item(s)`, pushed });
       } else {
+        dispatchSyncEvent({ status: 'error', message: 'Connection failed', error: 'Could not connect to remote' });
         failSync('Could not connect. Check the URL and ensure the server is running.');
       }
     } catch {
+      dispatchSyncEvent({ status: 'error', message: 'Connection failed', error: 'Connection error' });
       failSync('Connection failed. Check the URL and try again.');
     }
   };
@@ -247,20 +253,28 @@ export default function SettingsPage() {
   const handleSyncNow = async () => {
     setSyncStatus('connecting');
     setSyncError('');
+    dispatchSyncEvent({ status: 'started', message: 'Manual sync started…' });
     try {
+      dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
       const pushed = await pushAllToPouch();
+      dispatchSyncEvent({ status: 'pushing', message: `Pushed ${pushed} item(s), pulling remote…` });
       const ok = await manualSync();
       if (ok) {
+        dispatchSyncEvent({ status: 'processing', message: 'Applying remote changes…' });
         await processRemoteChanges();
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
-        setSyncError(pushed > 0 ? `Synced! Pushed ${pushed} item(s) to cloud.` : 'Synced successfully.');
+        const msg = pushed > 0 ? `Synced! Pushed ${pushed} item(s) to cloud.` : 'Synced successfully.';
+        setSyncError(msg);
+        dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed} item(s)`, pushed });
         setTimeout(() => { if (syncStatus === 'connected') setSyncError(''); }, 4000);
       } else {
+        dispatchSyncEvent({ status: 'error', message: 'Sync failed during pull', error: 'Pull failed' });
         failSync('Sync failed. Ensure you are connected first.');
       }
     } catch {
+      dispatchSyncEvent({ status: 'error', message: 'Sync failed', error: 'Unknown error' });
       failSync('Sync failed.');
     }
   };

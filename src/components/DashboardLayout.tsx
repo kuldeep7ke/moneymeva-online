@@ -40,6 +40,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import SyncStatusBar from '@/components/SyncStatusBar';
 import { useTranslation } from '@/lib/i18n';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -380,6 +381,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {ready && children}
       </main>
 
+      <SyncStatusBar />
       <DataSafetyNotice delay={8000} />
       <SecurityTipNotice delay={45000} />
       <InstallPrompt delay={30000} />
