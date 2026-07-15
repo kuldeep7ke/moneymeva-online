@@ -1084,19 +1084,19 @@ export function getAllNotifications(): AppNotification[] {
   const syncNotifs: AppNotification[] = [];
   const lastSync = getLastSyncEvent();
   if (lastSync && lastSync.status === 'complete') {
-    const key = `sync-notif-${Date.now()}`;
-    const lastShownKey = 'mm_last_sync_notif_ts';
-    const lastShown = parseInt(localStorage.getItem(lastShownKey) || '0', 10);
-    if (Date.now() - lastShown > 120000) {
+    const counterKey = 'mm_sync_notif_counter';
+    const counter = (lastSync.pushed || 0) + '_' + (lastSync.pulled || 0) + '_' + (lastSync.error || '');
+    const lastShown = localStorage.getItem('mm_sync_notif_last') || '';
+    if (counter !== lastShown) {
       syncNotifs.push({
-        id: key,
+        id: `sync-${Date.now()}`,
         type: 'sync',
         title: 'Sync Complete',
         message: `Pushed ${lastSync.pushed || 0} item(s) · Pulled latest changes`,
         severity: lastSync.error ? 'warning' : 'info',
         amount: 0,
       });
-      localStorage.setItem(lastShownKey, String(Date.now()));
+      localStorage.setItem('mm_sync_notif_last', counter);
     }
   }
   return [
