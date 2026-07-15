@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { LogIn, Mail, Lock, UserPlus, X, ArrowLeft } from 'lucide-react';
@@ -48,10 +49,14 @@ function getPasswordStrength(password: string, name: string, email: string): { s
   return { score, label, color, error };
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const { refreshAuth } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<'login' | 'register'>(() => {
+    const m = searchParams.get('mode');
+    return m === 'register' ? 'register' : 'login';
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -288,5 +293,13 @@ function ExistingUsers({ onRefresh }: { onRefresh: () => void }) {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

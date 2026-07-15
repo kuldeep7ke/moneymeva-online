@@ -107,7 +107,7 @@ export default function HomePage() {
               Dashboard <ArrowRight className="h-4 w-4" />
             </Link>
           ) : (
-            <Link href="/login" className="flex items-center gap-1 px-5 py-2.5 rounded-full bg-brand text-white text-sm font-semibold hover:bg-orange-600 transition-all shadow-sm">
+            <Link href="/login?mode=register" className="flex items-center gap-1 px-5 py-2.5 rounded-full bg-brand text-white text-sm font-semibold hover:bg-orange-600 transition-all shadow-sm">
               Get started <ArrowRight className="h-4 w-4" />
             </Link>
           )}
@@ -148,7 +148,7 @@ export default function HomePage() {
                   </>
                 ) : (
                   <>
-                    <Link href="/login" className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-brand text-white font-semibold hover:bg-orange-600 transition-all shadow-sm text-[15px]">
+                    <Link href="/login?mode=register" className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-brand text-white font-semibold hover:bg-orange-600 transition-all shadow-sm text-[15px]">
                       Start tracking — free <ArrowRight className="inline h-4 w-4 ml-1" />
                     </Link>
                     <Link href="/login" className="w-full sm:w-auto px-7 py-3.5 rounded-full border border-brand/30 text-brand font-semibold hover:bg-brand/5 transition-all text-[15px]">

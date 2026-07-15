@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
@@ -59,16 +59,58 @@ export default function TransactionPage({ type, title, description }: Transactio
     return () => window.removeEventListener('store-ready', onReady);
   }, [type]);
 
-  const [form, setForm] = useState({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'bank', account: 'cash' as 'cash' | 'bank' | 'upi' });
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) setShowCategoryDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (editCategoryRef.current && !editCategoryRef.current.contains(e.target as Node)) setShowEditCategoryDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (partyRef.current && !partyRef.current.contains(e.target as Node)) setShowPartyDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!editingTransaction) {
+      setEditCategorySearch('');
+      setEditCatHighlightIndex(-1);
+      setPartySearch('');
+      setShowPartyDropdown(false);
+      setPartyHighlightIndex(-1);
+    }
+  }, [editingTransaction]);
+
+  const [form, setForm] = useState({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'bank', account: 'cash' as 'cash' | 'bank' | 'upi', party: '' });
 
   const openEdit = (tx: Transaction) => {
     setEditingTransaction(tx);
-    setEditForm({ amount: String(tx.amount), category: tx.category, description: tx.description, date: tx.date, partnerAccountId: tx.partnerAccountId || '' });
+    setEditForm({ amount: String(tx.amount), category: tx.category, description: tx.description, date: tx.date, partnerAccountId: tx.partnerAccountId || '', party: tx.partnerAccountId ? (partners.find(p => p.id === tx.partnerAccountId)?.name || '') : '' });
   };
 
-  const [editForm, setEditForm] = useState({ amount: '', category: '', description: '', date: '', partnerAccountId: '' });
+  const [editForm, setEditForm] = useState({ amount: '', category: '', description: '', date: '', partnerAccountId: '', party: '' });
   const [editCategorySearch, setEditCategorySearch] = useState('');
   const [showEditCategoryDropdown, setShowEditCategoryDropdown] = useState(false);
+  const [catHighlightIndex, setCatHighlightIndex] = useState(-1);
+  const [editCatHighlightIndex, setEditCatHighlightIndex] = useState(-1);
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const editCategoryRef = useRef<HTMLDivElement>(null);
+  const [partySearch, setPartySearch] = useState('');
+  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+  const [partyHighlightIndex, setPartyHighlightIndex] = useState(-1);
+  const partyRef = useRef<HTMLDivElement>(null);
 
   const handleEdit = () => {
     if (!editingTransaction) return;
@@ -88,6 +130,8 @@ export default function TransactionPage({ type, title, description }: Transactio
     updateTransaction(id, { amount: Number(editForm.amount), category: editForm.category, description: editForm.description, date: editForm.date, partnerAccountId: editForm.partnerAccountId || undefined });
     logActivity('entry_edited', `${type} — ${editForm.category}`);
     setEditingTransaction(null);
+    setEditCategorySearch('');
+    setEditCatHighlightIndex(-1);
     refresh();
   };
 
@@ -116,7 +160,10 @@ export default function TransactionPage({ type, title, description }: Transactio
     }
 
     setShowAddModal(false);
-    setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash' });
+    setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash', party: '' });
+    setPartySearch('');
+    setShowPartyDropdown(false);
+    setPartyHighlightIndex(-1);
     refresh();
   };
 
@@ -138,7 +185,10 @@ export default function TransactionPage({ type, title, description }: Transactio
 
     setDupWarning(null);
     setShowAddModal(false);
-    setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash' });
+    setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash', party: '' });
+    setPartySearch('');
+    setShowPartyDropdown(false);
+    setPartyHighlightIndex(-1);
     refresh();
   };
 
@@ -273,6 +323,26 @@ export default function TransactionPage({ type, title, description }: Transactio
     const baseMatches = baseCategories.filter(c => c.toLowerCase().includes(search) && !matched.includes(c));
     return [...matched, ...baseMatches].slice(0, 10);
   }, [categorySearch, recentCategories]);
+
+  const recentParties = useMemo(() => {
+    const txPartners = transactions
+      .filter(t => t.partnerAccountId)
+      .reduce((acc, t) => {
+        const p = partners.find(p => p.id === t.partnerAccountId);
+        if (p) acc.set(p.id, (acc.get(p.id) || 0) + 1);
+        return acc;
+      }, new Map<string, number>());
+    return Array.from(txPartners.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => partners.find(p => p.id === id))
+      .filter(Boolean);
+  }, [transactions, partners]);
+
+  const filteredParties = useMemo(() => {
+    if (!partySearch) return recentParties.slice(0, 3);
+    const search = partySearch.toLowerCase();
+    return partners.filter(p => p.name.toLowerCase().includes(search));
+  }, [partySearch, recentParties, partners]);
 
   return (
     <DashboardLayout>
@@ -599,25 +669,31 @@ export default function TransactionPage({ type, title, description }: Transactio
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="0" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 relative">
+                <div className="space-y-2 relative" ref={categoryRef}>
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Category</label>
                   <input
                     required
                     value={form.category}
-                    onChange={e => { setForm({ ...form, category: e.target.value }); setCategorySearch(e.target.value); setShowCategoryDropdown(true); }}
+                    onChange={e => { setForm({ ...form, category: e.target.value }); setCategorySearch(e.target.value); setShowCategoryDropdown(true); setCatHighlightIndex(-1); }}
                     onFocus={() => setShowCategoryDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setShowCategoryDropdown(true); setCatHighlightIndex(i => Math.min(i + 1, filteredCategories.length - 1)); }
+                      else if (e.key === 'ArrowUp') { e.preventDefault(); setCatHighlightIndex(i => Math.max(i - 1, 0)); }
+                      else if (e.key === 'Enter' && showCategoryDropdown && catHighlightIndex >= 0) { e.preventDefault(); setForm({ ...form, category: filteredCategories[catHighlightIndex] }); setShowCategoryDropdown(false); setCategorySearch(''); setCatHighlightIndex(-1); }
+                      else if (e.key === 'Escape') { setShowCategoryDropdown(false); setCatHighlightIndex(-1); }
+                    }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
                     placeholder="Search or type new category"
                   />
                   {showCategoryDropdown && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCategories.map((c: string) => (
+                      {filteredCategories.map((c, i) => (
                         <button
                           key={c}
                           type="button"
-                          onMouseDown={e => { e.preventDefault(); setForm({ ...form, category: c }); setShowCategoryDropdown(false); setCategorySearch(''); }}
-                          className={cn("w-full px-4 py-2 text-left text-sm hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors", form.category === c && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}
+                          onClick={() => { setForm({ ...form, category: c }); setShowCategoryDropdown(false); setCategorySearch(''); setCatHighlightIndex(-1); }}
+                          onMouseEnter={() => setCatHighlightIndex(i)}
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors", catHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", form.category === c && "font-medium")}
                         >
                           {c}
                         </button>
@@ -625,8 +701,9 @@ export default function TransactionPage({ type, title, description }: Transactio
                       {categorySearch && !filteredCategories.includes(categorySearch) && (
                         <button
                           type="button"
-                          onMouseDown={e => { e.preventDefault(); setForm({ ...form, category: categorySearch }); setShowCategoryDropdown(false); setCategorySearch(''); }}
-                          className="w-full px-4 py-2 text-left text-sm text-brand font-medium hover:bg-brand-secondary dark:hover:bg-brand-muted/30"
+                          onClick={() => { setForm({ ...form, category: categorySearch }); setShowCategoryDropdown(false); setCategorySearch(''); setCatHighlightIndex(-1); }}
+                          onMouseEnter={() => setCatHighlightIndex(filteredCategories.length)}
+                          className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", catHighlightIndex === filteredCategories.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}
                         >
                           + Create "{categorySearch}"
                         </button>
@@ -667,6 +744,39 @@ export default function TransactionPage({ type, title, description }: Transactio
                   <p className="text-xs text-slate-400 dark:text-slate-500">A corresponding outflow entry will be created from this source</p>
                 </div>
               )}
+              <div className="space-y-2 relative" ref={partyRef}>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
+                <input value={partySearch} onChange={e => { setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
+                  onFocus={() => setShowPartyDropdown(true)}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, filteredParties.length - 1)); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setPartyHighlightIndex(i => Math.max(i - 1, 0)); }
+                    else if (e.key === 'Enter' && showPartyDropdown && partyHighlightIndex >= 0) { e.preventDefault(); const p = filteredParties[partyHighlightIndex]; if (p) { setForm({ ...form, partnerAccountId: p.id, party: p.name }); setPartySearch(p.name); } setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                    else if (e.key === 'Escape') { setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                  }}
+                  placeholder="Search or type party name"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                {showPartyDropdown && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredParties.map((p, i) => (
+                      <button key={p.id} type="button"
+                        onClick={() => { setForm({ ...form, partnerAccountId: p.id, party: p.name }); setPartySearch(p.name); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                        onMouseEnter={() => setPartyHighlightIndex(i)}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", partyHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                        {p.name}
+                      </button>
+                    ))}
+                    {partySearch && !filteredParties.some(p => p.name.toLowerCase() === partySearch.toLowerCase()) && (
+                      <button type="button"
+                        onClick={() => { setForm({ ...form, partnerAccountId: '', party: partySearch }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                        onMouseEnter={() => setPartyHighlightIndex(filteredParties.length)}
+                        className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", partyHighlightIndex === filteredParties.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                        + Create "{partySearch}"
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-end gap-2 pt-6">
                 <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>Cancel</Button>
                 <Button type="submit" size="sm">Save Transaction</Button>
@@ -688,25 +798,31 @@ export default function TransactionPage({ type, title, description }: Transactio
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 relative">
+                <div className="space-y-2 relative" ref={editCategoryRef}>
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Category</label>
                   <input
                     required
                     value={editForm.category}
-                    onChange={e => { setEditForm({ ...editForm, category: e.target.value }); setEditCategorySearch(e.target.value); setShowEditCategoryDropdown(true); }}
+                    onChange={e => { setEditForm({ ...editForm, category: e.target.value }); setEditCategorySearch(e.target.value); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(-1); }}
                     onFocus={() => setShowEditCategoryDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowEditCategoryDropdown(false), 200)}
+                    onKeyDown={e => {
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(i => Math.min(i + 1, filteredCategories.length - 1)); }
+                      else if (e.key === 'ArrowUp') { e.preventDefault(); setEditCatHighlightIndex(i => Math.max(i - 1, 0)); }
+                      else if (e.key === 'Enter' && showEditCategoryDropdown && editCatHighlightIndex >= 0) { e.preventDefault(); setEditForm({ ...editForm, category: filteredCategories[editCatHighlightIndex] }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }
+                      else if (e.key === 'Escape') { setShowEditCategoryDropdown(false); setEditCatHighlightIndex(-1); }
+                    }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
                     placeholder="Search or type new"
                   />
                   {showEditCategoryDropdown && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCategories.map((c: string) => (
+                      {filteredCategories.map((c, i) => (
                         <button
                           key={c}
                           type="button"
-                          onMouseDown={e => { e.preventDefault(); setEditForm({ ...editForm, category: c }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); }}
-                          className={cn("w-full px-4 py-2 text-left text-sm hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors", editForm.category === c && "bg-brand-secondary dark:bg-brand-muted/30 font-medium")}
+                          onClick={() => { setEditForm({ ...editForm, category: c }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }}
+                          onMouseEnter={() => setEditCatHighlightIndex(i)}
+                          className={cn("w-full px-4 py-2 text-left text-sm transition-colors", editCatHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", editForm.category === c && "font-medium")}
                         >
                           {c}
                         </button>
@@ -714,8 +830,9 @@ export default function TransactionPage({ type, title, description }: Transactio
                       {editCategorySearch && !filteredCategories.includes(editCategorySearch) && (
                         <button
                           type="button"
-                          onMouseDown={e => { e.preventDefault(); setEditForm({ ...editForm, category: editCategorySearch }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); }}
-                          className="w-full px-4 py-2 text-left text-sm text-brand font-medium hover:bg-brand-secondary dark:hover:bg-brand-muted/30"
+                          onClick={() => { setEditForm({ ...editForm, category: editCategorySearch }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }}
+                          onMouseEnter={() => setEditCatHighlightIndex(filteredCategories.length)}
+                          className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", editCatHighlightIndex === filteredCategories.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}
                         >
                           + Create "{editCategorySearch}"
                         </button>
@@ -733,6 +850,39 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Description</label>
                 <input value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+              </div>
+              <div className="space-y-2 relative">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
+                <input value={editForm.party} onChange={e => { setEditForm({ ...editForm, party: e.target.value, partnerAccountId: '' }); setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
+                  onFocus={() => setShowPartyDropdown(true)}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, filteredParties.length - 1)); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setPartyHighlightIndex(i => Math.max(i - 1, 0)); }
+                    else if (e.key === 'Enter' && showPartyDropdown && partyHighlightIndex >= 0) { e.preventDefault(); const p = filteredParties[partyHighlightIndex]; if (p) { setEditForm({ ...editForm, partnerAccountId: p.id, party: p.name }); } setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                    else if (e.key === 'Escape') { setShowPartyDropdown(false); setPartyHighlightIndex(-1); }
+                  }}
+                  placeholder="Search or type party name"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                {showPartyDropdown && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredParties.map((p, i) => (
+                      <button key={p.id} type="button"
+                        onClick={() => { setEditForm({ ...editForm, partnerAccountId: p.id, party: p.name }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                        onMouseEnter={() => setPartyHighlightIndex(i)}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", partyHighlightIndex === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                        {p.name}
+                      </button>
+                    ))}
+                    {editForm.party && !filteredParties.some(p => p.name.toLowerCase() === editForm.party.toLowerCase()) && (
+                      <button type="button"
+                        onClick={() => { setEditForm({ ...editForm, party: editForm.party }); setShowPartyDropdown(false); setPartyHighlightIndex(-1); }}
+                        onMouseEnter={() => setPartyHighlightIndex(filteredParties.length)}
+                        className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", partyHighlightIndex === filteredParties.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}>
+                        + Create "{editForm.party}"
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-end gap-2 pt-6">
                 <Button variant="ghost" size="sm" type="button" onClick={() => setEditingTransaction(null)}>Cancel</Button>

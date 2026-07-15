@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Plus, Repeat, Calendar, Play, Pause, Trash2 } from 'lucide-react';
@@ -21,8 +21,18 @@ export default function RecurringPage() {
 
   useEffect(() => { setItems(getRecurring()); }, []);
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) setShowCategoryDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const [catSearch, setCatSearch] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [catHighlightIdx, setCatHighlightIdx] = useState(-1);
+  const categoryRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     title: '', amount: '', category: '', txType: 'expense' as const, frequency: 'monthly' as const,
@@ -182,22 +192,29 @@ export default function RecurringPage() {
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="₹ 0" />
                 </div>
               </div>
-              <div className="space-y-2 relative">
+              <div className="space-y-2 relative" ref={categoryRef}>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Category</label>
-                <input required value={form.category} onChange={e => { setForm({ ...form, category: e.target.value }); setCatSearch(e.target.value); setShowCategoryDropdown(true); }}
+                <input required value={form.category} onChange={e => { setForm({ ...form, category: e.target.value }); setCatSearch(e.target.value); setShowCategoryDropdown(true); setCatHighlightIdx(-1); }}
                   onFocus={() => setShowCategoryDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowCategoryDropdown(false), 200)}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setShowCategoryDropdown(true); setCatHighlightIdx(i => Math.min(i + 1, filteredCategories.length - 1)); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); setCatHighlightIdx(i => Math.max(i - 1, 0)); }
+                    else if (e.key === 'Enter' && showCategoryDropdown && catHighlightIdx >= 0) { e.preventDefault(); setForm({ ...form, category: filteredCategories[catHighlightIdx] }); setShowCategoryDropdown(false); setCatHighlightIdx(-1); }
+                    else if (e.key === 'Escape') { setShowCategoryDropdown(false); setCatHighlightIdx(-1); }
+                  }}
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Select or type a category" />
                 {showCategoryDropdown && (
-                  <div className="absolute z-10 w-full bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 w-full bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
                     {filteredCategories.map((c, i) => (
-                      <button key={c} type="button" onMouseDown={() => { setForm({ ...form, category: c }); setShowCategoryDropdown(false); }}
-                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", form.category === c ? "bg-brand-secondary dark:bg-brand-muted/50 font-medium text-brand" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30 text-slate-700 dark:text-slate-300")}>
+                      <button key={c} type="button" onClick={() => { setForm({ ...form, category: c }); setShowCategoryDropdown(false); setCatHighlightIdx(-1); }}
+                        onMouseEnter={() => setCatHighlightIdx(i)}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", catHighlightIdx === i ? "bg-brand-secondary dark:bg-brand-muted/50" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", form.category === c && "text-brand font-medium")}>
                         {c}
                       </button>
                     ))}
                     {filteredCategories.length === 0 && (
-                      <button type="button" onMouseDown={() => { setForm({ ...form, category: catSearch }); setShowCategoryDropdown(false); }}
+                      <button type="button" onClick={() => { setForm({ ...form, category: catSearch }); setShowCategoryDropdown(false); setCatHighlightIdx(-1); }}
+                        onMouseEnter={() => setCatHighlightIdx(0)}
                         className="w-full px-4 py-2 text-left text-sm text-brand font-medium hover:bg-brand-secondary dark:hover:bg-brand-muted/50 transition-colors">
                         + Create "{catSearch}"
                       </button>
