@@ -68,7 +68,10 @@ export default function DashboardPage() {
   const [editingQuota, setEditingQuota] = useState<'expense' | 'invest' | null>(null);
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window !== 'undefined') return !sessionStorage.getItem('mm_welcome_seen');
+    return true;
+  });
   const [welcomeFading, setWelcomeFading] = useState(false);
 
   const refreshGoals = () => { setGoals(getGoals()); };
@@ -135,8 +138,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!showWelcome) return;
     const fadeTimer = setTimeout(() => setWelcomeFading(true), 5000);
-    const hideTimer = setTimeout(() => setShowWelcome(false), 6000);
+    const hideTimer = setTimeout(() => {
+      setShowWelcome(false);
+      sessionStorage.setItem('mm_welcome_seen', '1');
+    }, 6000);
     return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
   }, []);
 
