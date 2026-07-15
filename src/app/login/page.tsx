@@ -133,12 +133,14 @@ function LoginForm() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-secondary via-white to-purple-50 dark:from-brand-dark dark:via-[#2A2522] dark:to-brand-dark px-4">
       <div className="max-w-md w-full bg-white dark:bg-[#2A2522] rounded-2xl shadow-xl border border-slate-100 dark:border-brand-muted">
         <div className="relative flex items-center justify-center p-6 pb-0">
-          <Link href="/" className="absolute left-6 top-6 h-8 w-8 rounded-full border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-400 hover:text-brand hover:border-brand/30 transition-colors" title="Back to home">
+          <Link href="/" className="absolute left-1/2 -translate-x-1/2 top-6 h-8 w-8 rounded-full border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-400 hover:text-brand hover:border-brand/30 transition-colors" title="Back to home">
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div className="text-center space-y-2 pt-2">
-            <h1 className="text-4xl font-bold text-brand dark:text-brand-secondary">Money Meva</h1>
-            <p className="text-slate-500 dark:text-slate-400">Your minimalistic personal finance companion.</p>
+          <div className="text-center space-y-2 pt-12">
+            <div className="flex items-center justify-center gap-2">
+              <img src="/logo.png" alt="Money Meva" className="h-9 w-auto" />
+              <span className="font-bold text-lg text-slate-900 dark:text-slate-100">Money Meva</span>
+            </div>
           </div>
         </div>
 

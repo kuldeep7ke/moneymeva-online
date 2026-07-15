@@ -123,19 +123,19 @@ export default function HomePage() {
           {/* Left */}
           <div className="order-1 text-center lg:text-left pt-4 lg:pt-8">
             <Reveal>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 text-brand text-[13px] font-medium mb-6">
-                <span className="text-brand/40">✦</span> {t('landing.badge')}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 text-orange-600/90 border-2 border-orange-200 text-[13px] font-bold mb-6 shadow-md">
+                <img src="/logo.png" alt="" className="h-4 w-auto" /> <span className="text-slate-300">|</span> {t('landing.badge')}
               </div>
             </Reveal>
             <Reveal delay={100}>
-              <h1 className="text-[2.8rem] sm:text-5xl lg:text-[3.5rem] font-bold text-slate-900 leading-[1.08] tracking-tight">
+              <h1 className="text-[2.8rem] sm:text-5xl lg:text-[3.5rem] font-bold text-slate-900 leading-[1.2] tracking-tight">
                 {t('landing.hero.title1')}<br />
-                <em className="not-italic text-brand/60">{t('landing.hero.title2')}</em>{t('landing.hero.title3')}
+                <em className="not-italic text-brand">{t('landing.hero.title2')}</em>{t('landing.hero.title3')}
               </h1>
             </Reveal>
             <Reveal delay={200}>
               <p className="mt-5 text-[15px] text-slate-500 max-w-md mx-auto lg:mx-0 leading-relaxed">
-                {t('landing.hero.subtitle')}
+                {t('landing.hero.subtitle1')}<br />{t('landing.hero.subtitle2')}
               </p>
             </Reveal>
             <Reveal delay={300}>
