@@ -709,9 +709,75 @@ export default function DashboardPage() {
         </Reveal>
         )}
 
-        {/* Goals */}
+        {/* Tasks */}
         {!isLoading && (
         <Reveal delay={500}>
+        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tasks</h2>
+          </div>
+          {todos.length > 0 ? (
+          <div className="space-y-2">
+            {todos.slice(0, 5).map((t: any) => (
+              <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={cn("w-2 h-2 rounded-full shrink-0", t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-amber-500' : 'bg-slate-300')} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t.dueDate} {t.category && `· ${t.category}`}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {t.important && <span className="text-[10px] font-bold text-amber-500">★</span>}
+                  {t.amount ? <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(t.amount)}</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No tasks yet. Add tasks from the Savings page.</p>
+          )}
+        </div>
+        </Reveal>
+        )}
+
+        {/* Recurring */}
+        {!isLoading && (
+        <Reveal delay={550}>
+        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recurring</h2>
+            <button onClick={() => router.push('/dashboard/recurring')} className="text-xs text-brand hover:underline font-medium">
+              View All
+            </button>
+          </div>
+          {recurringList.length > 0 ? (
+          <div className="space-y-2">
+            {recurringList.slice(0, 5).map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={cn("p-1.5 rounded-full shrink-0", r.txType === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
+                    {r.txType === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Next: {r.nextDate} · {r.frequency}</p>
+                  </div>
+                </div>
+                <p className={cn("text-sm font-bold shrink-0", r.txType === 'income' ? 'text-green-600' : 'text-red-600')}>{formatCurrency(r.amount)}</p>
+              </div>
+            ))}
+          </div>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No recurring transactions yet.</p>
+          )}
+        </div>
+        </Reveal>
+        )}
+
+        {/* Goals */}
+        {!isLoading && (
+        <Reveal delay={600}>
         <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Goals</h2>
@@ -771,72 +837,6 @@ export default function DashboardPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No goals yet. Click + to create one.</p>
-          )}
-        </div>
-        </Reveal>
-        )}
-
-        {/* Tasks */}
-        {!isLoading && (
-        <Reveal delay={550}>
-        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tasks</h2>
-          </div>
-          {todos.length > 0 ? (
-          <div className="space-y-2">
-            {todos.slice(0, 5).map((t: any) => (
-              <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className={cn("w-2 h-2 rounded-full shrink-0", t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-amber-500' : 'bg-slate-300')} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.title}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{t.dueDate} {t.category && `· ${t.category}`}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {t.important && <span className="text-[10px] font-bold text-amber-500">★</span>}
-                  {t.amount ? <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(t.amount)}</span> : null}
-                </div>
-              </div>
-            ))}
-          </div>
-          ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No tasks yet. Add tasks from the Savings page.</p>
-          )}
-        </div>
-        </Reveal>
-        )}
-
-        {/* Recurring */}
-        {!isLoading && (
-        <Reveal delay={600}>
-        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recurring</h2>
-            <button onClick={() => router.push('/dashboard/recurring')} className="text-xs text-brand hover:underline font-medium">
-              View All
-            </button>
-          </div>
-          {recurringList.length > 0 ? (
-          <div className="space-y-2">
-            {recurringList.slice(0, 5).map((r: any) => (
-              <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className={cn("p-1.5 rounded-full shrink-0", r.txType === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
-                    {r.txType === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.title}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Next: {r.nextDate} · {r.frequency}</p>
-                  </div>
-                </div>
-                <p className={cn("text-sm font-bold shrink-0", r.txType === 'income' ? 'text-green-600' : 'text-red-600')}>{formatCurrency(r.amount)}</p>
-              </div>
-            ))}
-          </div>
-          ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No recurring transactions yet.</p>
           )}
         </div>
         </Reveal>
