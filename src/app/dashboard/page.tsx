@@ -8,7 +8,7 @@ import { formatCurrency, cn, useSortedCategories, getSortedCategories } from '@/
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
-import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady } from '@/lib/store';
+import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, getTodos } from '@/lib/store';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import { ReminderFrequency } from '@/types';
@@ -91,6 +91,8 @@ export default function DashboardPage() {
   const [showAddParty, setShowAddParty] = useState(false);
   const [partyForm, setPartyForm] = useState({ name: '', group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
   const [showCalculator, setShowCalculator] = useState(false);
+  const [todos, setTodos] = useState<any[]>([]);
+  const [recurringList, setRecurringList] = useState<any[]>([]);
 
   const refreshGoals = () => { setGoals(getGoals()); };
 
@@ -120,6 +122,8 @@ export default function DashboardPage() {
     setCarryFwd(getCarryForward());
     loadReminders();
     setGoals(getGoals());
+    setTodos(getTodos().filter((t: any) => t.status === 'pending' && !t.deletedAt));
+    setRecurringList(getRecurring().filter((r: any) => r.status === 'active' && !r.deletedAt));
     setPartnersList(getPartners());
     setPartnerInvest(getPartners().reduce((s, p) => s + (p.initialInvestment || 0), 0));
 
@@ -570,13 +574,146 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Loaded Content with Animation */}
-        {!isLoading && (monthlyData.length > 0 || reminders.length > 0) && (
+        {/* Goals */}
+        {!isLoading && (
         <Reveal delay={300}>
+        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Goals</h2>
+            <button onClick={() => {
+              setEditGoal({ _new: true });
+              setEditGoalForm({ name: '', target: '', saved: '' });
+            }} className="h-8 w-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center hover:bg-brand/20 transition-colors shrink-0" title="Add Goal">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+          {goals.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {goals.map(g => {
+                const pct = g.target > 0 ? Math.min(Math.round((g.saved / g.target) * 100), 100) : 0;
+                return (
+                  <div key={g.id} className="p-4 rounded-xl bg-slate-50 dark:bg-brand-muted/30 border border-slate-100 dark:border-brand-muted group">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{g.name}</span>
+                        <button onClick={() => {
+                          setEditGoal(g);
+                          setEditGoalForm({ name: g.name, target: String(g.target), saved: String(g.saved) });
+                        }} className="ml-2 opacity-0 group-hover:opacity-100 inline-flex text-xs text-brand hover:underline transition-opacity">
+                          Edit
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-brand">{pct}%</span>
+                        {confirmDeleteGoal === g.id ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => { deleteGoal(g.id); refreshGoals(); setConfirmDeleteGoal(null); setToast(`Goal deleted`); setTimeout(() => setToast(null), 3000); }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => setConfirmDeleteGoal(null)} className="p-1 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-brand-muted"><X className="h-3.5 w-3.5" /></button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteGoal(g.id)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="h-3.5 w-3.5" /></button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="h-2 bg-slate-200 dark:bg-brand-muted rounded-full overflow-hidden mb-2">
+                      <div className={cn("h-full rounded-full", pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-brand")} style={{ width: `${pct}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-3">
+                      <span>Saved: {formatCurrency(g.saved)}</span>
+                      <span>Target: {formatCurrency(g.target)}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setShowGoalTx({ goal: g, type: 'contribute' }); setGoalTxForm({ amount: '', account: 'cash' }); }} className="flex-1 text-xs py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors font-medium">
+                        + Contribute
+                      </button>
+                      <button onClick={() => { setShowGoalTx({ goal: g, type: 'withdraw' }); setGoalTxForm({ amount: '', account: 'cash' }); }} className="flex-1 text-xs py-1.5 rounded-lg border border-slate-200 dark:border-brand-muted hover:bg-slate-100 dark:hover:bg-brand-muted/50 transition-colors font-medium text-slate-600 dark:text-slate-400">
+                        - Withdraw
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No goals yet. Click + to create one.</p>
+          )}
+        </div>
+        </Reveal>
+        )}
+
+        {/* Tasks */}
+        {!isLoading && (
+        <Reveal delay={350}>
+        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tasks</h2>
+          </div>
+          {todos.length > 0 ? (
+          <div className="space-y-2">
+            {todos.slice(0, 5).map((t: any) => (
+              <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={cn("w-2 h-2 rounded-full shrink-0", t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-amber-500' : 'bg-slate-300')} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t.dueDate} {t.category && `· ${t.category}`}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {t.important && <span className="text-[10px] font-bold text-amber-500">★</span>}
+                  {t.amount ? <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(t.amount)}</span> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No tasks yet. Add tasks from the Savings page.</p>
+          )}
+        </div>
+        </Reveal>
+        )}
+
+        {/* Recurring */}
+        {!isLoading && (
+        <Reveal delay={400}>
+        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recurring</h2>
+            <button onClick={() => router.push('/dashboard/recurring')} className="text-xs text-brand hover:underline font-medium">
+              View All
+            </button>
+          </div>
+          {recurringList.length > 0 ? (
+          <div className="space-y-2">
+            {recurringList.slice(0, 5).map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={cn("p-1.5 rounded-full shrink-0", r.txType === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
+                    {r.txType === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Next: {r.nextDate} · {r.frequency}</p>
+                  </div>
+                </div>
+                <p className={cn("text-sm font-bold shrink-0", r.txType === 'income' ? 'text-green-600' : 'text-red-600')}>{formatCurrency(r.amount)}</p>
+              </div>
+            ))}
+          </div>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No recurring transactions yet.</p>
+          )}
+        </div>
+        </Reveal>
+        )}
+
+        {/* Cash Flow + Reminders */}
+        {!isLoading && (
+        <Reveal delay={450}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 ease-in-out">
-          {monthlyData.length > 0 && (
-          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500", reminders.length === 0 && "lg:col-span-3")}>
+          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500 lg:col-span-2")}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Cash Flow Analysis</h2>
+            {monthlyData.length > 0 ? (
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={monthlyData}>
@@ -593,12 +730,14 @@ export default function DashboardPage() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">No transaction data yet. Add income or expenses to see the chart.</p>
+            )}
           </div>
-          )}
 
-          {reminders.length > 0 && (
-          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm", monthlyData.length === 0 && "lg:col-span-3")}>
+          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Upcoming Reminders</h2>
+            {reminders.length > 0 ? (
             <div className="space-y-4">
               {reminders.map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
@@ -626,11 +765,13 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No upcoming reminders.</p>
+            )}
             <Button variant="ghost" className="w-full mt-6 text-brand dark:text-brand-secondary hover:text-brand dark:hover:text-brand-secondary hover:bg-brand-secondary dark:hover:bg-brand-muted/30" onClick={() => { setShowReminderModal(true); setShowAddReminder(false); }}>
               Manage Reminders
             </Button>
           </div>
-          )}
         </div>
         </Reveal>
         )}
@@ -731,19 +872,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Spending Breakdown + Recent Transactions */}
-        {isLoading && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <CardSkeleton />
-            <CardSkeleton className="lg:col-span-2" />
-          </div>
-        )}
-        {!isLoading && (pieData.length > 0 || recentTransactions.length > 0) && (
-        <Reveal delay={400}>
+        {/* Spending + Recent */}
+        {!isLoading && (
+        <Reveal delay={500}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 ease-in-out">
-          {pieData.length > 0 && (
-          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500", recentTransactions.length === 0 && "lg:col-span-3")}>
+          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Spending Breakdown</h2>
+            {pieData.length > 0 ? (
+            <>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -767,12 +903,15 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+            </>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No expenses yet. Add expenses to see the breakdown.</p>
+            )}
           </div>
-          )}
 
-          {recentTransactions.length > 0 && (
-          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm", pieData.length === 0 && "lg:col-span-3")}>
+          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm lg:col-span-2")}>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Recent Transactions</h2>
+            {recentTransactions.length > 0 ? (
             <div className="space-y-2">
               {recentTransactions.map((t: any) => (
                 <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
@@ -791,74 +930,10 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No transactions yet.</p>
+            )}
           </div>
-          )}
-        </div>
-        </Reveal>
-        )}
-
-        {/* Goals */}
-        {isLoading && (
-          <CardSkeleton />
-        )}
-        {!isLoading && goals.length > 0 && (
-        <Reveal delay={500}>
-        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Goals</h2>
-            <button onClick={() => {
-              setEditGoal({ _new: true });
-              setEditGoalForm({ name: '', target: '', saved: '' });
-            }} className="h-8 w-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center hover:bg-brand/20 transition-colors shrink-0" title="Add Goal">
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {goals.map(g => {
-                const pct = g.target > 0 ? Math.min(Math.round((g.saved / g.target) * 100), 100) : 0;
-                return (
-                  <div key={g.id} className="p-4 rounded-xl bg-slate-50 dark:bg-brand-muted/30 border border-slate-100 dark:border-brand-muted group">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium text-slate-900 dark:text-slate-100">{g.name}</span>
-                        <button onClick={() => {
-                          setEditGoal(g);
-                          setEditGoalForm({ name: g.name, target: String(g.target), saved: String(g.saved) });
-                        }} className="ml-2 opacity-0 group-hover:opacity-100 inline-flex text-xs text-brand hover:underline transition-opacity">
-                          Edit
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-bold text-brand">{pct}%</span>
-                        {confirmDeleteGoal === g.id ? (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => { deleteGoal(g.id); refreshGoals(); setConfirmDeleteGoal(null); setToast(`Goal deleted`); setTimeout(() => setToast(null), 3000); }} className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => setConfirmDeleteGoal(null)} className="p-1 rounded text-slate-400 hover:bg-slate-100 dark:hover:bg-brand-muted"><X className="h-3.5 w-3.5" /></button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setConfirmDeleteGoal(g.id)} className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="h-3.5 w-3.5" /></button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="h-2 bg-slate-200 dark:bg-brand-muted rounded-full overflow-hidden mb-2">
-                      <div className={cn("h-full rounded-full", pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-brand")} style={{ width: `${pct}%` }}></div>
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-3">
-                      <span>Saved: {formatCurrency(g.saved)}</span>
-                      <span>Target: {formatCurrency(g.target)}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => { setShowGoalTx({ goal: g, type: 'contribute' }); setGoalTxForm({ amount: '', account: 'cash' }); }} className="flex-1 text-xs py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors font-medium">
-                        + Contribute
-                      </button>
-                      <button onClick={() => { setShowGoalTx({ goal: g, type: 'withdraw' }); setGoalTxForm({ amount: '', account: 'cash' }); }} className="flex-1 text-xs py-1.5 rounded-lg border border-slate-200 dark:border-brand-muted hover:bg-slate-100 dark:hover:bg-brand-muted/50 transition-colors font-medium text-slate-600 dark:text-slate-400">
-                        - Withdraw
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
         </div>
         </Reveal>
         )}
