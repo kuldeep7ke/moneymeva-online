@@ -231,7 +231,7 @@ export default function SettingsPage() {
         setSyncConnected(true);
         setSyncFailCount(0);
         dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
-        const written = await pushAllToPouch();
+        await pushAllToPouch();
         const { ok: synced, pushed, pulled } = await manualSync();
         if (synced) {
           await processRemoteChanges();
@@ -269,7 +269,7 @@ export default function SettingsPage() {
     dispatchSyncEvent({ status: 'started', message: 'Manual sync started…' });
     try {
       dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
-      const written = await pushAllToPouch();
+      await pushAllToPouch();
       dispatchSyncEvent({ status: 'pushing', message: 'Pulling remote changes…' });
       const { ok, pushed, pulled } = await manualSync();
       if (ok) {

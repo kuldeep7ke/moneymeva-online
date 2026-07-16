@@ -154,12 +154,9 @@ export async function initDB() {
   setInterval(async () => {
     if (!connected()) return;
     dispatchSyncEvent({ status: 'started', message: 'Auto-sync started…' });
-    let pushed = 0;
-    let pulled = 0;
     try {
-      dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
-      pushed = await pushAllToPouch();
-      dispatchSyncEvent({ status: 'pushing', message: `Pushing complete (${pushed} item(s))` });
+      dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data…' });
+      await pushAllToPouch();
       dispatchSyncEvent({ status: 'pushing', message: 'Pulling remote changes…' });
       const { ok, pushed: actualPushed, pulled: actualPulled } = await manualSync();
       if (ok) {

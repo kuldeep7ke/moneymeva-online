@@ -477,7 +477,7 @@ export default function DashboardPage() {
                 </div>
               )}
               
-              {card.title === 'Partners' && (
+              {card.key === 'partners' && (
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{partnersList.length} partner{partnersList.length !== 1 ? 's' : ''}</p>
               )}
             </div>
