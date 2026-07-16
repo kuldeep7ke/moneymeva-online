@@ -30,6 +30,22 @@ function saveConfig(url: string) {
   localStorage.setItem(LS_URL, url);
 }
 
+const LS_URLS_HISTORY = 'mm_pouch_urls';
+
+export function getSyncUrlHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(LS_URLS_HISTORY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveSyncUrlHistory(url: string) {
+  const list = getSyncUrlHistory().filter(u => u !== url);
+  list.unshift(url);
+  const kept = list.slice(0, 5);
+  localStorage.setItem(LS_URLS_HISTORY, JSON.stringify(kept));
+}
+
 export function connected(): boolean { return !!(localDB && remoteDB); }
 
 export function onRemoteChange(fn: () => void) {
@@ -39,6 +55,29 @@ export function onRemoteChange(fn: () => void) {
 
 function notifyChange() {
   changeListeners.forEach(fn => fn());
+}
+
+function parseCouchUrl(url: string): { cleanUrl: string; auth?: { username: string; password: string } } {
+  try {
+    const u = new URL(url);
+    const user = u.username;
+    const pass = u.password;
+    u.username = '';
+    u.password = '';
+    const cleanUrl = u.toString();
+    if (user) {
+      return { cleanUrl, auth: { username: decodeURIComponent(user), password: decodeURIComponent(pass) } };
+    }
+    return { cleanUrl };
+  } catch {
+    return { cleanUrl: url };
+  }
+}
+
+function createRemote(Pouch: any, url: string, auth?: { username: string; password: string }) {
+  const opts: any = { skip_setup: true };
+  if (auth) opts.auth = auth;
+  return new Pouch(url, opts);
 }
 
 export async function initPouchDB() {
@@ -57,7 +96,8 @@ function startReconnectTimer(url: string) {
     const Pouch = await ensurePouch();
     if (!Pouch || !localDB) return;
     try {
-      const rd = new Pouch(url, { skip_setup: true });
+      const { cleanUrl, auth } = parseCouchUrl(url);
+      const rd = createRemote(Pouch, cleanUrl, auth);
       await rd.info();
       remoteDB = rd;
       syncHandler = localDB.sync(rd, { live: true, retry: true });
@@ -80,7 +120,8 @@ export async function connectRemote(url: string) {
   if (!localDB) return false;
   try {
     const Pouch = await ensurePouch();
-    remoteDB = new Pouch(url, { skip_setup: true });
+    const { cleanUrl, auth } = parseCouchUrl(url);
+    remoteDB = createRemote(Pouch, cleanUrl, auth);
     await remoteDB.info();
     saveConfig(url);
     return true;

@@ -21,7 +21,7 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync, getSyncUrlHistory, saveSyncUrlHistory } from '@/lib/pouchdb';
 import { dispatchSyncEvent } from '@/lib/sync-notify';
 
 export default function SettingsPage() {
@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [syncError, setSyncError] = useState('');
   const [syncFailCount, setSyncFailCount] = useState(0);
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
+  const [syncUrlHistory, setSyncUrlHistory] = useState<string[]>([]);
 
   useEffect(() => {
     const existingPins = hasPins();
@@ -81,6 +82,7 @@ export default function SettingsPage() {
         setSyncStatus(ok ? 'connected' : 'idle');
       });
     }
+    setSyncUrlHistory(getSyncUrlHistory());
   }, []);
 
   const [captchaA, setCaptchaA] = useState(0);
@@ -224,6 +226,8 @@ export default function SettingsPage() {
     try {
       const ok = await connectRemote(syncUrl.trim());
       if (ok) {
+        saveSyncUrlHistory(syncUrl.trim());
+        setSyncUrlHistory(getSyncUrlHistory());
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
@@ -385,6 +389,25 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {/* Saved URLs */}
+                {syncUrlHistory.length > 0 && syncStatus !== 'connected' && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 font-medium">Saved URLs</p>
+                    <div className="space-y-0.5">
+                      {syncUrlHistory.map((u, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-slate-500 dark:text-slate-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 truncate border border-transparent hover:border-sky-200 dark:hover:border-sky-800 transition-colors"
+                          onClick={() => { setSyncUrl(u); setSyncError(''); }}
+                        >
+                          {u}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Action buttons */}
                 <div className="flex flex-wrap items-center gap-2">
                   {syncStatus === 'connected' ? (
@@ -408,6 +431,19 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+        </Reveal>
+
+        {/* Sync Security Warning */}
+        <Reveal delay={300}>
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Security Warning — Read Carefully</span>
+            </div>
+            <p className="text-xs text-amber-600 dark:text-amber-500 leading-relaxed">
+              Your sync link acts as a key to your personal financial data. Anyone with access to this link can read, modify, or delete your data from the remote server. <strong>Never share this link</strong> directly or indirectly with anyone. Keep it private and treat it like a password. This feature is provided for your convenience — misuse or exposure of the link is entirely your responsibility.
+            </p>
+          </div>
         </Reveal>
 
         {/* CSV Import / Export */}

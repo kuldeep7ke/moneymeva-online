@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Shield, ArrowLeft, Lock, Eye, Database, Trash2, Mail } from 'lucide-react';
+import { Shield, ArrowLeft, Lock, Eye, Database, Trash2, Mail, Cloud, AlertTriangle } from 'lucide-react';
 
 export default function PrivacyPage() {
   return (
@@ -78,6 +78,25 @@ export default function PrivacyPage() {
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
               Money Meva does not integrate with any third-party analytics, advertising, or tracking services. We do not use Google Analytics, Facebook Pixel, or similar tools.
             </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Cloud className="h-5 w-5 text-amber-500" /> <AlertTriangle className="h-4 w-4 text-amber-500" /> Multi-Device Sync &amp; Your Data
+            </h2>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-2">
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
+                When you use the optional multi-device sync feature, your encrypted data is transmitted to and stored on a remote CouchDB server that you specify. This means:
+              </p>
+              <ul className="list-disc list-inside text-slate-600 dark:text-slate-400 space-y-2 ml-4 text-sm">
+                <li>Your data is <strong>no longer local only</strong> — it resides on the remote server you provide.</li>
+                <li>The sync URL you provide is the <strong>only authentication mechanism</strong> protecting your data on that server.</li>
+                <li>Anyone who obtains this URL can <strong>access your complete financial data</strong> stored on the remote server.</li>
+                <li>The security of your data on the remote server depends entirely on that server&apos;s security measures, which are beyond our control.</li>
+                <li>You should only use CouchDB servers that you <strong>trust and manage</strong> yourself.</li>
+                <li>Neither your data nor the sync URL is <strong>ever collected, stored, or known</strong> by Money Meva or its developers.</li>
+              </ul>
+            </div>
           </section>
 
           <section className="space-y-3">

@@ -2,7 +2,7 @@
 
 import DashboardLayout from '@/components/DashboardLayout';
 import Reveal from '@/components/Reveal';
-import { FileText, ArrowLeft, CheckCircle, AlertTriangle, XCircle, Mail } from 'lucide-react';
+import { FileText, ArrowLeft, CheckCircle, AlertTriangle, XCircle, Mail, Cloud } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TermsPage() {
@@ -84,6 +84,25 @@ export default function TermsPage() {
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
               All content, design, and code within Money Meva are protected by intellectual property laws. You may not reproduce, distribute, or create derivative works without explicit permission.
             </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Cloud className="h-5 w-5 text-amber-500" /> Multi-Device Sync Warning
+            </h2>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-2">
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
+                Money Meva offers an optional multi-device sync feature via CouchDB. By using this feature, you acknowledge and agree that:
+              </p>
+              <ul className="list-disc list-inside text-slate-600 dark:text-slate-400 space-y-2 ml-4 text-sm">
+                <li>The sync URL/link you provide acts as a <strong>key to your personal financial data</strong> stored on the remote server.</li>
+                <li>Anyone with access to this link can <strong>read, modify, or delete</strong> your financial data.</li>
+                <li>You are <strong>solely responsible</strong> for keeping this link private and secure.</li>
+                <li>You must <strong>never share</strong> the link directly or indirectly with anyone.</li>
+                <li>The developers of Money Meva <strong>are not liable</strong> for any data breach, loss, or unauthorized access resulting from the exposure or misuse of your sync link.</li>
+                <li>This feature is provided for user convenience only — use it at your own risk.</li>
+              </ul>
+            </div>
           </section>
 
           <section className="space-y-3">
