@@ -311,12 +311,12 @@ export default function DashboardPage() {
     .slice(0, 6);
 
   const summaryCards = [
-    { title: t('dashboard.available'), amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
-    { title: t('dashboard.balance'), amount: aggregates.cashBankBalance, icon: PiggyBank, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { title: t('dashboard.totalIncome'), amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50', addPath: '/dashboard/income' },
-    { title: t('dashboard.totalExpenses'), amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50', addPath: '/dashboard/expenses' },
-    { title: t('dashboard.investments'), amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary', addPath: '/dashboard/investments' },
-    { title: t('dashboard.partners'), amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50', addPath: '/dashboard/partners' },
+    { key: 'available', title: t('dashboard.available'), amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
+    { key: 'balance', title: t('dashboard.balance'), amount: aggregates.cashBankBalance, icon: PiggyBank, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+    { key: 'income', title: t('dashboard.totalIncome'), amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50', addPath: '/dashboard/income' },
+    { key: 'expenses', title: t('dashboard.totalExpenses'), amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50', addPath: '/dashboard/expenses' },
+    { key: 'investments', title: t('dashboard.investments'), amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary', addPath: '/dashboard/investments' },
+    { key: 'partners', title: t('dashboard.partners'), amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50', addPath: '/dashboard/partners' },
   ];
 
   return (
@@ -372,9 +372,9 @@ export default function DashboardPage() {
         <Reveal delay={100}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {summaryCards.map((card) => {
-            const isExpense = card.title === 'Total Expenses';
-            const isInvest = card.title === 'Investments';
-            const isTotalBalance = card.title === 'Total Balance';
+            const isExpense = card.key === 'expenses';
+            const isInvest = card.key === 'investments';
+            const isTotalBalance = card.key === 'balance';
             const quota = isExpense ? expenseQuota : isInvest ? investQuota : null;
             const limit = quota != null ? Math.round(aggregates.income * quota / 100) : 0;
             const spent = isExpense ? aggregates.expense : isInvest ? aggregates.investment : 0;
