@@ -160,7 +160,9 @@ t('tx.add', { title: 'खर्च' }) // "खर्च — नवीन"
 ### Dashboard (`/dashboard`)
 - Summary cards with animated counters
 - 6-month cash flow AreaChart, spending PieChart
-- Balance carry-forward, goals, reminders, sync card
+- Balance carry-forward, sync card
+- Goals, Tasks, Recurring cards — always visible with empty-state placeholders
+- Upcoming Reminders card
 
 ### Income / Expenses / Investments (`/dashboard/{type}`)
 - Shared `TransactionPage` component
