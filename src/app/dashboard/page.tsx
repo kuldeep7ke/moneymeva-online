@@ -574,9 +574,144 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Goals */}
+        {/* Cash Flow + Reminders */}
         {!isLoading && (
         <Reveal delay={300}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 ease-in-out">
+          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500 lg:col-span-2")}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Cash Flow Analysis</h2>
+            {monthlyData.length > 0 ? (
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData}>
+                  <defs>
+                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/><stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/></linearGradient>
+                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v) => `₹${v/1000}k`} />
+                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                  <Area type="monotone" dataKey="income" stroke="#4f46e5" fillOpacity={1} fill="url(#colorIncome)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="expense" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">No transaction data yet. Add income or expenses to see the chart.</p>
+            )}
+          </div>
+
+          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Upcoming Reminders</h2>
+            {reminders.length > 0 ? (
+            <div className="space-y-4">
+              {reminders.map((r: any) => (
+                <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={cn("p-1.5 rounded-full shrink-0", r._type === 'recurring' ? 'bg-brand-secondary dark:bg-brand-muted/30' : 'bg-amber-50 dark:bg-amber-900/30')}>
+                      {r._type === 'recurring' ? <Repeat className="h-3 w-3 text-brand" /> : <Bell className="h-3 w-3 text-amber-500" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {r._type === 'recurring'
+                          ? r._diffDays === 0 ? 'Due today' : `In ${r._diffDays} day${r._diffDays > 1 ? 's' : ''}`
+                          : `Due: ${r.dueDate}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(r.amount)}</p>
+                    {r._type === 'reminder' && (
+                      <button onClick={() => handleDone(r.id)} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark done">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No upcoming reminders.</p>
+            )}
+            <Button variant="ghost" className="w-full mt-6 text-brand dark:text-brand-secondary hover:text-brand dark:hover:text-brand-secondary hover:bg-brand-secondary dark:hover:bg-brand-muted/30" onClick={() => { setShowReminderModal(true); setShowAddReminder(false); }}>
+              Manage Reminders
+            </Button>
+          </div>
+        </div>
+        </Reveal>
+        )}
+
+        {/* Spending + Recent */}
+        {!isLoading && (
+        <Reveal delay={400}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 ease-in-out">
+          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Spending Breakdown</h2>
+            {pieData.length > 0 ? (
+            <>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={3} dataKey="value">
+                    {pieData.map((entry, i) => (
+                      <Cell key={i} fill={CATEGORY_COLORS[entry.name] || '#CBD5E1'} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} formatter={(v: any) => formatCurrency(Number(v) || 0)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-2 mt-4">
+              {pieData.map((item, i) => (
+                <div key={item.name} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[item.name] || '#CBD5E1' }} />
+                    <span className="text-slate-600 dark:text-slate-400">{item.name}</span>
+                  </div>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{formatCurrency(item.value)}</span>
+                </div>
+              ))}
+            </div>
+            </>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No expenses yet. Add expenses to see the breakdown.</p>
+            )}
+          </div>
+
+          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm lg:col-span-2")}>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Recent Transactions</h2>
+            {recentTransactions.length > 0 ? (
+            <div className="space-y-2">
+              {recentTransactions.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={cn("p-1.5 rounded-full shrink-0", t.type === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
+                      {t.type === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">{t.date} {t.category !== 'Other' && `· ${t.category}`}</p>
+                    </div>
+                  </div>
+                  <p className={cn("text-sm font-bold shrink-0", t.type === 'income' ? 'text-green-600' : 'text-red-600')}>
+                    {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                  </p>
+                </div>
+              ))}
+            </div>
+            ) : (
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No transactions yet.</p>
+            )}
+          </div>
+        </div>
+        </Reveal>
+        )}
+
+        {/* Goals */}
+        {!isLoading && (
+        <Reveal delay={500}>
         <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Goals</h2>
@@ -643,7 +778,7 @@ export default function DashboardPage() {
 
         {/* Tasks */}
         {!isLoading && (
-        <Reveal delay={350}>
+        <Reveal delay={550}>
         <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tasks</h2>
@@ -675,7 +810,7 @@ export default function DashboardPage() {
 
         {/* Recurring */}
         {!isLoading && (
-        <Reveal delay={400}>
+        <Reveal delay={600}>
         <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recurring</h2>
@@ -703,75 +838,6 @@ export default function DashboardPage() {
           ) : (
             <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No recurring transactions yet.</p>
           )}
-        </div>
-        </Reveal>
-        )}
-
-        {/* Cash Flow + Reminders */}
-        {!isLoading && (
-        <Reveal delay={450}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 ease-in-out">
-          <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500 lg:col-span-2")}>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Cash Flow Analysis</h2>
-            {monthlyData.length > 0 ? (
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyData}>
-                  <defs>
-                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/><stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/></linearGradient>
-                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(v) => `₹${v/1000}k`} />
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                  <Area type="monotone" dataKey="income" stroke="#4f46e5" fillOpacity={1} fill="url(#colorIncome)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="expense" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">No transaction data yet. Add income or expenses to see the chart.</p>
-            )}
-          </div>
-
-          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Upcoming Reminders</h2>
-            {reminders.length > 0 ? (
-            <div className="space-y-4">
-              {reminders.map((r: any) => (
-                <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={cn("p-1.5 rounded-full shrink-0", r._type === 'recurring' ? 'bg-brand-secondary dark:bg-brand-muted/30' : 'bg-amber-50 dark:bg-amber-900/30')}>
-                      {r._type === 'recurring' ? <Repeat className="h-3 w-3 text-brand" /> : <Bell className="h-3 w-3 text-amber-500" />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.title}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {r._type === 'recurring'
-                          ? r._diffDays === 0 ? 'Due today' : `In ${r._diffDays} day${r._diffDays > 1 ? 's' : ''}`
-                          : `Due: ${r.dueDate}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(r.amount)}</p>
-                    {r._type === 'reminder' && (
-                      <button onClick={() => handleDone(r.id)} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark done">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No upcoming reminders.</p>
-            )}
-            <Button variant="ghost" className="w-full mt-6 text-brand dark:text-brand-secondary hover:text-brand dark:hover:text-brand-secondary hover:bg-brand-secondary dark:hover:bg-brand-muted/30" onClick={() => { setShowReminderModal(true); setShowAddReminder(false); }}>
-              Manage Reminders
-            </Button>
-          </div>
         </div>
         </Reveal>
         )}
