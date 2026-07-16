@@ -604,17 +604,15 @@ export default function DashboardPage() {
             {recentTransactions.length > 0 ? (
             <div className="space-y-2">
               {recentTransactions.map((t: any) => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={cn("p-1.5 rounded-full shrink-0", t.type === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
-                      {t.type === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">{t.date} {t.category !== 'Other' && `· ${t.category}`}</p>
-                    </div>
+                <div key={t.id} className="flex items-center p-3 gap-3 rounded-xl hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
+                  <div className={cn("p-1.5 rounded-full shrink-0", t.type === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
+                    {t.type === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
                   </div>
-                  <p className={cn("text-sm font-bold shrink-0", t.type === 'income' ? 'text-green-600' : 'text-red-600')}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{(() => { const d = t.description || t.category; return d.length > 21 ? d.slice(0, 21) + '...' : d; })()}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{t.date} {t.category !== 'Other' && `· ${t.category}`}</p>
+                  </div>
+                  <p className={cn("text-sm font-bold shrink-0 whitespace-nowrap ml-auto", t.type === 'income' ? 'text-green-600' : 'text-red-600')}>
                     {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                   </p>
                 </div>
