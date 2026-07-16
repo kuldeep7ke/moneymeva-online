@@ -80,7 +80,7 @@ const ENTITY_PREFIXES: Record<string, EntityType> = {
 };
 
 function createRemote(Pouch: any, url: string, auth?: { username: string; password: string }) {
-  const opts: any = { skip_setup: true };
+  const opts: any = { skip_setup: false };
   if (auth) opts.auth = auth;
   return new Pouch(url, opts);
 }
