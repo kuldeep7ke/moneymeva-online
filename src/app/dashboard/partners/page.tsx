@@ -196,16 +196,16 @@ export default function PartnersPage() {
             {/* Group Tabs */}
             <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap mb-6">
               {[
-                { key: 'all', label: 'All', count: partners.length },
-                { key: 'vendor', label: 'Vendors', count: partners.filter(p => p.group === 'vendor').length },
-                { key: 'customer', label: 'Customers', count: partners.filter(p => p.group === 'customer').length },
-                { key: 'contact', label: 'Contacts', count: partners.filter(p => p.group === 'contact').length },
+                { key: 'all', label: 'All' },
+                { key: 'vendor', label: 'Vendors' },
+                { key: 'customer', label: 'Customers' },
+                { key: 'contact', label: 'Contacts' },
               ].map(g => (
                 <button key={g.key} onClick={() => setActiveGroup(g.key as any)}
                   className={cn("px-3 py-2 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-colors",
                     activeGroup === g.key ? "bg-brand text-white shadow-sm" : "bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   )}>
-                  {g.label} ({g.count})
+                  {g.label}
                 </button>
               ))}
             </div>
@@ -237,8 +237,6 @@ export default function PartnersPage() {
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{partner.name}</h3>
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                       <span className="capitalize px-2 py-0.5 bg-slate-100 dark:bg-brand-muted rounded-full text-xs font-medium">{partner.type}</span>
-                      <span>•</span>
-                      <span>{partner.budgetWindowStart || 'Start'} - {partner.budgetWindowEnd || 'End'}</span>
                     </div>
                   </div>
                 </div>

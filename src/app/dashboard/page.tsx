@@ -62,6 +62,8 @@ export default function DashboardPage() {
   const [editGoal, setEditGoal] = useState<any | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: '', target: '', saved: '' });
   const [confirmDeleteGoal, setConfirmDeleteGoal] = useState<string | null>(null);
+  const [showGoalTx, setShowGoalTx] = useState<{ goal: any; type: 'contribute' | 'withdraw' } | null>(null);
+  const [goalTxForm, setGoalTxForm] = useState({ amount: '', account: 'cash' as 'cash' | 'bank' | 'upi' });
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [addMoneyAmount, setAddMoneyAmount] = useState('');
   const [addMoneyDest, setAddMoneyDest] = useState('cash');
@@ -846,32 +848,10 @@ export default function DashboardPage() {
                       <span>Target: {formatCurrency(g.target)}</span>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => {
-                        const amt = prompt('Contribute amount (₹):');
-                        if (amt && Number(amt) > 0) {
-                          addTransaction({ amount: Number(amt), type: 'saving', category: g.name, description: `Contribute to ${g.name}`, date: new Date().toISOString().split('T')[0], partnerAccountId: undefined, isRecurring: false });
-                          updateGoal(g.id, { saved: g.saved + Number(amt) });
-                          refreshGoals();
-                          setAggregates(getAggregates());
-                          setToast(`₹${Number(amt).toLocaleString()} contributed to "${g.name}"`);
-                          setTimeout(() => setToast(null), 3000);
-                        }
-                      }} className="flex-1 text-xs py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors font-medium">
+                      <button onClick={() => { setShowGoalTx({ goal: g, type: 'contribute' }); setGoalTxForm({ amount: '', account: 'cash' }); }} className="flex-1 text-xs py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark transition-colors font-medium">
                         + Contribute
                       </button>
-                      <button onClick={() => {
-                        const amt = prompt('Withdraw amount (₹):');
-                        if (amt && Number(amt) > 0 && Number(amt) <= g.saved) {
-                          addTransaction({ amount: Number(amt), type: 'income', category: 'Savings Withdrawal', description: `Withdraw from ${g.name}`, date: new Date().toISOString().split('T')[0], partnerAccountId: undefined, isRecurring: false });
-                          updateGoal(g.id, { saved: g.saved - Number(amt) });
-                          refreshGoals();
-                          setAggregates(getAggregates());
-                          setToast(`₹${Number(amt).toLocaleString()} withdrawn from "${g.name}"`);
-                          setTimeout(() => setToast(null), 3000);
-                        } else if (amt) {
-                          alert('Amount exceeds saved balance');
-                        }
-                      }} className="flex-1 text-xs py-1.5 rounded-lg border border-slate-200 dark:border-brand-muted hover:bg-slate-100 dark:hover:bg-brand-muted/50 transition-colors font-medium text-slate-600 dark:text-slate-400">
+                      <button onClick={() => { setShowGoalTx({ goal: g, type: 'withdraw' }); setGoalTxForm({ amount: '', account: 'cash' }); }} className="flex-1 text-xs py-1.5 rounded-lg border border-slate-200 dark:border-brand-muted hover:bg-slate-100 dark:hover:bg-brand-muted/50 transition-colors font-medium text-slate-600 dark:text-slate-400">
                         - Withdraw
                       </button>
                     </div>
@@ -1037,6 +1017,55 @@ export default function DashboardPage() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setEditGoal(null)}>Cancel</Button>
                 <Button type="submit" size="sm">{editGoal._new ? 'Create Goal' : 'Save Changes'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Goal Transaction Modal */}
+      {showGoalTx && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowGoalTx(null)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
+              {showGoalTx.type === 'contribute' ? 'Contribute' : 'Withdraw'}
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
+              {showGoalTx.type === 'contribute' ? `Add money to "${showGoalTx.goal.name}"` : `Take money from "${showGoalTx.goal.name}"`}
+              {showGoalTx.type === 'withdraw' && <span className="block text-xs mt-1 text-amber-600">Saved: ₹{Number(showGoalTx.goal.saved).toLocaleString()}</span>}
+            </p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const g = showGoalTx.goal;
+              const amt = Number(goalTxForm.amount);
+              if (!amt || amt <= 0) return;
+              if (showGoalTx.type === 'withdraw' && amt > g.saved) { setToast(`Amount exceeds saved balance`); setTimeout(() => setToast(null), 3000); return; }
+              const isContribute = showGoalTx.type === 'contribute';
+              addTransaction({ amount: amt, type: isContribute ? 'saving' : 'income', category: isContribute ? g.name : 'Savings Withdrawal', description: isContribute ? `Contribute to ${g.name}` : `Withdraw from ${g.name}`, date: new Date().toISOString().split('T')[0], partnerAccountId: undefined, account: goalTxForm.account, isRecurring: false });
+              updateGoal(g.id, { saved: g.saved + (isContribute ? amt : -amt) });
+              refreshGoals();
+              setAggregates(getAggregates());
+              setShowGoalTx(null);
+              setToast(`₹${amt.toLocaleString()} ${isContribute ? 'contributed to' : 'withdrawn from'} "${g.name}"`);
+              setTimeout(() => setToast(null), 3000);
+            }} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Amount (₹)</label>
+                <input required type="number" min="0" step="0.01" value={goalTxForm.amount} onChange={e => setGoalTxForm({ ...goalTxForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="0" autoFocus />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Account</label>
+                <select value={goalTxForm.account} onChange={e => setGoalTxForm({ ...goalTxForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                  <option value="upi">UPI</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowGoalTx(null)} type="button">Cancel</Button>
+                <Button type="submit" size="sm">{showGoalTx.type === 'contribute' ? 'Contribute' : 'Withdraw'}</Button>
               </div>
             </form>
           </div>
