@@ -299,7 +299,7 @@ src/app/
 ├── auth/callback/page.tsx  # Auth callback (legacy, kept for compatibility)
 │
 └── dashboard/
-    ├── page.tsx            # Dashboard: summary cards, charts, recent txns, goals, reminders
+    ├── page.tsx            # Dashboard: summary cards, charts, recent txns, 2-col Tasks+Recurring grid, goals
     ├── layout.tsx          # DashboardLayout wrapper (see below)
     ├── income/page.tsx     # Income CRUD (wraps TransactionPage)
     ├── expenses/page.tsx   # Expenses CRUD (wraps TransactionPage)
@@ -308,10 +308,7 @@ src/app/
     ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal
     ├── accounts/page.tsx   # Account overview
     ├── adjustments/page.tsx# Balance corrections
-    ├── recurring/page.tsx  # Recurring transactions management + "Advance" button
-    ├── budgets/page.tsx    # Category budgets with overrun warnings
-    ├── reminders/page.tsx  # Reminders with "Mark as Paid" (creates expense + reschedules)
-    ├── todos/page.tsx      # Todo list with priorities, categories, importance flag
+    ├── recurring/page.tsx  # Recurring transactions management + tabs (Income/Expense/Investment/Notifications/History)
     ├── ledger/page.tsx     # Audit log — mutation history with filters, CSV export
     ├── summary/page.tsx    # Charts: cash flow, spending breakdown, month-by-month
     ├── archive/page.tsx    # Soft-deleted items: restore, permanent delete, empty all
@@ -631,14 +628,22 @@ DashboardPage mounts
     → getMonthlySummary() → chart data
     → getCarryForward() → rollover balance
     → getGoals() → progress bars
-    → getReminders() + getRecurring() → upcoming
+    → getTodos() → pending todos (2-col card)
+    → getRecurring() → active recurring (2-col card)
     → getAllNotifications() → notification panel
+  → Action buttons open modals (type/amount/account/date) before writing to ledger
   → All reads are from in-memory cache (instant)
 ```
 
 ---
 
 ## 19. Key Implementation Details
+
+### Dashboard Card Action Modals
+Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writing to the ledger:
+- **Task modal**: User selects income/expense type, fills amount, account, date, description → "Save & Complete" creates transaction + marks todo done
+- **Recurring modal**: Pre-filled with recurring data (type, amount, date, description) — user confirms/modifies → "Save & Advance" creates transaction + advances nextDate
+- Both modals use the same pattern: `addTransaction()` → entity action (`completeTodo()` / `advanceRecurring()`) → `refreshDashboard()`
 
 ### Recurring Transaction Advancement
 `advanceRecurring(id)`:
@@ -680,7 +685,7 @@ DashboardPage mounts
 
 ## 20. Version File
 
-`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v6.1.0.0`).
+`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.0.10`).
 
 The build number (4th component) is incremented on each `npm run build` via the `prebuild` script. On CI, this bumps locally in the runner; the repo isn't modified.
 
