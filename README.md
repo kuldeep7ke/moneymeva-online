@@ -3,7 +3,7 @@
 > **पैसे कुठे जातात? शोधूया.**
 > *Where does the money go? Let's find out.*
 
-**v7.0.0.19** — A minimalistic, local-first personal finance companion.
+**v7.1.0.10** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.
 Made in India.
 

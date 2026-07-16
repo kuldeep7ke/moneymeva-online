@@ -1,10 +1,10 @@
 # Money Meva Premium — Memory Capsule
 
-**Version:** v7.0.0.19 (incremented on every build)
+**Version:** v7.1.0.10 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/money-meva-premium
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
-**Last Updated:** 2026-07-16
+**Last Updated:** 2026-07-17
 
 ---
 
@@ -246,6 +246,19 @@ Backward compat: `pullAll` and `processRemoteChanges` fall back to `doc._entity`
 - `getDefaultLanguage()` returns `'mr'`
 
 ---
+
+## Recent Changes (v7.1.0.10)
+
+### Dashboard Enhancements (2026-07-17)
+- **Tasks & Recurring 2-col grid**: Cards now split entries into two columns inside each card (`md:grid-cols-2`)
+- **Transaction modals on action**: ✅/🔄 buttons open a form (type, amount, account, date, description) instead of directly creating ledger entries — user confirms before write
+- **Removed Bills & Due card**: Consolidated — no separate Bills section on dashboard
+- **Cleanup**: Removed dead reminder modal code, unused state/functions
+
+### File Changes
+| File | Change |
+|---|---|
+| `src/app/dashboard/page.tsx` | 2-col grid for entries, task/recurring modals, removed Bills card & dead code |
 
 ## Recent Changes (v7.0.0.19)
 

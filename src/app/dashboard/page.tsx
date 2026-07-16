@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, getTodos, completeTodo, advanceRecurring } from '@/lib/store';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
-import { ReminderFrequency } from '@/types';
 import Reveal from '@/components/Reveal';
 import { checkConnection, getConfig, manualSync, connected as pouchConnected } from '@/lib/pouchdb';
 import { pushAllToPouch, processRemoteChanges } from '@/lib/store';
@@ -54,10 +53,11 @@ export default function DashboardPage() {
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
   const [partnerInvest, setPartnerInvest] = useState(0);
-  const [showReminderModal, setShowReminderModal] = useState(false);
-  const [showAddReminder, setShowAddReminder] = useState(false);
-  const [reminderForm, setReminderForm] = useState({ title: '', description: '', amount: '', category: 'Other', dueDate: new Date().toISOString().split('T')[0], frequency: 'once' as ReminderFrequency });
   const [toast, setToast] = useState<string | null>(null);
+  const [showTaskForm, setShowTaskForm] = useState<any>(null);
+  const [taskForm, setTaskForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: new Date().toISOString().split('T')[0], description: '' });
+  const [showRecurringForm, setShowRecurringForm] = useState<any>(null);
+  const [recurringForm, setRecurringForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: '', description: '', category: 'Other' });
   const [lastDeleted, setLastDeleted] = useState<any>(null);
   const [editGoal, setEditGoal] = useState<any | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: '', target: '', saved: '' });
@@ -197,33 +197,6 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const handleDeleteReminder = (id: string) => {
-    const deleted = allReminders.find(r => r.id === id);
-    deleteReminder(id);
-    if (deleted) {
-      setLastDeleted({ ...deleted, _restoreType: 'reminder' });
-      setToast(`Deleted "${deleted.title}"`);
-      setTimeout(() => { setToast(null); setLastDeleted(null); }, 5000);
-    }
-    loadReminders();
-  };
-
-  const handleAddReminder = (e: React.FormEvent) => {
-    e.preventDefault();
-    addReminder({
-      title: reminderForm.title,
-      description: reminderForm.description,
-      amount: Number(reminderForm.amount) || 0,
-      category: reminderForm.category,
-      dueDate: reminderForm.dueDate,
-      frequency: reminderForm.frequency,
-      status: 'pending',
-    });
-    setShowAddReminder(false);
-    setReminderForm({ title: '', description: '', amount: '', category: 'Other', dueDate: new Date().toISOString().split('T')[0], frequency: 'once' as ReminderFrequency });
-    loadReminders();
-  };
-
   const BASE_CATEGORIES: Record<string, string[]> = {
     income: ['Salary', 'Freelance', 'Business', 'Interest', 'Dividends', 'Rental', 'Other'],
     expense: ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Health', 'Education', 'Rent', 'Groceries', 'Dining', 'Other'],
@@ -278,18 +251,6 @@ export default function DashboardPage() {
     else if (e.key === 'Escape') { setTxShowCatDropdown(false); setTxCatHighlight(-1); }
   };
 
-  const frequencyOptions = [
-    { value: 'once', label: 'Once' },
-    { value: 'daily', label: 'Daily' },
-    { value: 'weekly', label: 'Weekly' },
-    { value: 'monthly', label: 'Monthly' },
-    { value: 'quarterly', label: 'Quarterly' },
-    { value: 'half-yearly', label: 'Half Yearly' },
-    { value: 'yearly', label: 'Yearly' },
-  ];
-
-  const pendingReminders = allReminders.filter(r => r.status === 'pending');
-
   const expenseLimit = Math.round(aggregates.income * expenseQuota / 100);
   const investLimit = Math.round(aggregates.income * investQuota / 100);
   const availableToSpend = aggregates.income - expenseLimit - investLimit - aggregates.saving;
@@ -302,8 +263,6 @@ export default function DashboardPage() {
   };
 
   const recentTransactions = getTransactions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-
-  const sortedReminderCategories = useSortedCategories(['Other', 'Bills', 'Insurance', 'Rent', 'Subscription', 'Tax', 'EMI', 'Health'], 'expense');
 
   const categoryTotals = getTransactions()
     .filter(t => t.type === 'expense')
@@ -669,14 +628,14 @@ export default function DashboardPage() {
         </Reveal>
         )}
 
-        {/* Tasks + Recurring + Reminders */}
+        {/* Tasks + Recurring */}
         {!isLoading && (
         <Reveal delay={500}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Tasks</h2>
             {todos.length > 0 ? (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {todos.slice(0, 5).map((t: any) => (
                 <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -689,7 +648,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     {t.important && <span className="text-[10px] font-bold text-amber-500">★</span>}
                     {t.amount ? <span className="text-sm font-bold text-slate-700 dark:text-slate-300 mr-1">{formatCurrency(t.amount)}</span> : null}
-                    <button onClick={() => { completeTodo(t.id); refreshDashboard(); }} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark complete">
+                    <button onClick={() => { setTaskForm({ type: 'expense', amount: String(t.amount || ''), account: 'cash', date: new Date().toISOString().split('T')[0], description: t.title }); setShowTaskForm(t); }} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark complete">
                       <CheckCircle2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -709,7 +668,7 @@ export default function DashboardPage() {
               </button>
             </div>
             {recurringList.length > 0 ? (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {recurringList.slice(0, 5).map((r: any) => (
                 <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -723,7 +682,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <p className={cn("text-sm font-bold", r.txType === 'income' ? 'text-green-600' : 'text-red-600')}>{formatCurrency(r.amount)}</p>
-                    <button onClick={() => { advanceRecurring(r.id); refreshDashboard(); }} className="p-1.5 rounded-full text-brand hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors" title="Advance (create transaction)">
+                    <button onClick={() => { setRecurringForm({ type: r.txType, amount: String(r.amount), account: 'cash', date: r.nextDate, description: r.title, category: r.category }); setShowRecurringForm(r); }} className="p-1.5 rounded-full text-brand hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors" title="Advance (create transaction)">
                       <RotateCcw className="h-4 w-4" />
                     </button>
                   </div>
@@ -732,50 +691,6 @@ export default function DashboardPage() {
             </div>
             ) : (
               <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No recurring transactions yet.</p>
-            )}
-          </div>
-
-          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bills & Due</h2>
-              <button onClick={() => setShowReminderModal(true)} className="text-xs text-brand hover:underline font-medium">
-                Manage
-              </button>
-            </div>
-            {allReminders.length > 0 ? (
-            <div className="space-y-2">
-              {allReminders.sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 5).map((r: any) => {
-                const today = new Date().toISOString().split('T')[0];
-                const isOverdue = r.dueDate < today;
-                const isDueToday = r.dueDate === today;
-                return (
-                  <div key={r.id} className={cn("flex items-center justify-between p-3 rounded-xl border transition-colors", isOverdue ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/10" : "border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30")}>
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className={cn("p-1.5 rounded-full shrink-0", isOverdue ? "bg-red-100 dark:bg-red-900/30" : isDueToday ? "bg-amber-50 dark:bg-amber-900/30" : "bg-brand-secondary dark:bg-brand-muted/30")}>
-                        <Bell className={cn("h-3 w-3", isOverdue ? "text-red-500" : isDueToday ? "text-amber-500" : "text-brand")} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{r.title}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          <span className={cn(isOverdue && "text-red-500 font-semibold", isDueToday && "text-amber-500 font-semibold")}>
-                            {isOverdue ? `Overdue ${r.dueDate}` : isDueToday ? 'Due today' : `Due: ${r.dueDate}`}
-                          </span>
-                          {r.category && ` · ${r.category}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(r.amount || 0)}</p>
-                      <button onClick={() => handleDone(r.id)} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark paid">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No bills or payments due.</p>
             )}
           </div>
         </div>
@@ -847,102 +762,6 @@ export default function DashboardPage() {
           )}
         </div>
         </Reveal>
-        )}
-
-        {/* Reminder Modal */}
-        {showReminderModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowReminderModal(false)}>
-            <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-2xl my-4" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-brand-muted">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {showAddReminder ? 'New Reminder' : `Reminders (${pendingReminders.length})`}
-                </h3>
-                <div className="flex items-center gap-2">
-                  {!showAddReminder && (
-                    <Button size="sm" variant="ghost" onClick={() => setShowAddReminder(true)} className="gap-1 text-brand">
-                      <Plus className="h-4 w-4" /> Add
-                    </Button>
-                  )}
-                  <button onClick={() => setShowReminderModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-brand-muted">
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6">
-                {showAddReminder ? (
-                  <form onSubmit={handleAddReminder} className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Title</label>
-                      <input required value={reminderForm.title} onChange={e => setReminderForm({ ...reminderForm, title: e.target.value })}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. Insurance Renewal" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Description</label>
-                      <input value={reminderForm.description} onChange={e => setReminderForm({ ...reminderForm, description: e.target.value })}
-                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Amount (₹)</label>
-                         <input type="number" min="0" value={reminderForm.amount} onChange={e => setReminderForm({ ...reminderForm, amount: e.target.value })}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand" />
-                      </div>
-                      <div>
-                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Category</label>
-                       <input required list="reminder-category-options" value={reminderForm.category} onChange={e => setReminderForm({ ...reminderForm, category: e.target.value })}
-                         className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand" placeholder="Select or type a category" />
-                       <datalist id="reminder-category-options">
-                         {sortedReminderCategories.map(c => <option key={c} value={c} />)}
-                       </datalist>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Due Date</label>
-                        <input required type="date" value={reminderForm.dueDate} onChange={e => setReminderForm({ ...reminderForm, dueDate: e.target.value })}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand" />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Repeat</label>
-                        <select value={reminderForm.frequency} onChange={e => setReminderForm({ ...reminderForm, frequency: e.target.value as ReminderFrequency })}
-                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand">
-                          {frequencyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-end gap-2 pt-2">
-                      <Button variant="ghost" size="sm" onClick={() => setShowAddReminder(false)}>Cancel</Button>
-                      <Button type="submit" size="sm">Create Reminder</Button>
-                    </div>
-                  </form>
-                ) : pendingReminders.length === 0 ? (
-                  <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No reminders. Click "Add" to create one.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingReminders.map(r => (
-                      <div key={r.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{r.title}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">Due: {r.dueDate} {r.frequency !== 'once' && `· ${r.frequency}`}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(r.amount)}</p>
-                          <button onClick={() => handleDone(r.id)} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark done & reschedule">
-                            <CheckCircle2 className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => { if (confirm('Delete this reminder?')) handleDeleteReminder(r.id); }} className="p-1.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors gap-1" title="Delete">
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span className="hidden md:inline text-[10px]">Delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         )}
 
       {/* Toast */}
@@ -1148,6 +967,126 @@ export default function DashboardPage() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setShowGoalTx(null)} type="button">Cancel</Button>
                 <Button type="submit" size="sm">{showGoalTx.type === 'contribute' ? 'Contribute' : 'Withdraw'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Task Transaction Modal */}
+      {showTaskForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowTaskForm(null)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Complete Task</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Record transaction for "{showTaskForm.title}"</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const amount = Number(taskForm.amount);
+              if (!amount) return;
+              addTransaction({ amount, type: taskForm.type as 'income' | 'expense', category: showTaskForm.category || 'Other', description: taskForm.description, date: taskForm.date, partnerAccountId: undefined, account: taskForm.account, isRecurring: false });
+              completeTodo(showTaskForm.id);
+              refreshDashboard();
+              setShowTaskForm(null);
+              setToast(`"${showTaskForm.title}" completed`);
+              setTimeout(() => setToast(null), 3000);
+            }} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Type</label>
+                  <select value={taskForm.type} onChange={e => setTaskForm({ ...taskForm, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Amount (₹)</label>
+                  <input required type="number" min="0" step="0.01" value={taskForm.amount} onChange={e => setTaskForm({ ...taskForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" autoFocus />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Account</label>
+                <select value={taskForm.account} onChange={e => setTaskForm({ ...taskForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                  <option value="upi">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Date</label>
+                <input required type="date" value={taskForm.date} onChange={e => setTaskForm({ ...taskForm, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Description</label>
+                <input value={taskForm.description} onChange={e => setTaskForm({ ...taskForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="What was this for?" />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowTaskForm(null)} type="button">Cancel</Button>
+                <Button type="submit" size="sm">Save & Complete</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Recurring Transaction Modal */}
+      {showRecurringForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowRecurringForm(null)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Advance Recurring</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Record transaction for "{showRecurringForm.title}"</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const amount = Number(recurringForm.amount);
+              if (!amount) return;
+              addTransaction({ amount, type: recurringForm.type as 'income' | 'expense', category: recurringForm.category, description: recurringForm.description, date: recurringForm.date, partnerAccountId: undefined, account: recurringForm.account, isRecurring: true, recurringId: showRecurringForm.id });
+              advanceRecurring(showRecurringForm.id);
+              refreshDashboard();
+              setShowRecurringForm(null);
+              setToast(`"${showRecurringForm.title}" advanced`);
+              setTimeout(() => setToast(null), 3000);
+            }} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Type</label>
+                  <select value={recurringForm.type} onChange={e => setRecurringForm({ ...recurringForm, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Amount (₹)</label>
+                  <input required type="number" min="0" step="0.01" value={recurringForm.amount} onChange={e => setRecurringForm({ ...recurringForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" autoFocus />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Account</label>
+                <select value={recurringForm.account} onChange={e => setRecurringForm({ ...recurringForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                  <option value="upi">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Date</label>
+                <input required type="date" value={recurringForm.date} onChange={e => setRecurringForm({ ...recurringForm, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Description</label>
+                <input value={recurringForm.description} onChange={e => setRecurringForm({ ...recurringForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowRecurringForm(null)} type="button">Cancel</Button>
+                <Button type="submit" size="sm">Save & Advance</Button>
               </div>
             </form>
           </div>
