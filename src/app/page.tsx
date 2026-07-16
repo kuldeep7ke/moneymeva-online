@@ -123,7 +123,7 @@ export default function HomePage() {
           {/* Left */}
           <div className="order-1 text-center lg:text-left pt-4 lg:pt-8">
             <Reveal>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 text-orange-600/90 border-2 border-orange-200 text-[13px] font-bold mb-6 shadow-md">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 text-orange-600/70 border border-orange-200 text-[13px] font-bold mb-6">
                 <img src="/logo.png" alt="" className="h-4 w-auto" /> <span className="text-slate-300">|</span> {t('landing.badge')}
               </div>
             </Reveal>
