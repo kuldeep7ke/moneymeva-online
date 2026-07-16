@@ -147,7 +147,7 @@ export async function initDB() {
   initialized = true;
   // Auto-process remote changes when live sync detects them
   onRemoteChange(async () => {
-    const ok = await manualSync();
+    const { ok } = await manualSync();
     if (ok) await processRemoteChanges();
   });
   // Auto-sync every 12 hours if connected
@@ -161,12 +161,12 @@ export async function initDB() {
       pushed = await pushAllToPouch();
       dispatchSyncEvent({ status: 'pushing', message: `Pushing complete (${pushed} item(s))` });
       dispatchSyncEvent({ status: 'pushing', message: 'Pulling remote changes…' });
-      const ok = await manualSync();
+      const { ok, pushed: actualPushed, pulled: actualPulled } = await manualSync();
       if (ok) {
-        dispatchSyncEvent({ status: 'pulled', message: 'Pulled remote changes...', pulled });
+        dispatchSyncEvent({ status: 'pulled', message: `Pulled ${actualPulled} remote change(s)`, pulled: actualPulled });
         dispatchSyncEvent({ status: 'processing', message: 'Applying remote changes…' });
         await processRemoteChanges();
-        dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed} item(s), pulled latest changes`, pushed, pulled });
+        dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${actualPushed} item(s), pulled ${actualPulled} change(s)`, pushed: actualPushed, pulled: actualPulled });
       } else {
         dispatchSyncEvent({ status: 'error', message: 'Sync failed during pull', error: 'Pull failed' });
       }

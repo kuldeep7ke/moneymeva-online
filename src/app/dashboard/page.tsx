@@ -510,7 +510,7 @@ export default function DashboardPage() {
                 const cfg = getConfig();
                 if (cfg.url) {
                   await pushAllToPouch();
-                  const ok = await manualSync();
+                  const { ok } = await manualSync();
                   setSyncConnected(ok);
                   if (ok) await processRemoteChanges();
                   refreshDashboard();

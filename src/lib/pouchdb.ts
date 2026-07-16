@@ -107,9 +107,8 @@ function startReconnectTimer(url: string) {
       remoteDB = rd;
       syncHandler = localDB.sync(rd, { live: true, retry: true });
       syncHandler.on('change', () => notifyChange());
-      syncHandler.on('error', () => {
-        if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
-        remoteDB = null;
+      syncHandler.on('error', (err: any) => {
+        console.warn('[PouchDB] Reconnect sync error (will retry):', err?.message || err);
       });
     } catch {}
   }, RECONNECT_INTERVAL);
@@ -131,22 +130,24 @@ export async function connectRemote(url: string) {
     saveConfig(url);
     syncHandler = localDB.sync(remoteDB, { live: true, retry: true });
     syncHandler.on('change', () => notifyChange());
-    syncHandler.on('error', () => {
-      if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
-      remoteDB = null;
+    syncHandler.on('error', (err: any) => {
+      console.warn('[PouchDB] Live sync error (will retry):', err?.message || err);
     });
     return true;
   } catch { remoteDB = null; return false; }
 }
 
-export async function manualSync(): Promise<boolean> {
-  if (!localDB || !remoteDB) return false;
+export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number }> {
+  const result = { ok: false, pushed: 0, pulled: 0 };
+  if (!localDB || !remoteDB) return result;
   try {
-    await localDB.replicate.to(remoteDB);
-    await localDB.replicate.from(remoteDB);
-    notifyChange();
-    return true;
-  } catch { return false; }
+    const toResult = await localDB.replicate.to(remoteDB);
+    const fromResult = await localDB.replicate.from(remoteDB);
+    result.pushed = toResult.docs_read || 0;
+    result.pulled = fromResult.docs_read || 0;
+    result.ok = true;
+    return result;
+  } catch { return result; }
 }
 
 export function disconnectRemote() {

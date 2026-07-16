@@ -230,12 +230,21 @@ export default function SettingsPage() {
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
-        dispatchSyncEvent({ status: 'pushing', message: 'Pushing existing data…' });
-        const pushed = await pushAllToPouch();
-        await manualSync();
-        await processRemoteChanges();
-        if (pushed > 0) setSyncError(`Connected. Pushed ${pushed} existing item(s) to cloud.`);
-        dispatchSyncEvent({ status: 'complete', message: `Connected & synced — pushed ${pushed} item(s)`, pushed });
+        dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
+        const written = await pushAllToPouch();
+        const { ok: synced, pushed, pulled } = await manualSync();
+        if (synced) {
+          await processRemoteChanges();
+          if (pushed > 0 || pulled > 0) {
+            setSyncError(`Pushed ${pushed} item(s) · Pulled ${pulled} change(s)`);
+          } else {
+            setSyncError('');
+          }
+          dispatchSyncEvent({ status: 'complete', message: `Connected & synced — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
+        } else {
+          dispatchSyncEvent({ status: 'error', message: 'Connected but sync failed', error: 'Replication error' });
+          failSync('Connected to server but data replication failed. Try again.');
+        }
       } else {
         dispatchSyncEvent({ status: 'error', message: 'Connection failed', error: 'Could not connect to remote' });
         failSync('Could not connect. Check the URL and ensure the server is running.');
@@ -259,21 +268,21 @@ export default function SettingsPage() {
     dispatchSyncEvent({ status: 'started', message: 'Manual sync started…' });
     try {
       dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
-      const pushed = await pushAllToPouch();
-      dispatchSyncEvent({ status: 'pushing', message: `Pushed ${pushed} item(s), pulling remote…` });
-      const ok = await manualSync();
+      const written = await pushAllToPouch();
+      dispatchSyncEvent({ status: 'pushing', message: 'Pulling remote changes…' });
+      const { ok, pushed, pulled } = await manualSync();
       if (ok) {
         dispatchSyncEvent({ status: 'processing', message: 'Applying remote changes…' });
         await processRemoteChanges();
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
-        const msg = pushed > 0 ? `Synced! Pushed ${pushed} item(s) to cloud.` : 'Synced successfully.';
+        const msg = pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : 'Synced — no new changes';
         setSyncError(msg);
-        dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed} item(s)`, pushed });
+        dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         setTimeout(() => { if (syncStatus === 'connected') setSyncError(''); }, 4000);
       } else {
-        dispatchSyncEvent({ status: 'error', message: 'Sync failed during pull', error: 'Pull failed' });
+        dispatchSyncEvent({ status: 'error', message: 'Sync failed during replication', error: 'Replication failed' });
         failSync('Sync failed. Ensure you are connected first.');
       }
     } catch {
@@ -404,16 +413,10 @@ export default function SettingsPage() {
                       <Copy className="h-4 w-4" />
                     </button>
                   </div>
-                  {syncStatus !== 'connected' && (
-                    <button onClick={() => setSyncUrl('https://admin:123@couchdb-production-bceb.up.railway.app/money_meva')}
-                      className="px-2.5 py-2 rounded-lg bg-sky-100 dark:bg-sky-900/30 text-xs text-sky-700 dark:text-sky-400 font-medium hover:bg-sky-200 dark:hover:bg-sky-900/50 shrink-0 transition-colors">
-                      Use Default
-                    </button>
-                  )}
                 </div>
 
                 {/* Saved URLs */}
-                {syncUrlHistory.length > 0 && syncStatus !== 'connected' && (
+                {syncUrlHistory.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] text-slate-400 font-medium">Saved URLs</p>
                     <div className="space-y-0.5">
