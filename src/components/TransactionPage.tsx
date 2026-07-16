@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
 import { formatCurrency, cn, getSortedCategories, useSortedCategories } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, addPartner, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
+import InvestmentCalculator from '@/components/InvestmentCalculator';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -23,6 +24,7 @@ interface TransactionPageProps {
 export default function TransactionPage({ type, title, description }: TransactionPageProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [pinArchiveAction, setPinArchiveAction] = useState<{ id: string; action: 'restore' | 'delete' } | null>(null);
   const [pinEditAction, setPinEditAction] = useState<Transaction | null>(null);
@@ -411,6 +413,12 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <span className="hidden md:inline text-xs font-medium">Archive</span>
                 {archived.length > 0 && <span className="absolute -top-1 -right-1 md:static md:ml-0 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{archived.length}</span>}
               </button>
+              {type === 'investment' && (
+                <button onClick={() => setShowCalculator(true)} className="h-10 w-10 md:w-auto md:px-3 rounded-xl border border-brand/30 dark:border-brand/40 flex items-center justify-center text-brand hover:bg-brand/10 transition-colors gap-1.5" type="button" title="Investment Calculator">
+                  <Calculator className="h-4 w-4" />
+                  <span className="hidden md:inline text-xs font-medium">Calculator</span>
+                </button>
+              )}
               <button onClick={() => setShowAddModal(true)} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95" type="button" title="Add">
                 <Plus className="h-5 w-5" />
               </button>
@@ -1114,6 +1122,12 @@ export default function TransactionPage({ type, title, description }: Transactio
         onClose={() => setShowPinSetup(null)}
         action={showPinSetup || ''}
       />
+
+      {showCalculator && (
+        <InvestmentCalculator onClose={() => setShowCalculator(false)} onApply={(amount) => {
+          setShowCalculator(false);
+        }} />
+      )}
     </DashboardLayout>
   );
 }

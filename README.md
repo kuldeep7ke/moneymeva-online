@@ -1,93 +1,72 @@
-# Money Meva Premium
+# Money Meva
 
-**v6.1.0** — The premium edition of Money Meva, featuring manual cloud sync for multi-device access with quota-saving strategy. Built with Next.js.
+> **पैसे कुठे जातात? शोधूया.**  
+> *Where does the money go? Let's find out.*
 
-Track income, expenses, savings, investments, and partner accounts with controlled synchronization across all your devices. Your financial data, everywhere you need it.
+**v7.0.0** — A minimalistic, local-first personal finance companion.  
+Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.  
+Made in India.
+
+---
+
+## Memory Capsule
+
+This README is a memory capsule — a snapshot of the project's philosophy, architecture, and soul. It exists so that years from now, the intent behind every line of code is knowable.
+
+---
+
+## Philosophy
+
+Money Meva was built around a single belief: **financial clarity should not require surrendering privacy**. Every feature, every tradeoff, every line of code traces back to this.
+
+- **Local-first by default** — your data lives in your browser's IndexedDB. No cloud required, no accounts to create, no subscription to maintain.
+- **Sync is optional** — multi-device sync exists only so you are not chained to one device. It uses CouchDB + PouchDB, and you bring your own server.
+- **PINs, not passwords** — sensitive operations (deletes, edits, exports) require a 4-digit PIN, not a backend call. Security without dependence.
+- **Soft-delete everywhere** — nothing is truly gone. Every entity carries a `deletedAt` timestamp. The archive is your safety net.
+- **Transitions are traceable** — every mutation carries a `transitionId`, linking lifecycles across entities. The ledger is the source of truth.
 
 ---
 
 ## Features
 
-- **Cloud Sync** — Manual + auto sync with CouchDB via PouchDB. Sync only when you press "Sync Now" to save cloud quota. Auto-sync runs every 12 hours if connected. Configure via Settings → Multi-Device Sync.
-- **Dashboard** — Auto-hiding welcome card (5s), summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with Sync Now button
-- **Income / Expenses / Investments** — Full CRUD with search, filter, sort (newest/oldest), group (day/week/month), duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal
-- **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars
-- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions (reflect in personal account), mini ledger modal per party with transaction history
-- **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days
-- **Adjustments** — Balance corrections between personal and partner accounts with amount guards (±₹99Cr)
-- **Budgets** — Category-based monthly/yearly spending limits with overrun warnings (≥80%)
-- **Reminders** — One-time or recurring (daily to yearly) with "Mark as Paid" that creates expense transactions and auto-reschedules
-- **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected)
-- **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable life-cycle chain, copy transition ID, CSV export, entity/action filters, search
-- **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), and full JSON backup with cross-user detection and reassignment
-- **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data); session auto-lock (1h–24h)
-- **Activity Log** — Tracks 200 most recent security and CRUD events with color-coded timeline in Settings
-- **Notifications** — In-app notification panel: recurring due alerts, budget overruns, archive notifications, pending reminders, weekend backup reminder
-- **Onboarding Wizard** — 6-step setup (Personal Info, Financial Profile, Work/Business, Partner Accounts, Savings Goal, Complete) with optional steps, T&C agreement, and re-edit support
-- **Edit Profile** — Re-open onboarding from About page or landing page (PIN-protected) to update registration info
-- **Incomplete Registration Cleanup** — Unfinished onboarding sessions are auto-cleared on next visit
-- **Landing Page Redirect** — Logged-in users skip landing page; existing users can visit via `/?from=dashboard`
-- **Public Terms, Privacy & About Pages** — Standalone `/terms`, `/privacy`, and `/about` pages accessible without login
-- **Name Autofill** — Full name remembered from registration and auto-filled on subsequent sign-ups
-- **Multi-User** — Multiple profiles with quick-switch from login screen
-- **Dark / Light Theme** — Toggleable, persisted in localStorage
-- **3 Brand Colors** — Orange (default), Royal Blue, Emerald Green — changeable in Settings
-- **Scroll Animations** — Staggered Reveal animations on all major sections
-- **Android APK** — Capacitor-wrapped native Android app with back button navigation, proper status bar handling, and offline-first architecture
-- **PWA Ready** — Install as a standalone app with service worker caching
-- **Keyboard Navigation** — ArrowUp/Down/Enter/Escape for all custom dropdowns (category, party, etc.)
-- **Floating Mobile Nav** — Bottom-right FAB with filtered nav (Dashboard, Income, Expenses, Savings, Investments, Partners, Settings)
+### Core
+- **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal.
+- **Dashboard** — Auto-hiding welcome card, 6 summary cards (Available to Spend, Balance, Income, Expenses, Investments, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now.
+- **Quick-add modals** — Tap the + button on any summary card to open an inline add form directly on the dashboard. No page navigation needed.
+- **Investment Calculator** — Built-in calculator for FD (with compounding options), SIP, Lumpsum, RD, and PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form.
+- **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars.
+- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party.
+- **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days.
+- **Adjustments** — Balance corrections between personal and partner accounts with amount guards.
+- **Budgets** — Category-based monthly/yearly spending limits with overrun warnings at ≥80%.
+- **Reminders** — One-time or recurring (daily to yearly) with "Mark as Paid" that creates expense transactions and auto-reschedules.
+- **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected).
+- **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable lifecycle chain, copy transition ID, CSV export, entity/action filters, search.
+- **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup with cross-user detection and reassignment.
 
----
+### Security & Privacy
+- **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data). Session auto-lock (1h–24h).
+- **Password + PIN** — Email/password auth locally. Optional PIN gate on the account page for password changes and data clearing.
+- **Activity Log** — Tracks 200 most recent security and CRUD events with color-coded timeline in Settings.
+- **100% local-first** — no cookies, analytics, or tracking services. No external data transmission unless you explicitly export or enable sync.
 
-## Cloud Sync Setup
+### Multi-Device Sync
+- **CouchDB + PouchDB** — Manual + live sync. Push your local IndexedDB to a remote CouchDB server, pull on another device.
+- **Live replication** — Once connected, changes sync in real-time via PouchDB's live replication.
+- **URL-based** — Enter the same `https://user:pass@host/db-name` on each device. Uses "Use Default" button for the pre-configured server.
+- **Auto-sync** — Falls back to a 12-hour interval sync if live replication disconnects.
+- **Sync URL history** — Last 5 URLs saved for quick reconnection.
 
-Money Meva Premium uses **PouchDB** (local) + **CouchDB** (remote) for manual, quota-saving sync across your devices.
-
-### How it works
-
-```
-Device A ──→ Local PouchDB ──→ [Manual Sync] ──→ Remote CouchDB ──→ [Manual Sync] ──→ Local PouchDB ──→ Device B
-                 │                                        │
-            IndexedDB                                IndexedDB
-           (offline-capable)                      (offline-capable)
-```
-
-Sync is manual by default to save cloud quota. Press "Sync Now" in Settings or Dashboard to push and pull data. Auto-sync runs once every 12 hours if connected.
-
-### Prerequisites
-
-A CouchDB server URL (e.g., deployed on [Railway.app](https://railway.app), or any CouchDB-compatible host). The server must be reachable from all your devices.
-
-### Step-by-Step
-
-1. **Set up a CouchDB server** – Deploy CouchDB on Railway.app, Fly.io, or your own server. Create a database (e.g., `mm_sync`).
-2. **Get the database URL** – The URL format is `https://username:password@your-server.railway.app/db-name`.
-3. **Open Settings → Multi-Device Sync** in the app.
-4. **Enter the URL** – Paste your CouchDB URL in the input field.
-5. **Tap Connect** – The app will test the connection and begin live sync.
-6. **Repeat on other devices** – Log in to the same account on another device and enter the same URL.
-
-### Status Indicators
-
-| Indicator | Meaning |
-|---|---|
-| 🟢 Green dot | Connected — sync available |
-| 🟡 Amber dot (pulse) | Syncing — push + pull in progress |
-| 🔴 Red dot | Offline — connection failed or no URL configured |
-
-### Dashboard Sync Card
-
-A sync status card appears on the dashboard showing:
-- Current connection status with colored indicator
-- **Sync Now** button — tap to force a re-sync or reconnect
-
-### Notes
-
-- Sync is **optional** — the app works fully offline without it
-- All data is stored locally first (IndexedDB); the remote is a replica
-- Clearing data while sync is enabled may cause conflicts — disable sync first in Danger Zone
-- CouchDB authentication (username/password) is supported in the URL
+### User Experience
+- **Multi-user** — Multiple profiles with quick-switch from login screen.
+- **Dark / Light Theme** — Toggleable, persisted in localStorage.
+- **3 Brand Colors** — Orange (default), Royal Blue, Emerald Green — changeable in Settings.
+- **i18n** — Marathi (default), Hindi, English. Grammar-preserving translations with context-appropriate vocabulary.
+- **Scroll Animations** — Staggered Reveal animations on all major sections.
+- **Floating Mobile Nav** — Bottom-right FAB with filtered nav.
+- **Keyboard Navigation** — ArrowUp/Down/Enter/Escape for all custom dropdowns (category, party).
+- **Onboarding Wizard** — 6-step setup with optional steps and re-edit support.
+- **Public Pages** — Terms, Privacy, About — accessible without login.
 
 ---
 
@@ -95,92 +74,121 @@ A sync status card appears on the dashboard showing:
 
 | Category | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router) |
+| Framework | Next.js 16 (App Router, static export) |
 | Language | TypeScript 5 |
 | UI | React 19, Tailwind CSS v4, Lucide React |
 | Local DB | Dexie.js 4 (IndexedDB) |
-| Sync DB | PouchDB (multi-device sync) |
+| Sync DB | PouchDB 9 + CouchDB 3 (multi-device) |
 | Charts | Recharts 3 |
 | PDF | jsPDF 4 + jspdf-autotable |
 | Excel | SheetJS (xlsx) |
 | Dates | date-fns 4 |
-| Auth | Local (email/password) + optional Supabase Google OAuth |
+| Auth | Local (email/password) |
+| Mobile | Capacitor 8 (Android) |
 | Linting | ESLint 9 |
-| Deployment | Static export (`output: 'export'`), Netlify, Node server |
 
 ---
 
-## Getting Started
+## Data Architecture
 
-```bash
-npm install
-npm run dev
+```
+User Action → In-memory Cache → Dexie (IndexedDB) → PouchDB (local) ↔ CouchDB (remote)
+                    │                                                    │
+                UI reads                                            Other devices
+            (synchronous)                                       (live replication)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. The app runs entirely client-side — no server database required.
+- **Cache** — All reads hit an in-memory cache for instant UI. No async wait.
+- **Dexie** — Persistent storage. Cache hydrates from Dexie on page load.
+- **PouchDB** — Local CouchDB-compatible DB. Written to on every mutation (fire-and-forget).
+- **CouchDB** — Optional remote. Sync is push + pull with live replication.
 
-### Production Build
-
-```bash
-npm run build
-npm run start
-```
-
-### Standalone Package
-
-```powershell
-npm run package:webapp
-```
-
-Extract `dist/money-meva-webapp-<version>.zip` and run `node server.js`.
-
-### Android APK
-
-An Android APK is built automatically via **GitHub Actions** on every push to master:
-
-1. Go to [Build Android APK](https://github.com/kuldeep7ke/money-meva-premium/actions/workflows/build-apk.yml) workflow
-2. The build triggers automatically on push, or click **"Run workflow"** to build manually
-3. Wait ~3–4 minutes for the build to finish
-4. Download `MoneyMeva-APK.zip` from the run's **Summary** page under **Artifacts**
-
-The APK is a debug build and works on Android 7+ (API 24+). Features include back button navigation and proper status bar handling.
+Every entity carries: `id`, `transitionId`, `userId`, `createdAt`, `updatedAt`, `deletedAt`.
 
 ---
 
-## Scripts
+## Project Structure
+
+```
+src/
+├── app/                     # Next.js App Router pages
+│   ├── dashboard/           # All dashboard sub-pages
+│   │   ├── account/         # PIN-gated user account page
+│   │   ├── settings/        # Settings (sync, theme, language, danger zone)
+│   │   └── ...              # income, expenses, investments, partners, etc.
+│   ├── login/               # Sign in / Sign up / Forgot password
+│   ├── onboarding/          # 6-step setup wizard
+│   ├── terms/               # Public terms page
+│   ├── privacy/             # Public privacy page
+│   └── layout.tsx           # Root layout with version meta tag
+├── components/              # Shared React components
+│   ├── DashboardLayout.tsx  # Sidebar nav + layout wrapper
+│   ├── TransactionPage.tsx  # Shared income/expense/investment CRUD page
+│   ├── InvestmentCalculator.tsx  # FD/SIP/Lumpsum/RD/PPF calculator
+│   ├── PinPrompt.tsx        # PIN entry modal
+│   ├── LanguageSelector.tsx # i18n language dropdown
+│   └── ...
+├── lib/                     # Core logic
+│   ├── store.ts             # Data layer (cache + Dexie + sync)
+│   ├── pouchdb.ts           # PouchDB remote connection and sync
+│   ├── localAuth.ts         # Email/password auth
+│   ├── pinStore.ts          # PIN generation and validation
+│   ├── db.ts               # Dexie schema definition
+│   ├── i18n/               # Translation files (mr, hi, en)
+│   └── ...
+└── types/                   # TypeScript type definitions
+```
+
+---
+
+## Commands
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Development server |
-| `npm run build` | Production build (auto-bumps patch) |
-| `npm run start` | Start production server |
+| `npm run dev` | Start dev server at localhost:3000 |
+| `npm run build` | Production build (static export to `out/`) |
+| `npm run start` | Serve production build |
 | `npm run lint` | Run ESLint |
-| `npm run package:webapp` | Create standalone zip |
+| `npx cap sync android` | Sync web build to Android project |
+| `cd android && ./gradlew assembleDebug` | Build debug APK |
 | `npm run version:patch` | Bump patch version |
 | `npm run version:minor` | Bump minor version |
 | `npm run version:major` | Bump major version |
 
 ---
 
-## Build Specification
+## Cloud Sync Setup
 
-A detailed step-by-step build prompt (`From-Scratch.md`) is included in the repo. It covers the complete architecture, all 40 build steps, data flow, security model, edge cases, and UI patterns — allowing regeneration of the entire app from scratch using any AI coding agent.
+1. **Get a CouchDB URL** — e.g., `https://admin:123@couchdb-production-bceb.up.railway.app/money_meva`
+2. **Settings → Cloud Sync** → tap **Use Default** or paste your URL
+3. **Tap Connect** — data pushes to cloud, then pulls from cloud
+4. **Repeat on each device** — same URL on every device
+
+The app works fully offline without sync. Sync is optional.
 
 ---
 
-## Privacy
+## Android APK
 
-- **100% local-first** — all data stays in your browser's IndexedDB
-- **Cloud sync** — optional PouchDB synchronization for multi-device access
-- No cookies, analytics, or tracking services
-- No external data transmission unless you explicitly export or enable sync
+```bash
+npm run build
+npx cap sync android
+cd android
+./gradlew assembleDebug
+```
+
+The APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.  
+Requires Android 7+ (API 24). Features back button navigation and status bar handling.
+
+A GitHub Actions workflow also builds the APK automatically on every push to master:  
+[Build Android APK](https://github.com/kuldeep7ke/money-meva-premium/actions/workflows/build-apk.yml)
 
 ---
 
 ## License
 
-All Rights Reserved. Copyright © 2026 Money Meva Premium. Unauthorized copying, distribution, or use of this software is strictly prohibited.
+All Rights Reserved. Copyright © 2026 Money Meva.
 
 ---
 
-*Money Meva Premium — Built with Next.js, TypeScript, Tailwind CSS, Dexie.js, and PouchDB. Made in India.*
+*Made in India. Built with Next.js, TypeScript, Tailwind CSS, Dexie.js, PouchDB, and love.*
