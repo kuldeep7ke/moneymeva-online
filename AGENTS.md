@@ -14,6 +14,7 @@ npm run build                # Static export to out/
 npm run version:patch        # vX.Y.Z.N → vX.Y.Z.N+1
 npx cap sync android         # Sync web build to Android project
 npm run lint
+npm run android:apk         # Full build → version → gradle assembleDebug
 ```
 
 ## Architecture
@@ -21,7 +22,7 @@ npm run lint
 - Next.js 16.2.9 App Router (static export, `'use client'` everywhere)
 - Dexie.js (IndexedDB) for local storage, PouchDB for optional CouchDB sync
 - Tailwind CSS v4 + CSS variables for 3-brand theme
-- All writes: cache → Dexie → PouchDB → mutation_log (fire-and-forget)
+- All writes: cache → Dexie → mutation_log → PouchDB → (optional) CouchDB (fire-and-forget)
 - Soft-delete with `deletedAt` on all entities
 - `transitionId` links entity lifecycle mutations
 
@@ -103,6 +104,38 @@ npm run lint
 - "Create & Select" button creates party via `addPartner()`, refreshes list, auto-selects new party
 - Works in both Add and Edit transaction modals
 
+## Sync Architecture
+
+- **`src/lib/pouchdb.ts`** — Core sync module
+  - `connectRemote(url)` returns `{ ok, error? }` — live sync with `{ live: true, retry: true }`
+  - `manualSync()` returns `{ ok, pushed, pulled }` — does NOT call `notifyChange()` (no recursion)
+  - `skip_setup: false` — PouchDB auto-creates remote DB
+  - `startReconnectTimer(30s)` — auto-reconnect on disconnect
+  - `putDoc(entity, data)` — write doc as `entity:id` with `_entity` tag
+  - Error handler uses `console.warn` — never kills connection
+  - `checkConnection()` / `ensureConnected()` — utility guards
+- **`src/lib/sync-notify.ts`** — CustomEvent-based sync status dispatch
+  - `dispatchSyncEvent(ev)` — fires `mm-sync-event` CustomEvent
+  - `listenSyncEvents(fn)` — subscribe to sync status changes
+  - Events: `started | pushing | pulled | processing | complete | error`
+
+## Sync URL
+- Stored in `localStorage('mm_pouch_url')`
+- History: last 5 URLs saved in `localStorage('mm_pouch_urls')` (managed by `saveSyncUrlHistory`)
+- No hardcoded "Use Default" button — user brings their own URL
+- Saved URLs always visible (no `syncStatus !== 'connected'` guard)
+
+## Investment Calculator
+- `src/components/InvestmentCalculator.tsx`
+- 4 scrollable pill tabs: FD, SIP, RD, PPF (no Lumpsum)
+- FD: quarterly/half-yearly/yearly compounding options
+- SIP: monthly investment with annual return rate
+- RD: quarterly compounding formula
+- PPF: 15-year with current interest rate (7.1%)
+- "Use this amount" button fills the add form
+- Accessible from Investments page header (behind Archive, before Add)
+- Only rendered when `type === 'investment'`
+
 ## Key Files
 
 | File | Purpose |
@@ -115,3 +148,6 @@ npm run lint
 | `src/lib/store.ts` | Data layer (Dexie + cache + PouchDB) |
 | `src/components/DashboardLayout.tsx` | Sidebar nav + layout |
 | `src/components/Reveal.tsx` | Scroll-reveal animation wrapper |
+| `src/lib/pouchdb.ts` | PouchDB remote connection and sync logic |
+| `src/lib/sync-notify.ts` | Sync event dispatch system |
+| `src/components/InvestmentCalculator.tsx` | FD/SIP/RD/PPF investment calculator |

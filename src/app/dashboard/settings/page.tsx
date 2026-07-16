@@ -258,6 +258,7 @@ export default function SettingsPage() {
 
   const handleDisconnect = () => {
     disconnectRemote();
+    localStorage.removeItem('mm_pouch_url');
     setSyncStatus('idle');
     setSyncConnected(false);
     setSyncFailCount(0);

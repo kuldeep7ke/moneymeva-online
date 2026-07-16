@@ -159,7 +159,6 @@ export function disconnectRemote() {
   stopReconnectTimer();
   if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
   remoteDB = null;
-  localStorage.removeItem(LS_URL);
 }
 
 export async function checkConnection(): Promise<boolean> {
