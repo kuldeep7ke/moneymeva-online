@@ -124,7 +124,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
                          │   Fire-and-forget write    │
                          │   putDoc()/removeDoc()     │
                          │   ID format: entity:id     │
-                         │   _entity tag on every doc │
+                         │   entity tag on every doc  │
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────▼──────────────┐

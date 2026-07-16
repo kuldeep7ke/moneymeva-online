@@ -420,13 +420,13 @@ export async function processRemoteChanges() {
   const docs = await pullAll();
   let updated = 0;
   for (const doc of docs) {
-    const entity = doc._entity as EntityType;
+    const entity = (doc.entity || doc._entity) as EntityType;
     if (!entity || !doc.id) continue;
     const dexieTable = entityTableMap[entity];
     const cacheKey = dexieTable;
     const list = (cache as any)[cacheKey];
     if (!list) continue;
-    const { _entity, ...cleanDoc } = doc;
+    const { _entity, entity: _e, ...cleanDoc } = doc;
     if (doc.deletedAt) {
       const idx = list.findIndex((x: any) => x.id === cleanDoc.id);
       if (idx >= 0) {

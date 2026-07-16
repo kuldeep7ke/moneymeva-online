@@ -1,6 +1,6 @@
 # Money Meva Premium — Memory Capsule
 
-**Version:** v6.1.0.8 (incremented on every build)
+**Version:** v7.0.0.19 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/money-meva-premium
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
@@ -206,11 +206,26 @@ npm run lint
 
 ---
 
+## Sync Debug — From Scratch
+
+### The Bug (Pushed 0 · Pulled 0)
+`putDoc` added a `_entity` field to every PouchDB doc. PouchDB 9 rejects custom fields starting with `_` (only `_id`, `_rev`, `_deleted`, `_attachments`, `_conflicts` are allowed). Each `localDB.put()` threw `"Bad special document member: _entity"` — caught silently, so zero documents ever reached CouchDB.
+
+### The Fix
+Renamed `_entity` → `entity` everywhere:
+- `src/lib/pouchdb.ts` — `putDoc`, `writePins`, index, `pullAll` filter/map
+- `src/lib/store.ts` — `processRemoteChanges` reads `doc.entity || doc._entity`
+
+Backward compat: `pullAll` and `processRemoteChanges` fall back to `doc._entity` for any docs already on remote CouchDB with the old field name. `entity` is stripped from the cache when writing to Dexie; it only lives on the PouchDB doc for entity-type identification.
+
+---
+
 ## Known Gotchas
 
 ### PouchDB
 - `db.type()` deprecated in PouchDB 9.x (harmless warning)
-- `skip_setup: true` required for remote connections
+- `_`-prefixed custom fields (like `_entity`) rejected — use `entity` instead
+- `skip_setup: false` — PouchDB auto-creates remote DB
 - Sync errors silent — use `syncHandler.on('error')` for visibility
 
 ### Dexie
@@ -230,9 +245,12 @@ npm run lint
 
 ---
 
-## Recent Changes (v6.1.0.9)
+## Recent Changes (v7.0.0.19)
 
 ### Bug Fixes (Comprehensive Audit 2026-07-16)
+
+#### Sync Fix (Pushed 6 · Pulled 0 → Working)
+- **`_entity` → `entity` everywhere**: PouchDB 9 rejects custom `_`-prefixed fields. `putDoc()` silently failed on every write. Renamed to `entity` — now docs write and sync correctly. (`pouchdb.ts`, `store.ts`)
 
 #### Critical Financial Fixes
 - **Investment source double-counting**: Investment from non-cash sources (savings/adjustment/partner) now sets `account: 'invest'` — excluded from cash/bank balance. Only the fund-source entry affects cash balance. Fixes ₹2000 reduction for ₹1000 investment. (`TransactionPage.tsx:191-196`, `store.ts:947-949`)

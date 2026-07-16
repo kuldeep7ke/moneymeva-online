@@ -270,16 +270,16 @@ export default function SettingsPage() {
     dispatchSyncEvent({ status: 'started', message: 'Manual sync started…' });
     try {
       dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
-      await pushAllToPouch();
-      dispatchSyncEvent({ status: 'pushing', message: 'Pulling remote changes…' });
-      const { ok, pushed, pulled } = await manualSync();
+      const localCount = await pushAllToPouch();
+      dispatchSyncEvent({ status: 'pushing', message: `Pulled remote changes…` });
+      const { ok, pushed, pulled, pushErr } = await manualSync();
       if (ok) {
         dispatchSyncEvent({ status: 'processing', message: 'Applying remote changes…' });
         await processRemoteChanges();
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
-        const msg = pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : 'Synced — no new changes';
+        const msg = pushErr ? `Push error: ${pushErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 pushed to cloud` : 'Synced — no local changes found';
         setSyncError(msg);
         dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         setTimeout(() => { if (syncStatus === 'connected') setSyncError(''); }, 4000);

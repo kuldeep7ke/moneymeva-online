@@ -90,7 +90,7 @@ export async function initPouchDB() {
   const Pouch = await ensurePouch();
   if (!Pouch) return null;
   localDB = new Pouch('mm_pouch');
-  await localDB.createIndex({ index: { fields: ['_entity', 'updatedAt'] } });
+  await localDB.createIndex({ index: { fields: ['entity', 'updatedAt'] } });
   return localDB;
 }
 
@@ -133,6 +133,7 @@ export async function connectRemote(url: string): Promise<{ ok: boolean; error?:
     syncHandler.on('error', (err: any) => {
       console.warn('[PouchDB] Live sync error (will retry):', err?.message || err);
     });
+    startReconnectTimer(url);
     return { ok: true };
   } catch (err: any) {
     remoteDB = null;
@@ -142,17 +143,23 @@ export async function connectRemote(url: string): Promise<{ ok: boolean; error?:
   }
 }
 
-export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number }> {
-  const result = { ok: false, pushed: 0, pulled: 0 };
+export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number; pushErr?: string }> {
+  const result: { ok: boolean; pushed: number; pulled: number; pushErr?: string } = { ok: false, pushed: 0, pulled: 0 };
   if (!localDB || !remoteDB) return result;
   try {
     const toResult = await localDB.replicate.to(remoteDB);
     const fromResult = await localDB.replicate.from(remoteDB);
-    result.pushed = toResult.docs_read || 0;
-    result.pulled = fromResult.docs_read || 0;
+    result.pushed = toResult.docs_written || 0;
+    result.pulled = fromResult.docs_written || 0;
     result.ok = true;
+    console.log('[PouchDB] toResult:', JSON.stringify(toResult));
+    console.log('[PouchDB] fromResult:', JSON.stringify(fromResult));
+    if (toResult.doc_write_failures > 0) result.pushErr = `${toResult.doc_write_failures} write failure(s)`;
     return result;
-  } catch { return result; }
+  } catch (e: any) {
+    console.warn('[PouchDB] manualSync failed:', e?.message || e);
+    return result;
+  }
 }
 
 export function disconnectRemote() {
@@ -180,12 +187,12 @@ export async function ensureConnected() {
 export async function putDoc(entity: EntityType, data: any) {
   if (!localDB) await initPouchDB();
   if (!localDB) return;
+  const id = `${entity}:${data.id}`;
   try {
-    const id = `${entity}:${data.id}`;
     const existing = await localDB.get(id).catch(() => null);
-    if (existing) await localDB.put({ ...existing, ...data, _entity: entity });
-    else await localDB.put({ _id: id, ...data, _entity: entity });
-  } catch {}
+    if (existing) await localDB.put({ ...existing, ...data, entity });
+    else await localDB.put({ _id: id, ...data, entity });
+  } catch {} // fail silently, will retry on next sync
 }
 
 export async function removeDoc(entity: EntityType, id: string) {
@@ -206,17 +213,18 @@ export async function pullAll(): Promise<any[]> {
       .filter((r: any) => {
         const doc = r.doc;
         if (!doc || doc._deleted) return false;
-        if (doc._entity) return true;
+        if (doc.entity || doc._entity) return true;
         const prefix = (doc._id || '').split(':')[0];
         return !!ENTITY_PREFIXES[prefix];
       })
       .map((r: any) => {
         const doc = { ...r.doc };
         delete doc._id; delete doc._rev;
-        if (!doc._entity) {
+        if (!doc.entity) {
           const prefix = (r.doc._id || '').split(':')[0];
-          doc._entity = ENTITY_PREFIXES[prefix];
+          doc.entity = doc._entity || ENTITY_PREFIXES[prefix];
         }
+        delete doc._entity;
         return doc;
       });
   } catch { return []; }
@@ -236,9 +244,9 @@ export async function writePins(pins: string[]) {
   try {
     const existing = await localDB.get('pin:batch').catch(() => null);
     if (existing) {
-      await localDB.put({ ...existing, pins, _entity: 'pin', updatedAt: new Date().toISOString() });
+      await localDB.put({ ...existing, pins, entity: 'pin', updatedAt: new Date().toISOString() });
     } else {
-      await localDB.put({ _id: 'pin:batch', pins, _entity: 'pin', updatedAt: new Date().toISOString() });
+      await localDB.put({ _id: 'pin:batch', pins, entity: 'pin', updatedAt: new Date().toISOString() });
     }
   } catch {}
 }

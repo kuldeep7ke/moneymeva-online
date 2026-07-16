@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
-import { LogIn, Mail, Lock, UserPlus, X, ArrowLeft, ShieldQuestion, KeyRound } from 'lucide-react';
+import { LogIn, Mail, Lock, UserPlus, X, ArrowLeft, ShieldQuestion, KeyRound, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { useRouter } from 'next/navigation';
@@ -70,6 +70,10 @@ function LoginForm() {
   const [forgotPin, setForgotPin] = useState('');
   const [forgotNewPassword, setForgotNewPassword] = useState('');
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
 
   const strength = mode === 'register' && password ? getPasswordStrength(password, '', email) : null;
 
@@ -194,10 +198,13 @@ function LoginForm() {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-              <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              <input required type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="••••••••" />
+                className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="••••••••" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
             {/* Strength Bar */}
             {mode === 'register' && password && strength && (
@@ -224,8 +231,11 @@ function LoginForm() {
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Confirm Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                <input required type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="••••••••" />
+                <input required type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="••••••••" />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
           )}
@@ -299,13 +309,23 @@ function LoginForm() {
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">New Password</label>
-                    <input type="password" value={forgotNewPassword} onChange={e => setForgotNewPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300" />
+                    <div className="relative">
+                      <input type={showForgotPassword ? 'text' : 'password'} value={forgotNewPassword} onChange={e => setForgotNewPassword(e.target.value)}
+                        className="w-full px-4 py-2.5 pr-10 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300" />
+                      <button type="button" onClick={() => setShowForgotPassword(!showForgotPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                        {showForgotPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</label>
-                    <input type="password" value={forgotConfirmPassword} onChange={e => setForgotConfirmPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300" />
+                    <div className="relative">
+                      <input type={showForgotConfirmPassword ? 'text' : 'password'} value={forgotConfirmPassword} onChange={e => setForgotConfirmPassword(e.target.value)}
+                        className="w-full px-4 py-2.5 pr-10 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300" />
+                      <button type="button" onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                        {showForgotConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
