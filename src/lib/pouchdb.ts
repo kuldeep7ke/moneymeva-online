@@ -74,6 +74,11 @@ function parseCouchUrl(url: string): { cleanUrl: string; auth?: { username: stri
   }
 }
 
+const ENTITY_PREFIXES: Record<string, EntityType> = {
+  transaction: 'transaction', partner: 'partner', recurring: 'recurring',
+  budget: 'budget', reminder: 'reminder', adjustment: 'adjustment', goal: 'goal', todo: 'todo',
+};
+
 function createRemote(Pouch: any, url: string, auth?: { username: string; password: string }) {
   const opts: any = { skip_setup: true };
   if (auth) opts.auth = auth;
@@ -124,6 +129,12 @@ export async function connectRemote(url: string) {
     remoteDB = createRemote(Pouch, cleanUrl, auth);
     await remoteDB.info();
     saveConfig(url);
+    syncHandler = localDB.sync(remoteDB, { live: true, retry: true });
+    syncHandler.on('change', () => notifyChange());
+    syncHandler.on('error', () => {
+      if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
+      remoteDB = null;
+    });
     return true;
   } catch { remoteDB = null; return false; }
 }
@@ -186,10 +197,20 @@ export async function pullAll(): Promise<any[]> {
     await localDB.replicate.from(remoteDB);
     const result = await localDB.allDocs({ include_docs: true });
     return result.rows
-      .filter((r: any) => (r.doc as any)?._entity && !(r.doc as any)._deleted)
+      .filter((r: any) => {
+        const doc = r.doc;
+        if (!doc || doc._deleted) return false;
+        if (doc._entity) return true;
+        const prefix = (doc._id || '').split(':')[0];
+        return !!ENTITY_PREFIXES[prefix];
+      })
       .map((r: any) => {
         const doc = { ...r.doc };
         delete doc._id; delete doc._rev;
+        if (!doc._entity) {
+          const prefix = (r.doc._id || '').split(':')[0];
+          doc._entity = ENTITY_PREFIXES[prefix];
+        }
         return doc;
       });
   } catch { return []; }

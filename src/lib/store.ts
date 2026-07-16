@@ -145,6 +145,11 @@ export async function initDB() {
   await autoDeleteExpiredArchived();
   autoCleanupCompletedTodos();
   initialized = true;
+  // Auto-process remote changes when live sync detects them
+  onRemoteChange(async () => {
+    const ok = await manualSync();
+    if (ok) await processRemoteChanges();
+  });
   // Auto-sync every 12 hours if connected
   setInterval(async () => {
     if (!connected()) return;
@@ -447,7 +452,10 @@ export async function processRemoteChanges() {
     try { await (db as any)[dexieTable].put(cleanDoc); } catch {}
     updated++;
   }
-  if (updated > 0) console.log(`Sync: ${updated} remote change(s) applied`);
+  if (updated > 0) {
+    console.log(`Sync: ${updated} remote change(s) applied`);
+    window.dispatchEvent(new CustomEvent('store-ready'));
+  }
 }
 
 export async function pushAllToPouch() {

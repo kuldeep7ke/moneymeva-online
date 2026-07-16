@@ -1,20 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Users, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, Plus, Trash2, X, Wallet, Undo2, Gauge, Lock, Cloud, RefreshCw } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, Undo2, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingDown, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { formatCurrency, cn, useSortedCategories } from '@/lib/utils';
+import { formatCurrency, cn, useSortedCategories, getSortedCategories } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
-import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, isStoreReady } from '@/lib/store';
+import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady } from '@/lib/store';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import { ReminderFrequency } from '@/types';
 import Reveal from '@/components/Reveal';
-import { checkConnection, getConfig, connected as pouchConnected } from '@/lib/pouchdb';
+import { checkConnection, getConfig, manualSync, connected as pouchConnected } from '@/lib/pouchdb';
+import { pushAllToPouch, processRemoteChanges } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
+import { logActivity } from '@/lib/activityLog';
+import InvestmentCalculator from '@/components/InvestmentCalculator';
 
 function CardSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -75,6 +78,17 @@ export default function DashboardPage() {
     return true;
   });
   const [welcomeFading, setWelcomeFading] = useState(false);
+
+  // Inline add modals
+  const [showAddTx, setShowAddTx] = useState<'income' | 'expense' | 'investment' | null>(null);
+  const [txForm, setTxForm] = useState({ amount: '', category: '', date: new Date().toISOString().split('T')[0], description: '', account: 'cash' as 'cash' | 'bank' | 'upi' });
+  const [txCatSearch, setTxCatSearch] = useState('');
+  const [txShowCatDropdown, setTxShowCatDropdown] = useState(false);
+  const [txCatHighlight, setTxCatHighlight] = useState(-1);
+  const catRef = useRef<HTMLDivElement>(null);
+  const [showAddParty, setShowAddParty] = useState(false);
+  const [partyForm, setPartyForm] = useState({ name: '', group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const refreshGoals = () => { setGoals(getGoals()); };
 
@@ -204,6 +218,60 @@ export default function DashboardPage() {
     loadReminders();
   };
 
+  const BASE_CATEGORIES: Record<string, string[]> = {
+    income: ['Salary', 'Freelance', 'Business', 'Interest', 'Dividends', 'Rental', 'Other'],
+    expense: ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Health', 'Education', 'Rent', 'Groceries', 'Dining', 'Other'],
+    investment: ['Stocks', 'Mutual Funds', 'FD', 'PPF', 'NPS', 'Gold', 'Real Estate', 'Crypto', 'Other'],
+  };
+
+  const getRecentCategories = (type: string): string[] => {
+    const all = getTransactions().filter(t => t.type === type && !t.deletedAt);
+    const freq = new Map<string, number>();
+    all.forEach(t => freq.set(t.category, (freq.get(t.category) || 0) + 1));
+    const sorted = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).map(e => e[0]);
+    return sorted.length > 0 ? sorted : getSortedCategories(BASE_CATEGORIES[type] || BASE_CATEGORIES.expense, type);
+  };
+
+  const getFilteredCategories = (type: string, search: string): string[] => {
+    const recent = getRecentCategories(type);
+    if (!search) return recent.slice(0, 3);
+    const s = search.toLowerCase();
+    const matched = recent.filter(c => c.toLowerCase().includes(s));
+    const base = (BASE_CATEGORIES[type] || BASE_CATEGORIES.expense).filter(c => c.toLowerCase().includes(s) && !matched.includes(c));
+    return [...matched, ...base].slice(0, 10);
+  };
+
+  const handleQuickAddTx = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showAddTx) return;
+    const amount = Number(txForm.amount);
+    if (!amount || !txForm.category) return;
+    addTransaction({ amount, type: showAddTx, category: txForm.category, description: txForm.description, date: txForm.date, partnerAccountId: undefined, account: showAddTx === 'investment' ? 'invest' : txForm.account, isRecurring: false });
+    logActivity('entry_created', `${showAddTx} — ${txForm.category}`);
+    setShowAddTx(null);
+    setTxForm({ amount: '', category: '', date: new Date().toISOString().split('T')[0], description: '', account: 'cash' });
+    setTxCatSearch('');
+    refreshDashboard();
+  };
+
+  const handleQuickAddParty = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partyForm.name.trim()) return;
+    addPartner({ name: partyForm.name, type: partyForm.type, group: partyForm.group, description: partyForm.description, budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
+    setShowAddParty(false);
+    setPartyForm({ name: '', group: 'contact', type: 'individual', description: '' });
+    refreshDashboard();
+  };
+
+  const handleTxCatKeyDown = (e: React.KeyboardEvent) => {
+    if (!showAddTx) return;
+    const cats = getFilteredCategories(showAddTx, txCatSearch);
+    if (e.key === 'ArrowDown') { e.preventDefault(); setTxShowCatDropdown(true); setTxCatHighlight(i => Math.min(i + 1, cats.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setTxCatHighlight(i => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter' && txShowCatDropdown && txCatHighlight >= 0) { e.preventDefault(); setTxForm({ ...txForm, category: cats[txCatHighlight] }); setTxShowCatDropdown(false); setTxCatSearch(''); setTxCatHighlight(-1); }
+    else if (e.key === 'Escape') { setTxShowCatDropdown(false); setTxCatHighlight(-1); }
+  };
+
   const frequencyOptions = [
     { value: 'once', label: 'Once' },
     { value: 'daily', label: 'Daily' },
@@ -245,10 +313,10 @@ export default function DashboardPage() {
   const summaryCards = [
     { title: t('dashboard.available'), amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
     { title: t('dashboard.balance'), amount: aggregates.cashBankBalance, icon: PiggyBank, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-    { title: t('dashboard.totalIncome'), amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50' },
-    { title: t('dashboard.totalExpenses'), amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50' },
-    { title: t('dashboard.investments'), amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary' },
-    { title: t('dashboard.partners'), amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50' },
+    { title: t('dashboard.totalIncome'), amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50', addPath: '/dashboard/income' },
+    { title: t('dashboard.totalExpenses'), amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50', addPath: '/dashboard/expenses' },
+    { title: t('dashboard.investments'), amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary', addPath: '/dashboard/investments' },
+    { title: t('dashboard.partners'), amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50', addPath: '/dashboard/partners' },
   ];
 
   return (
@@ -334,8 +402,23 @@ export default function DashboardPage() {
                 <div className={cn("p-3 rounded-xl", card.bgColor)}>
                   <card.icon className={cn("h-6 w-6", card.color)} />
                 </div>
-                {overLimit && <span className="text-xs font-bold text-red-500">OVER</span>}
-                {nearLimit && <span className="text-xs font-bold text-amber-500">NEAR</span>}
+                <div className="flex items-center gap-1">
+                  {overLimit && <span className="text-xs font-bold text-red-500">OVER</span>}
+                  {nearLimit && <span className="text-xs font-bold text-amber-500">NEAR</span>}
+                  {(card as any).addPath && (
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      const path = (card as any).addPath as string;
+                      if (path === '/dashboard/partners') setShowAddParty(true);
+                      else if (path === '/dashboard/income') setShowAddTx('income');
+                      else if (path === '/dashboard/expenses') setShowAddTx('expense');
+                      else if (path === '/dashboard/investments') setShowAddTx('investment');
+                    }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors" title={`Add ${card.title}`}>
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.title}</p>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(card.amount)}</h3>
@@ -426,10 +509,13 @@ export default function DashboardPage() {
                 setSyncing(true);
                 const cfg = getConfig();
                 if (cfg.url) {
-                  const ok = await checkConnection();
+                  await pushAllToPouch();
+                  const ok = await manualSync();
                   setSyncConnected(ok);
+                  if (ok) await processRemoteChanges();
+                  refreshDashboard();
                 }
-                setTimeout(() => setSyncing(false), 1000);
+                setSyncing(false);
               }} disabled={syncing}>
                 <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
               </Button>
@@ -951,6 +1037,134 @@ export default function DashboardPage() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setEditGoal(null)}>Cancel</Button>
                 <Button type="submit" size="sm">{editGoal._new ? 'Create Goal' : 'Save Changes'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Transaction Modal */}
+      {showAddTx && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowAddTx(null)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Add {showAddTx === 'income' ? 'Income' : showAddTx === 'expense' ? 'Expense' : 'Investment'}</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Quick entry from dashboard — recent categories shown first</p>
+            <form onSubmit={handleQuickAddTx} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Amount (₹)</label>
+                <input required type="number" min="0" step="0.01" value={txForm.amount} onChange={e => setTxForm({ ...txForm, amount: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="0" autoFocus />
+              </div>
+              <div className="relative" ref={catRef}>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Category</label>
+                <input required value={txForm.category}
+                  onChange={e => { setTxForm({ ...txForm, category: e.target.value }); setTxCatSearch(e.target.value); setTxShowCatDropdown(true); setTxCatHighlight(-1); }}
+                  onFocus={() => setTxShowCatDropdown(true)}
+                  onKeyDown={handleTxCatKeyDown}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Search or type" />
+                {txShowCatDropdown && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {getFilteredCategories(showAddTx, txCatSearch).map((c, i) => (
+                      <button key={c} type="button"
+                        onClick={() => { setTxForm({ ...txForm, category: c }); setTxShowCatDropdown(false); setTxCatSearch(''); setTxCatHighlight(-1); }}
+                        onMouseEnter={() => setTxCatHighlight(i)}
+                        className={cn("w-full px-4 py-2 text-left text-sm transition-colors", txCatHighlight === i ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30", txForm.category === c && "font-medium")}>
+                        {c}
+                      </button>
+                    ))}
+                    {txCatSearch && !getFilteredCategories(showAddTx, txCatSearch).includes(txCatSearch) && (
+                      <button type="button"
+                        onClick={() => { setTxForm({ ...txForm, category: txCatSearch }); setTxShowCatDropdown(false); setTxCatSearch(''); setTxCatHighlight(-1); }}
+                        className="w-full px-4 py-2 text-left text-sm text-brand font-medium hover:bg-brand-secondary dark:hover:bg-brand-muted/30">
+                        + Create "{txCatSearch}"
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Date</label>
+                  <input required type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" />
+                </div>
+                {showAddTx !== 'investment' && (
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Account</label>
+                    <select value={txForm.account} onChange={e => setTxForm({ ...txForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="upi">UPI</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Description</label>
+                <input value={txForm.description} onChange={e => setTxForm({ ...txForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Add a note..." />
+              </div>
+              {showAddTx === 'investment' && (
+                <button type="button" onClick={() => setShowCalculator(true)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-sky-300 dark:border-sky-700 text-xs text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors">
+                  <Calculator className="h-3.5 w-3.5" /> Calculate Returns First
+                </button>
+              )}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowAddTx(null)} type="button">Cancel</Button>
+                <Button type="submit" size="sm">Save</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCalculator && (
+        <InvestmentCalculator onClose={() => setShowCalculator(false)} onApply={(amount) => { setTxForm({ ...txForm, amount: String(amount) }); setShowCalculator(false); }} />
+      )}
+
+      {/* Quick Add Party Modal */}
+      {showAddParty && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowAddParty(false)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">New Party</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Add a person or business</p>
+            <form onSubmit={handleQuickAddParty} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Name</label>
+                <input required value={partyForm.name} onChange={e => setPartyForm({ ...partyForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Party name" autoFocus />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Group</label>
+                  <select value={partyForm.group} onChange={e => setPartyForm({ ...partyForm, group: e.target.value as 'customer' | 'vendor' | 'contact' })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                    <option value="contact">Contact</option>
+                    <option value="customer">Customer</option>
+                    <option value="vendor">Vendor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Type</label>
+                  <select value={partyForm.type} onChange={e => setPartyForm({ ...partyForm, type: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
+                    <option value="individual">Individual</option>
+                    <option value="friend">Friend / Family</option>
+                    <option value="client">Client</option>
+                    <option value="supplier">Supplier</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Description</label>
+                <input value={partyForm.description} onChange={e => setPartyForm({ ...partyForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Notes..." />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowAddParty(false)} type="button">Cancel</Button>
+                <Button type="submit" size="sm">Create Party</Button>
               </div>
             </form>
           </div>

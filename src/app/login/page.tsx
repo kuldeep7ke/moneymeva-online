@@ -4,11 +4,12 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
-import { LogIn, Mail, Lock, UserPlus, X, ArrowLeft } from 'lucide-react';
+import { LogIn, Mail, Lock, UserPlus, X, ArrowLeft, ShieldQuestion, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { useRouter } from 'next/navigation';
-import { loginUser, registerUser, getAllUsers, switchUser, removeUser, getSession, LocalUser } from '@/lib/localAuth';
+import { loginUser, registerUser, getAllUsers, switchUser, removeUser, getSession, LocalUser, updatePassword, resetPassword } from '@/lib/localAuth';
+import { validatePin, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { useAuth } from '@/components/AuthProvider';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
@@ -59,13 +60,18 @@ function LoginForm() {
   });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'idle' | 'email' | 'pin' | 'reset'>('idle');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotPin, setForgotPin] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
 
-  const strength = mode === 'register' && password ? getPasswordStrength(password, fullName, email) : null;
+  const strength = mode === 'register' && password ? getPasswordStrength(password, '', email) : null;
 
   useEffect(() => {
     const session = getSession().user;
@@ -93,13 +99,6 @@ function LoginForm() {
     return () => { handler.then(h => h.remove()); };
   }, []);
 
-  useEffect(() => {
-    if (mode === 'register' && !fullName) {
-      const saved = localStorage.getItem('mm_last_name');
-      if (saved) setFullName(saved);
-    }
-  }, [mode, fullName]);
-
   const handleGoogleLogin = () => setShowComingSoon(true);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -107,8 +106,9 @@ function LoginForm() {
     setError('');
 
     if (mode === 'register') {
-      const s = getPasswordStrength(password, fullName, email);
+      const s = getPasswordStrength(password, '', email);
       if (s.error) { setError(s.error); return; }
+      if (password !== confirmPassword) { setError('Passwords do not match'); return; }
     }
 
     setSubmitting(true);
@@ -119,12 +119,48 @@ function LoginForm() {
       refreshAuth();
       setTimeout(() => router.push(result.user?.onboarding_completed ? '/dashboard' : '/onboarding'), 400);
     } else {
-      const result = registerUser(email, password, fullName);
+      const result = registerUser(email, password, '');
       if (result.error) { setError(result.error); setSubmitting(false); return; }
-      localStorage.setItem('mm_last_name', fullName);
       refreshAuth();
       setTimeout(() => router.push('/onboarding'), 400);
     }
+  };
+
+  const handleForgotPassword = () => {
+    setForgotStep('email');
+    setForgotEmail('');
+    setForgotPin('');
+    setForgotNewPassword('');
+    setForgotConfirmPassword('');
+    setError('');
+  };
+
+  const handleForgotNext = () => {
+    setError('');
+    if (forgotStep === 'email') {
+      const users = getAllUsers();
+      if (!users.find(u => u.email === forgotEmail)) { setError('Email not found'); return; }
+      if (!hasPins()) { setError('No PINs available. Contact support to reset your account.'); return; }
+      if (getRemainingPins() <= 0) { setError('All PINs used. Generate new PINs from Settings → Security.'); return; }
+      setForgotStep('pin');
+    } else if (forgotStep === 'pin') {
+      if (!validatePin(forgotPin)) { setError('Invalid or already used PIN'); return; }
+      setForgotStep('reset');
+    } else if (forgotStep === 'reset') {
+      if (forgotNewPassword.length < 6) { setError('Password must be at least 6 characters'); return; }
+      if (forgotNewPassword !== forgotConfirmPassword) { setError('Passwords do not match'); return; }
+      const result = resetPassword(forgotEmail, forgotNewPassword);
+      if (result.error) { setError(result.error); return; }
+      setForgotStep('idle');
+      setEmail(forgotEmail);
+      setPassword('');
+      setError('Password reset successful. Sign in with your new password.');
+    }
+  };
+
+  const handleForgotCancel = () => {
+    setForgotStep('idle');
+    setError('');
   };
 
   return (
@@ -146,16 +182,6 @@ function LoginForm() {
 
         <div className="p-10 pt-6 space-y-6">
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'register' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Full Name</label>
-              <div className="relative">
-                <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                <input required type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="John Doe" />
-              </div>
-            </div>
-          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Email</label>
             <div className="relative">
@@ -188,6 +214,21 @@ function LoginForm() {
               </div>
             )}
           </div>
+          {mode === 'login' && (
+            <button type="button" onClick={handleForgotPassword} className="text-xs text-brand hover:text-brand-secondary dark:text-brand-secondary dark:hover:text-brand font-medium -mt-2">
+              Forgot Password?
+            </button>
+          )}
+          {mode === 'register' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Confirm Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <input required type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="••••••••" />
+              </div>
+            </div>
+          )}
           {error && <p className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-2 rounded-lg">{error}</p>}
           <Button type="submit" className="w-full py-3 gap-2">
             {mode === 'login' ? <LogIn className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
@@ -221,6 +262,66 @@ function LoginForm() {
         {mode === 'login' && <ExistingUsers onRefresh={refreshAuth} />}
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {forgotStep !== 'idle' && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={handleForgotCancel}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-8 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-4">
+                {forgotStep === 'email' ? <Mail className="h-8 w-8 text-white" /> : forgotStep === 'pin' ? <ShieldQuestion className="h-8 w-8 text-white" /> : <KeyRound className="h-8 w-8 text-white" />}
+              </div>
+              <h3 className="text-2xl font-bold text-white">
+                {forgotStep === 'email' ? 'Reset Password' : forgotStep === 'pin' ? 'Enter PIN' : 'New Password'}
+              </h3>
+              <p className="text-amber-100 text-sm mt-2">
+                {forgotStep === 'email' ? 'Enter your registered email' : forgotStep === 'pin' ? `Enter an unused PIN (${getRemainingPins()} remaining)` : 'Choose a new password'}
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              {forgotStep === 'email' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300"
+                    placeholder="you@example.com" />
+                </div>
+              )}
+              {forgotStep === 'pin' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">PIN</label>
+                  <input type="text" value={forgotPin} onChange={e => setForgotPin(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300 text-center text-2xl tracking-[0.5em]"
+                    placeholder="• • • •" />
+                </div>
+              )}
+              {forgotStep === 'reset' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">New Password</label>
+                    <input type="password" value={forgotNewPassword} onChange={e => setForgotNewPassword(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</label>
+                    <input type="password" value={forgotConfirmPassword} onChange={e => setForgotConfirmPassword(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand bg-transparent text-slate-700 dark:text-slate-300" />
+                  </div>
+                </div>
+              )}
+              {error && <p className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-2 rounded-lg">{error}</p>}
+              <div className="flex gap-2">
+                <button onClick={handleForgotCancel} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors text-sm">
+                  Cancel
+                </button>
+                <button onClick={handleForgotNext} className="flex-1 px-4 py-2.5 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors text-sm">
+                  {forgotStep === 'reset' ? 'Reset Password' : 'Next'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Coming Soon Modal */}
       {showComingSoon && (

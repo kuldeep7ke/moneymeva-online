@@ -6,7 +6,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe } from 'lucide-react';
+import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
@@ -23,7 +23,6 @@ import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync, getSyncUrlHistory, saveSyncUrlHistory } from '@/lib/pouchdb';
 import { dispatchSyncEvent } from '@/lib/sync-notify';
-
 export default function SettingsPage() {
   const { refreshAuth } = useAuth();
   const { brand, setBrand } = useTheme();
@@ -348,6 +347,24 @@ export default function SettingsPage() {
         </div>
         </Reveal>
 
+        {/* User Account */}
+        <Reveal delay={180}>
+        <Link href="/dashboard/account">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-6 hover:shadow-md transition-shadow cursor-pointer">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl">
+              <User className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">User Account</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Change password, logout, manage account</p>
+            </div>
+            <ArrowRight className="h-5 w-5 text-slate-400 shrink-0" />
+          </div>
+        </div>
+        </Link>
+        </Reveal>
+
         {/* Multi-Device Sync */}
         <Reveal delay={200}>
         <div className="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-6">
@@ -379,7 +396,7 @@ export default function SettingsPage() {
                       <input
                         value={syncUrl}
                         onChange={e => { setSyncUrl(e.target.value); setSyncError(''); }}
-                        placeholder="https://your-server.railway.app/db-name"
+                        placeholder="Paste your sync URL here"
                         className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
                       />
                     )}
@@ -387,6 +404,12 @@ export default function SettingsPage() {
                       <Copy className="h-4 w-4" />
                     </button>
                   </div>
+                  {syncStatus !== 'connected' && (
+                    <button onClick={() => setSyncUrl('https://admin:123@couchdb-production-bceb.up.railway.app/money_meva')}
+                      className="px-2.5 py-2 rounded-lg bg-sky-100 dark:bg-sky-900/30 text-xs text-sky-700 dark:text-sky-400 font-medium hover:bg-sky-200 dark:hover:bg-sky-900/50 shrink-0 transition-colors">
+                      Use Default
+                    </button>
+                  )}
                 </div>
 
                 {/* Saved URLs */}
@@ -433,15 +456,11 @@ export default function SettingsPage() {
         </div>
         </Reveal>
 
-        {/* Sync Security Warning */}
+        {/* Sync Info */}
         <Reveal delay={300}>
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 space-y-2">
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-sm">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>Security Warning — Read Carefully</span>
-            </div>
-            <p className="text-xs text-amber-600 dark:text-amber-500 leading-relaxed">
-              Your sync link acts as a key to your personal financial data. Anyone with access to this link can read, modify, or delete your data from the remote server. <strong>Never share this link</strong> directly or indirectly with anyone. Keep it private and treat it like a password. This feature is provided for your convenience — misuse or exposure of the link is entirely your responsibility.
+          <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-4 space-y-2">
+            <p className="text-xs text-sky-700 dark:text-sky-400 leading-relaxed">
+              Enter the same URL on each device to sync all your data across devices. The URL includes authentication — share it with trusted devices only. Data syncs in real-time once connected.
             </p>
           </div>
         </Reveal>

@@ -16,7 +16,9 @@ export type ActivityType =
   | 'entry_restored'
   | 'entry_edited'
   | 'entry_exported'
-  | 'entry_imported';
+  | 'entry_imported'
+  | 'password_changed'
+  | 'password_reset';
 
 export interface ActivityEntry {
   type: ActivityType;

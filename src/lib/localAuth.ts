@@ -202,3 +202,26 @@ function setActiveUser(userId: string): Omit<LocalUser, 'password'> | null {
   setUserId(users[idx].id);
   return safeUser;
 }
+
+export function updatePassword(userId: string, currentPassword: string, newPassword: string): { success: boolean; error?: string } {
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return { success: false, error: 'User not found' };
+  if (users[idx].password !== currentPassword) return { success: false, error: 'Current password is incorrect' };
+  if (newPassword.length < 6) return { success: false, error: 'New password must be at least 6 characters' };
+  users[idx].password = newPassword;
+  saveUsers(users);
+  logActivity('password_changed', users[idx].email);
+  return { success: true };
+}
+
+export function resetPassword(email: string, newPassword: string): { success: boolean; error?: string } {
+  const users = getUsers();
+  const idx = users.findIndex(u => u.email === email);
+  if (idx === -1) return { success: false, error: 'Email not found' };
+  if (newPassword.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
+  users[idx].password = newPassword;
+  saveUsers(users);
+  logActivity('password_reset', email);
+  return { success: true };
+}
