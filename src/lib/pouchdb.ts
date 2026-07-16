@@ -118,10 +118,10 @@ function stopReconnectTimer() {
   if (reconnectTimer) { clearInterval(reconnectTimer); reconnectTimer = null; }
 }
 
-export async function connectRemote(url: string) {
+export async function connectRemote(url: string): Promise<{ ok: boolean; error?: string }> {
   await initPouchDB();
   disconnectRemote();
-  if (!localDB) return false;
+  if (!localDB) return { ok: false, error: 'Local database not initialized' };
   try {
     const Pouch = await ensurePouch();
     const { cleanUrl, auth } = parseCouchUrl(url);
@@ -133,8 +133,13 @@ export async function connectRemote(url: string) {
     syncHandler.on('error', (err: any) => {
       console.warn('[PouchDB] Live sync error (will retry):', err?.message || err);
     });
-    return true;
-  } catch { remoteDB = null; return false; }
+    return { ok: true };
+  } catch (err: any) {
+    remoteDB = null;
+    const msg = err?.message || err?.name || String(err || 'Unknown error');
+    console.error('[PouchDB] Connection failed:', msg);
+    return { ok: false, error: msg };
+  }
 }
 
 export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number }> {
@@ -161,7 +166,8 @@ export async function checkConnection(): Promise<boolean> {
   const cfg = getConfig();
   if (!cfg.url) return false;
   if (connected()) return true;
-  return await connectRemote(cfg.url);
+  const { ok } = await connectRemote(cfg.url);
+  return ok;
 }
 
 export async function ensureConnected() {

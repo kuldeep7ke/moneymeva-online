@@ -223,7 +223,7 @@ export default function SettingsPage() {
     setSyncError('');
     dispatchSyncEvent({ status: 'started', message: 'Connecting to remote…' });
     try {
-      const ok = await connectRemote(syncUrl.trim());
+      const { ok, error: connErr } = await connectRemote(syncUrl.trim());
       if (ok) {
         saveSyncUrlHistory(syncUrl.trim());
         setSyncUrlHistory(getSyncUrlHistory());
@@ -246,8 +246,9 @@ export default function SettingsPage() {
           failSync('Connected to server but data replication failed. Try again.');
         }
       } else {
-        dispatchSyncEvent({ status: 'error', message: 'Connection failed', error: 'Could not connect to remote' });
-        failSync('Could not connect. Check the URL and ensure the server is running.');
+        const detail = connErr ? ` — ${connErr}` : '';
+        dispatchSyncEvent({ status: 'error', message: 'Connection failed', error: connErr || 'Unknown' });
+        failSync(`Could not connect.${detail}`);
       }
     } catch {
       dispatchSyncEvent({ status: 'error', message: 'Connection failed', error: 'Connection error' });
