@@ -267,8 +267,37 @@ React context providing `theme` (light/dark), `brand` selection, and `toggle` fu
 ### Animation Utilities
 ```css
 .slide-up { animation: slideUp 0.6s ease-out both; }
-.reveal { opacity: 0; transform: translateY(30px); transition: ...; }
-.revealed { opacity: 1; transform: translateY(0); }
+.slide-up-0 { animation: slideUp 0.6s ease-out 0s both; }
+.slide-up-1 { animation: slideUp 0.6s ease-out 0.1s both; }
+.slide-up-2 { animation: slideUp 0.6s ease-out 0.2s both; }
+.slide-up-3 { animation: slideUp 0.6s ease-out 0.3s both; }
+.slide-up-4 { animation: slideUp 0.6s ease-out 0.4s both; }
+.slide-up-5 { animation: slideUp 0.6s ease-out 0.5s both; }
+.slide-up-6 { animation: slideUp 0.6s ease-out 0.6s both; }
+.slide-up-7 { animation: slideUp 0.6s ease-out 0.7s both; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Icon animations */
+.icon-pulse { animation: pulse 1.5s ease-in-out infinite; }
+.icon-spin  { animation: spin 1s linear infinite; }
+.icon-bounce { animation: bounce 0.6s ease infinite; }
+.icon-float { animation: float 2s ease-in-out infinite; }
+.icon-glow  { animation: glow 1.5s ease-in-out infinite; }
+
+@keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes spin   { to{transform:rotate(360deg)} }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes float  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+@keyframes glow   { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.4)} }
+```
+
+Staggered animations can be applied inline to avoid class-merging conflicts:
+```tsx
+style={{ animation: `slideUp 0.6s ease-out ${i * 0.1}s both` }}
 ```
 
 ### Reusable UI Component (`src/components/ui/button.tsx`)

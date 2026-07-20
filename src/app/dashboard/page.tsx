@@ -344,20 +344,19 @@ export default function DashboardPage() {
         </div>
 
         {/* Period Filter Pills */}
-        <div className="slide-up">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
-            {['1W', '1M', '3M', '6M', '1Y', 'ALL'].map((p, i) => (
-              <button key={p} onClick={() => { setPeriod(p); localStorage.setItem('mm_dash_period', p); }}
-                className={cn(`slide-up-${i} px-3 py-1.5 text-xs font-medium rounded-full border transition-colors whitespace-nowrap`,
-                  period === p
-                    ? "bg-brand text-white border-brand"
-                    : "bg-white dark:bg-[#2A2522] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted hover:border-brand"
-                )}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+          {['1W', '1M', '3M', '6M', '1Y', 'ALL'].map((p, i) => (
+            <button key={p} onClick={() => { setPeriod(p); localStorage.setItem('mm_dash_period', p); }}
+              style={{ animation: `slideUp 0.6s ease-out ${i * 0.1}s both` }}
+              className={cn("px-3 py-1.5 text-xs font-medium rounded-full border transition-colors whitespace-nowrap",
+                period === p
+                  ? "bg-brand text-white border-brand"
+                  : "bg-white dark:bg-[#2A2522] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted hover:border-brand"
+              )}
+            >
+              {p}
+            </button>
+          ))}
         </div>
 
         <Reveal>
