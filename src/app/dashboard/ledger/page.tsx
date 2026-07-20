@@ -12,6 +12,7 @@ import {
   Copy, 
   Check, 
   Filter, 
+  X,
   ArrowUpCircle,
   Users,
   Calendar,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getMutationLog, getMutationLogByTransitionId } from '@/lib/store';
+import { downloadFile, copyText } from '@/lib/download';
 import { MutationAction, MutationLog } from '@/types';
 import Reveal from '@/components/Reveal';
 import { LucideIcon } from 'lucide-react';
@@ -120,7 +122,7 @@ export default function LedgerPage() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+    copyText(text);
     setCopiedId(text);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -136,16 +138,8 @@ export default function LedgerPage() {
       l.userId,
       `"${l.detail || ''}"`
     ]);
-    
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `money_meva_ledger_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadFile(csvContent, `money_meva_ledger_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
   };
 
   const formatTimestamp = (ts: string) => {
@@ -201,6 +195,11 @@ export default function LedgerPage() {
                 <option value="all">All Actions</option>
                 {Object.keys(ACTION_COLORS).map(action => <option key={action} value={action}>{action.charAt(0).toUpperCase() + action.slice(1)}</option>)}
               </select>
+              {(entityFilter !== 'all' || actionFilter !== 'all' || searchQuery) && (
+                <button onClick={() => { setEntityFilter('all'); setActionFilter('all'); setSearchQuery(''); }} className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Clear filters">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
         </Reveal>

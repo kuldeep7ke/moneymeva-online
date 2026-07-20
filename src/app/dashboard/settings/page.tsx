@@ -21,8 +21,9 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, getConfig, connected as isConnected, manualSync, getSyncUrlHistory, saveSyncUrlHistory } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory } from '@/lib/pouchdb';
 import { dispatchSyncEvent } from '@/lib/sync-notify';
+import { downloadFile, copyText, printHtml } from '@/lib/download';
 export default function SettingsPage() {
   const { refreshAuth } = useAuth();
   const { brand, setBrand } = useTheme();
@@ -130,11 +131,7 @@ export default function SettingsPage() {
       transactions: getTransactions(), budgets: getBudgets(), goals: getGoals(),
       reminders: getReminders(), recurring: getRecurring(), partners: getPartners(), adjustments: getAdjustments(),
     };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `money-meva-backup-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    URL.revokeObjectURL(url);
+    downloadFile(JSON.stringify(exportData, null, 2), `money-meva-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
     logActivity('entry_exported', 'Full JSON backup');
   };
 
@@ -282,7 +279,7 @@ export default function SettingsPage() {
         const msg = pushErr ? `Push error: ${pushErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 pushed to cloud` : 'Synced — no local changes found';
         setSyncError(msg);
         dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
-        setTimeout(() => { if (syncStatus === 'connected') setSyncError(''); }, 4000);
+        setTimeout(() => { setSyncError(''); }, 4000);
       } else {
         dispatchSyncEvent({ status: 'error', message: 'Sync failed during replication', error: 'Replication failed' });
         failSync('Sync failed. Ensure you are connected first.');
@@ -411,7 +408,7 @@ export default function SettingsPage() {
                         className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
                       />
                     )}
-                    <button onClick={() => { navigator.clipboard.writeText(syncUrl); }} className="p-1 text-slate-400 hover:text-sky-600 shrink-0" title="Copy URL">
+                    <button onClick={() => { copyText(syncUrl); }} className="p-1 text-slate-400 hover:text-sky-600 shrink-0" title="Copy URL">
                       <Copy className="h-4 w-4" />
                     </button>
                   </div>
@@ -515,11 +512,7 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-400 dark:text-slate-500 pt-2">Headers: date, amount, category, description, type (income/expense/saving/investment)</p>
               <Button variant="ghost" size="sm" className="text-xs text-brand dark:text-brand-secondary" onClick={() => {
                 const csv = 'date,amount,category,description,type\n2024-01-15,5000,Salary,January salary,income\n2024-01-16,200,Groceries,Weekly groceries,expense';
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'money-meva-template.csv'; a.click();
-                URL.revokeObjectURL(url);
+                downloadFile(csv, 'money-meva-template.csv', 'text/csv');
               }}>Download Template</Button>
           </div>
           <div className="bg-white dark:bg-[#2A2522] p-8 rounded-2xl border-2 border-dashed border-slate-200 dark:border-brand-muted shadow-sm text-center space-y-4">
@@ -531,11 +524,7 @@ export default function SettingsPage() {
                 const txs = getTransactions();
                 const csv = ['date,type,category,description,amount,partnerId'];
                 txs.forEach(t => csv.push(`${t.date},${t.type},${t.category},${t.description},${t.amount},${t.partnerAccountId || ''}`));
-                const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'money-meva-export.csv'; a.click();
-                URL.revokeObjectURL(url);
+                downloadFile(csv.join('\n'), 'money-meva-export.csv', 'text/csv');
               }}>
                 <Download className="h-4 w-4" /> CSV
               </Button>
@@ -696,19 +685,10 @@ export default function SettingsPage() {
                       <div className="flex gap-2 mt-3">
                         <Button size="sm" variant="outline" onClick={() => {
                           const text = pins.map((p, i) => `#${i + 1}: ${p}`).join('\n');
-                          const blob = new Blob([text], { type: 'text/plain' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url; a.download = 'money-meva-pins.txt'; a.click();
-                          URL.revokeObjectURL(url);
+                          downloadFile(text, 'money-meva-pins.txt', 'text/plain');
                         }} className="text-xs">Download as Text</Button>
                         <Button size="sm" variant="outline" onClick={() => {
-                          const win = window.open('', '_blank');
-                          if (win) {
-                            win.document.write(`<html><head><title>Money Meva PINs</title><style>body{font-family:monospace;padding:40px;text-align:center}h2{margin-bottom:20px}.pin{display:inline-block;margin:8px;padding:12px 20px;border:2px solid #ccc;border-radius:8px;font-size:24px;letter-spacing:4px}span{display:block;font-size:12px;color:#888}</style></head><body><h2>Money Meva — Access PINs</h2><p style="color:#888;margin-bottom:24px">Keep these safe. Each PIN can be used once.</p>${pins.map((p, i) => `<div class="pin">${p}<span>#${i + 1}</span></div>`).join('')}<p style="margin-top:40px;color:#aaa;font-size:12px">Generated: ${new Date().toLocaleString()}</p></body></html>`);
-                            win.document.close();
-                            win.print();
-                          }
+                          printHtml('Money Meva PINs', `<div style="font-family:monospace;padding:40px;text-align:center"><h2>Money Meva — Access PINs</h2><p style="color:#888;margin-bottom:24px">Keep these safe. Each PIN can be used once.</p>${pins.map((p, i) => `<div style="display:inline-block;margin:8px;padding:12px 20px;border:2px solid #ccc;border-radius:8px;font-size:24px;letter-spacing:4px">${p}<span style="display:block;font-size:12px;color:#888">#${i + 1}</span></div>`).join('')}<p style="margin-top:40px;color:#aaa;font-size:12px">Generated: ${new Date().toLocaleString()}</p></div>`);
                         }} className="text-xs">Print</Button>
                       </div>
                       {!pinsShown && (

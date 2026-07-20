@@ -105,6 +105,7 @@ function startReconnectTimer(url: string) {
       const rd = createRemote(Pouch, cleanUrl, auth);
       await rd.info();
       remoteDB = rd;
+      if (syncHandler) { try { syncHandler.cancel(); } catch {} }
       syncHandler = localDB.sync(rd, { live: true, retry: true });
       syncHandler.on('change', () => notifyChange());
       syncHandler.on('error', (err: any) => {
@@ -233,6 +234,23 @@ export async function pullAll(): Promise<any[]> {
 export async function clearPouch() {
   stopReconnectTimer();
   if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
+  remoteDB = null;
+  if (localDB) { try { await localDB.destroy(); } catch {} localDB = null; }
+  await initPouchDB();
+}
+
+export async function clearRemote() {
+  stopReconnectTimer();
+  if (syncHandler) { try { syncHandler.cancel(); } catch {} syncHandler = null; }
+  if (!remoteDB) return;
+  try {
+    const all = await remoteDB.allDocs({ include_docs: true });
+    const docs = all.rows.filter((r: any) => !r.id.startsWith('_design/')).map((r: any) => ({ ...r.doc, _deleted: true }));
+    const batchSize = 100;
+    for (let i = 0; i < docs.length; i += batchSize) {
+      await remoteDB.bulkDocs(docs.slice(i, i + batchSize));
+    }
+  } catch {}
   remoteDB = null;
   if (localDB) { try { await localDB.destroy(); } catch {} localDB = null; }
   await initPouchDB();

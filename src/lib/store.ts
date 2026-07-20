@@ -184,6 +184,7 @@ export async function clearAllDB() {
     db.adjustments.clear(),
     db.goals.clear(),
     db.todos.clear(),
+    db.mutation_log.clear(),
     clearPouch(),
   ]);
   cache.transactions = [];
@@ -983,8 +984,8 @@ export function getMonthlySummary(year: number, month: number) {
   };
 }
 
-export function getAggregates() {
-  const txs = getTransactions();
+export function getAggregates(since?: Date) {
+  const txs = since ? getTransactions().filter(t => new Date(t.date) >= since!) : getTransactions();
   const cb = cashBankTransactions(txs);
   return {
     balance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),

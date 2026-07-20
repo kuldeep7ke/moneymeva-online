@@ -13,7 +13,8 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const APP_VERSION = readFileSync(join(process.cwd(), "VERSION"), "utf-8").trim();
+let APP_VERSION = '0.0.0';
+try { APP_VERSION = readFileSync(join(process.cwd(), "VERSION"), "utf-8").trim(); } catch {}
 
 export const metadata: Metadata = {
   title: "Money Meva - Personal Finance App",

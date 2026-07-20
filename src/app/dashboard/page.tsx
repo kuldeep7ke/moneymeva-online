@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const lockSession = () => window.dispatchEvent(new Event('request-lock-session'));
   const [isLoading, setIsLoading] = useState(true);
+  const [period, setPeriod] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('mm_dash_period') as any) || '1M' : '1M'));
   const [aggregates, setAggregates] = useState({ balance: 0, income: 0, expense: 0, saving: 0, investment: 0, cashBankBalance: 0 });
   const [carryFwd, setCarryFwd] = useState({ lastMonthCarry: 0, currentStart: 0, currentBalance: 0 });
   const [reminders, setReminders] = useState<any[]>([]);
@@ -93,6 +94,7 @@ export default function DashboardPage() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [todos, setTodos] = useState<any[]>([]);
   const [recurringList, setRecurringList] = useState<any[]>([]);
+  const [confirmTx, setConfirmTx] = useState<any>(null);
 
   const refreshGoals = () => { setGoals(getGoals()); };
 
@@ -113,12 +115,20 @@ export default function DashboardPage() {
     setAllReminders(getReminders().filter(r => r.status === 'pending'));
   };
 
+  const getPeriodSince = (p: string) => {
+    if (p === 'ALL') return undefined;
+    const d = new Date();
+    const map: Record<string, number> = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
+    d.setDate(d.getDate() - (map[p] || 30));
+    return d;
+  };
+
   const refreshDashboard = async () => {
     if (!isStoreReady()) return;
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 100));
-    
-    setAggregates(getAggregates());
+    const since = getPeriodSince(period);
+    setAggregates(getAggregates(since));
     setCarryFwd(getCarryForward());
     loadReminders();
     setGoals(getGoals());
@@ -158,6 +168,11 @@ export default function DashboardPage() {
       checkConnection().then(setSyncConnected);
     }
   }, []);
+
+  useEffect(() => {
+    const since = getPeriodSince(period);
+    setAggregates(getAggregates(since));
+  }, [period]);
 
   useEffect(() => {
     if (!showWelcome) return;
@@ -208,7 +223,8 @@ export default function DashboardPage() {
     const freq = new Map<string, number>();
     all.forEach(t => freq.set(t.category, (freq.get(t.category) || 0) + 1));
     const sorted = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]).map(e => e[0]);
-    return sorted.length > 0 ? sorted : getSortedCategories(BASE_CATEGORIES[type] || BASE_CATEGORIES.expense, type);
+    const base = BASE_CATEGORIES[type] || BASE_CATEGORIES.expense;
+    return [...new Set([...sorted, ...base])];
   };
 
   const getFilteredCategories = (type: string, search: string): string[] => {
@@ -220,13 +236,27 @@ export default function DashboardPage() {
     return [...matched, ...base].slice(0, 10);
   };
 
+  const showConfirmTx = (data: any) => {
+    setConfirmTx({
+      type: data.type,
+      amount: data.amount,
+      category: data.category,
+      date: data.date,
+      account: data.account,
+      description: data.description,
+      partnerAccountId: data.partnerAccountId,
+    });
+  };
+
   const handleQuickAddTx = (e: React.FormEvent) => {
     e.preventDefault();
     if (!showAddTx) return;
     const amount = Number(txForm.amount);
     if (!amount || !txForm.category) return;
-    addTransaction({ amount, type: showAddTx, category: txForm.category, description: txForm.description, date: txForm.date, partnerAccountId: undefined, account: showAddTx === 'investment' ? 'invest' : txForm.account, isRecurring: false });
+    const account = showAddTx === 'investment' ? 'invest' : txForm.account;
+    addTransaction({ amount, type: showAddTx, category: txForm.category, description: txForm.description, date: txForm.date, partnerAccountId: undefined, account, isRecurring: false });
     logActivity('entry_created', `${showAddTx} — ${txForm.category}`);
+    showConfirmTx({ type: showAddTx, amount, category: txForm.category, date: txForm.date, account, description: txForm.description });
     setShowAddTx(null);
     setTxForm({ amount: '', category: '', date: new Date().toISOString().split('T')[0], description: '', account: 'cash' });
     setTxCatSearch('');
@@ -236,6 +266,14 @@ export default function DashboardPage() {
   const handleQuickAddParty = (e: React.FormEvent) => {
     e.preventDefault();
     if (!partyForm.name.trim()) return;
+    const existing = getPartners().find((p: any) => !p.deletedAt && p.name.toLowerCase() === partyForm.name.trim().toLowerCase());
+    if (existing) {
+      setShowAddParty(false);
+      setPartyForm({ name: '', group: 'contact', type: 'individual', description: '' });
+      setToast(`"${existing.name}" already exists`);
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
     addPartner({ name: partyForm.name, type: partyForm.type, group: partyForm.group, description: partyForm.description, budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
     setShowAddParty(false);
     setPartyForm({ name: '', group: 'contact', type: 'individual', description: '' });
@@ -262,9 +300,10 @@ export default function DashboardPage() {
     'Rent': '#FFCE56', 'Salary': '#4BC0C0', 'Other': '#9966FF',
   };
 
-  const recentTransactions = getTransactions().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-
-  const categoryTotals = getTransactions()
+  const pSince = getPeriodSince(period);
+  const periodFiltered = (txs: any[]) => pSince ? txs.filter((t: any) => new Date(t.date) >= pSince) : txs;
+  const recentTransactions = periodFiltered(getTransactions()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+  const categoryTotals = periodFiltered(getTransactions())
     .filter(t => t.type === 'expense')
     .reduce((acc: Record<string, number>, t) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
@@ -286,21 +325,19 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div className="flex items-start justify-between gap-4">
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <div>
-              <p className="hidden md:inline-flex items-center px-1 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <p className="hidden md:inline-flex items-center text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <span className="font-bold uppercase tracking-wider text-brand">At a glance</span>
+              <span className="mx-2 text-slate-300 dark:text-slate-600">|</span>
+              <span>Your money, simplified.</span>
+            </p>
+            <div className="md:hidden">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                 <span className="font-bold uppercase tracking-wider text-brand">At a glance</span>
-                <span className="mx-3 text-slate-300 dark:text-slate-600">|</span>
-                <span>Your money, simplified.</span>
               </p>
-              <div className="md:hidden">
-                <p className="px-1 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  <span className="font-bold uppercase tracking-wider text-brand">At a glance</span>
-                </p>
-                <p className="px-1 text-xs text-slate-500 dark:text-slate-400 -mt-1">Your money, simplified.</p>
-              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Your money, simplified.</p>
             </div>
           </div>
           <NotificationPanel />
@@ -334,6 +371,21 @@ export default function DashboardPage() {
         </div>
         </Reveal>
 
+        {/* Period Filter Pills */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+          {['1W', '1M', '3M', '6M', '1Y', 'ALL'].map(p => (
+            <button key={p} onClick={() => { setPeriod(p); localStorage.setItem('mm_dash_period', p); }}
+              className={cn("px-3 py-1.5 text-xs font-medium rounded-full border transition-colors whitespace-nowrap",
+                period === p
+                  ? "bg-brand text-white border-brand"
+                  : "bg-white dark:bg-[#2A2522] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted hover:border-brand"
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
         <Reveal delay={100}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {summaryCards.map((card) => {
@@ -347,11 +399,12 @@ export default function DashboardPage() {
             const overLimit = limit > 0 && pct >= 100;
             const nearLimit = limit > 0 && pct >= 80 && pct < 100;
             
-            const cashBalance = getTransactions().reduce((sum, t) => {
+            const periodTxs = periodFiltered(getTransactions());
+            const cashBalance = periodTxs.reduce((sum, t: any) => {
               if (t.account === 'cash') return sum + (t.type === 'income' ? t.amount : -t.amount);
               return sum;
             }, 0);
-            const bankBalance = getTransactions().reduce((sum, t) => {
+            const bankBalance = periodTxs.reduce((sum, t: any) => {
               if (t.account === 'bank' || t.account === 'upi') return sum + (t.type === 'income' ? t.amount : -t.amount);
               return sum;
             }, 0);
@@ -450,48 +503,44 @@ export default function DashboardPage() {
         </div>
         </Reveal>
 
-        {/* Cloud Sync Status */}
+        {/* Cloud Sync Status — only when configured AND connected */}
+        {getConfig().url && syncConnected && (
         <Reveal delay={150}>
         <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={cn("p-2.5 rounded-xl", syncConnected ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-brand-muted/30")}>
-                <Cloud className={cn("h-5 w-5", syncConnected ? "text-green-600" : "text-slate-400")} />
+              <div className="p-2.5 rounded-xl bg-green-50 dark:bg-green-900/20">
+                <Cloud className="h-5 w-5 text-green-600" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Cloud Sync</p>
-                  <div className={cn("w-1.5 h-1.5 rounded-full", syncConnected ? "bg-green-500" : syncing ? "bg-amber-500 animate-pulse" : "bg-slate-300")} />
+                  <div className={cn("w-1.5 h-1.5 rounded-full", syncing ? "bg-amber-500 animate-pulse" : "bg-green-500")} />
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {syncing ? 'Syncing...' : syncConnected ? 'Connected — real-time sync active' : 'Offline — set up sync'}
+                  {syncing ? 'Syncing...' : 'Connected — real-time sync active'}
                 </p>
               </div>
             </div>
-            {syncConnected ? (
-              <Button variant="outline" size="sm" className="text-xs gap-1.5 border-sky-200 text-sky-700 dark:border-sky-800 dark:text-sky-400" onClick={async () => {
-                if (syncing) return;
-                setSyncing(true);
-                const cfg = getConfig();
-                if (cfg.url) {
-                  await pushAllToPouch();
-                  const { ok } = await manualSync();
-                  setSyncConnected(ok);
-                  if (ok) await processRemoteChanges();
-                  refreshDashboard();
-                }
-                setSyncing(false);
-              }} disabled={syncing}>
-                <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
-              </Button>
-            ) : (
-              <Button variant="primary" size="sm" className="text-xs gap-1.5" onClick={() => router.push('/dashboard/settings')}>
-                <Cloud className="h-3.5 w-3.5" /> Set Up
-              </Button>
-            )}
+            <Button variant="outline" size="sm" className="text-xs gap-1.5 border-sky-200 text-sky-700 dark:border-sky-800 dark:text-sky-400" onClick={async () => {
+              if (syncing) return;
+              setSyncing(true);
+              const cfg = getConfig();
+              if (cfg.url) {
+                await pushAllToPouch();
+                const { ok } = await manualSync();
+                setSyncConnected(ok);
+                if (ok) await processRemoteChanges();
+                refreshDashboard();
+              }
+              setSyncing(false);
+            }} disabled={syncing}>
+              <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
+            </Button>
           </div>
         </div>
         </Reveal>
+        )}
 
         <Reveal delay={200}>
         <div className="bg-gradient-to-r from-brand to-purple-600 p-6 rounded-2xl shadow-lg text-white">
@@ -981,8 +1030,10 @@ export default function DashboardPage() {
               e.preventDefault();
               const amount = Number(taskForm.amount);
               if (!amount) return;
-              addTransaction({ amount, type: taskForm.type as 'income' | 'expense', category: showTaskForm.category || 'Other', description: taskForm.description, date: taskForm.date, partnerAccountId: undefined, account: taskForm.account, isRecurring: false });
+              const account = taskForm.account;
+              addTransaction({ amount, type: taskForm.type as 'income' | 'expense', category: showTaskForm.category || 'Other', description: taskForm.description, date: taskForm.date, partnerAccountId: undefined, account, isRecurring: false });
               completeTodo(showTaskForm.id);
+              showConfirmTx({ type: taskForm.type, amount, category: showTaskForm.category || 'Other', date: taskForm.date, account, description: taskForm.description });
               refreshDashboard();
               setShowTaskForm(null);
               setToast(`"${showTaskForm.title}" completed`);
@@ -1043,6 +1094,7 @@ export default function DashboardPage() {
               if (!amount) return;
               addTransaction({ amount, type: recurringForm.type as 'income' | 'expense', category: recurringForm.category, description: recurringForm.description, date: recurringForm.date, partnerAccountId: undefined, account: recurringForm.account, isRecurring: true, recurringId: showRecurringForm.id });
               advanceRecurring(showRecurringForm.id);
+              showConfirmTx({ type: recurringForm.type, amount, category: recurringForm.category, date: recurringForm.date, account: recurringForm.account, description: recurringForm.description });
               refreshDashboard();
               setShowRecurringForm(null);
               setToast(`"${showRecurringForm.title}" advanced`);
@@ -1215,6 +1267,61 @@ export default function DashboardPage() {
                 <Button type="submit" size="sm">Create Party</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Save Confirmation Modal */}
+      {confirmTx && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirmTx(null)}>
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-6 shadow-2xl mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Entry Saved</h3>
+              <button onClick={() => setConfirmTx(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-brand-muted/50">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Type</span>
+                <span className={cn("text-sm font-semibold capitalize", confirmTx.type === 'income' ? 'text-green-600' : confirmTx.type === 'expense' ? 'text-red-600' : 'text-brand')}>{confirmTx.type}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-brand-muted/50">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Amount</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">₹{Number(confirmTx.amount).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-brand-muted/50">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Category</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{confirmTx.category}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-brand-muted/50">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Account</span>
+                <span className="text-sm font-medium capitalize text-slate-900 dark:text-slate-100">{confirmTx.account}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-brand-muted/50">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Date</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{new Date(confirmTx.date).toLocaleDateString()}</span>
+              </div>
+              {confirmTx.description && (
+                <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-brand-muted/50">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Note</span>
+                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100 text-right max-w-[50%] truncate">{confirmTx.description}</span>
+                </div>
+              )}
+              {confirmTx.partnerAccountId && (
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Double Entry</span>
+                  <span className="text-xs font-medium text-purple-600 dark:text-purple-400">Reflected in partner account</span>
+                </div>
+              )}
+              {!confirmTx.partnerAccountId && confirmTx.type !== 'investment' && (
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Double Entry</span>
+                  <span className="text-xs text-slate-400">Single entry only</span>
+                </div>
+              )}
+            </div>
+            <Button className="w-full mt-5" onClick={() => setConfirmTx(null)}>Done</Button>
           </div>
         </div>
       )}

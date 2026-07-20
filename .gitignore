@@ -13,3 +13,4 @@ android/.gradle/
 android/build/
 android/local.properties
 .cxx/
+tsconfig.tsbuildinfo  

@@ -87,8 +87,16 @@ export default function PartnersPage() {
     return { ...p, income, expense, net: income - expense, count: txs.length };
   }, [showLedger, partnerTransactions, partners]);
 
+  const [partyWarn, setPartyWarn] = useState<string | null>(null);
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
+    const existing = getPartners().find((p: any) => !p.deletedAt && p.name.toLowerCase() === form.name.trim().toLowerCase());
+    if (existing) {
+      setPartyWarn(`"${existing.name}" already exists`);
+      setTimeout(() => setPartyWarn(null), 3000);
+      return;
+    }
     const partner = {
       name: form.name,
       type: form.type,
@@ -384,6 +392,12 @@ export default function PartnersPage() {
       )}
 
       {/* Duplicate Warning */}
+      {partyWarn && (
+        <div className="fixed bottom-6 right-6 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 shadow-lg z-50 text-sm text-amber-800 dark:text-amber-200 max-w-xs">
+          {partyWarn}
+        </div>
+      )}
+
       {dupWarning && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setDupWarning(null)}>
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl border-l-4 border-amber-500 my-4" onClick={e => e.stopPropagation()}>

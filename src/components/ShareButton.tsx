@@ -2,6 +2,7 @@
 
 import { Share2 } from 'lucide-react';
 import { useState } from 'react';
+import { copyText } from '@/lib/download';
 
 const SHARE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://money-meva.app';
 
@@ -19,7 +20,7 @@ export default function ShareButton({ variant = 'default', className = '' }: { v
       try { await navigator.share(shareData); return; } catch { /* user cancelled */ }
     }
     try {
-      await navigator.clipboard.writeText(SHARE_URL);
+      copyText(SHARE_URL);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* clipboard unavailable */ }

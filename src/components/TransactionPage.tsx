@@ -36,7 +36,11 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterMinAmount, setFilterMinAmount] = useState('');
   const [filterMaxAmount, setFilterMaxAmount] = useState('');
@@ -100,9 +104,39 @@ export default function TransactionPage({ type, title, description }: Transactio
   const openEdit = (tx: Transaction) => {
     setEditingTransaction(tx);
     setEditForm({ amount: String(tx.amount), category: tx.category, description: tx.description, date: tx.date, partnerAccountId: tx.partnerAccountId || '', party: tx.partnerAccountId ? (partners.find(p => p.id === tx.partnerAccountId)?.name || '') : '' });
+    parseEditMeta(tx.description);
   };
 
   const [editForm, setEditForm] = useState({ amount: '', category: '', description: '', date: '', partnerAccountId: '', party: '' });
+  const [editInvestMeta, setEditInvestMeta] = useState({ fundName: '', nav: '', units: '', mode: 'lumpsum' as string, institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative' as string, fdType: 'cumulative' as string, company: '', quantity: '', buyPrice: '', exchange: 'NSE' as string, stockMode: 'delivery' as string });
+
+  const parseEditMeta = (desc: string) => {
+    const reset = () => setEditInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' });
+    if (!desc) { reset(); return; }
+    const parts = desc.split(' | ');
+    const d: any = {};
+    parts.forEach(p => {
+      if (p.startsWith('Mode:')) d.mode = p.replace('Mode:', '');
+      else if (p.startsWith('NAV:')) d.nav = p.replace('NAV:', '');
+      else if (p.startsWith('Units:')) d.units = p.replace('Units:', '');
+      else if (p.startsWith('Rate:')) d.interestRate = p.replace('Rate:', '').replace('%', '');
+      else if (p.startsWith('Tenure:')) d.tenure = p.replace('Tenure:', '').replace('m', '');
+      else if (p.startsWith('Type:')) d.fdType = p.replace('Type:', '');
+      else if (p.startsWith('FD#')) d.fdNumber = p.replace('FD#:', '');
+      else if (p.startsWith('Mat:')) d.maturityDate = p.replace('Mat:', '');
+      else if (p.startsWith('Qty:')) d.quantity = p.replace('Qty:', '');
+      else if (p.startsWith('Buy@')) d.buyPrice = p.replace('Buy@:', '');
+      else if (p === 'NSE' || p === 'BSE') d.exchange = p;
+      else if (p === 'delivery' || p === 'intraday') d.stockMode = p;
+      else if (!p.startsWith('Mode:') && !p.startsWith('NAV:') && !p.startsWith('Units:') && !p.startsWith('Rate:') && !p.startsWith('Tenure:') && !p.startsWith('Type:') && !p.startsWith('FD#') && !p.startsWith('Mat:') && !p.startsWith('Qty:') && !p.startsWith('Buy@') && p !== 'NSE' && p !== 'BSE' && p !== 'delivery' && p !== 'intraday') d.fundName = p;
+    });
+    setEditInvestMeta({
+      fundName: d.fundName || '', nav: d.nav || '', units: d.units || '', mode: d.mode || 'lumpsum',
+      institution: d.institution || '', fdNumber: d.fdNumber || '', interestRate: d.interestRate || '', tenure: d.tenure || '', maturityDate: d.maturityDate || '', payout: d.payout || 'cumulative', fdType: d.fdType || 'cumulative',
+      company: d.company || '', quantity: d.quantity || '', buyPrice: d.buyPrice || '', exchange: d.exchange || 'NSE', stockMode: d.stockMode || 'delivery',
+    });
+  };
+
   const [editCategorySearch, setEditCategorySearch] = useState('');
   const [showEditCategoryDropdown, setShowEditCategoryDropdown] = useState(false);
   const [catHighlightIndex, setCatHighlightIndex] = useState(-1);
@@ -115,6 +149,11 @@ export default function TransactionPage({ type, title, description }: Transactio
   const partyRef = useRef<HTMLDivElement>(null);
   const [showCreateParty, setShowCreateParty] = useState<string | null>(null);
   const [createPartyForm, setCreatePartyForm] = useState({ group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
+
+  const [partyWarn, setPartyWarn] = useState<string | null>(null);
+  const [investMeta, setInvestMeta] = useState({ fundName: '', nav: '', units: '', mode: 'lumpsum' as string, institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative' as string, fdType: 'cumulative' as string, company: '', quantity: '', buyPrice: '', exchange: 'NSE' as string, stockMode: 'delivery' as string });
+  const [showInvestDetails, setShowInvestDetails] = useState(false);
+  const [showEditInvestDetails, setShowEditInvestDetails] = useState(false);
 
   const PARTY_TYPES: Record<string, { value: string; label: string }[]> = {
     vendor: [
@@ -146,6 +185,20 @@ export default function TransactionPage({ type, title, description }: Transactio
 
   const handleCreateParty = () => {
     if (!showCreateParty) return;
+    const existing = getPartners().find((p: any) => !p.deletedAt && p.name.toLowerCase() === showCreateParty.trim().toLowerCase());
+    if (existing) {
+      setPartyWarn(`"${existing.name}" already exists`);
+      setTimeout(() => setPartyWarn(null), 3000);
+      if (editingTransaction) {
+        setEditForm({ ...editForm, partnerAccountId: existing.id, party: existing.name });
+      } else {
+        setForm({ ...form, partnerAccountId: existing.id, party: existing.name });
+        setPartySearch(existing.name);
+      }
+      setShowCreateParty(null);
+      setCreatePartyForm({ group: 'contact', type: 'individual', description: '' });
+      return;
+    }
     const result = addPartner({ name: showCreateParty, type: createPartyForm.type, group: createPartyForm.group, description: createPartyForm.description, budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
     if (result) {
       refresh();
@@ -174,19 +227,90 @@ export default function TransactionPage({ type, title, description }: Transactio
     }
   };
 
+  const buildEditDescription = () => {
+    if (type === 'investment') {
+      if (editForm.category === 'Mutual Funds' && editInvestMeta.fundName) {
+        const parts = [editInvestMeta.fundName, `Mode:${editInvestMeta.mode}`];
+        if (editInvestMeta.nav) parts.push(`NAV:${editInvestMeta.nav}`);
+        if (editInvestMeta.units) parts.push(`Units:${editInvestMeta.units}`);
+        if (editForm.description) parts.push(editForm.description);
+        return parts.join(' | ');
+      }
+      if ((editForm.category === 'FD' || editForm.category === 'Fixed Deposit') && (editInvestMeta.institution || editInvestMeta.interestRate || editInvestMeta.fdType)) {
+        const parts: string[] = [];
+        if (editInvestMeta.institution) parts.push(editInvestMeta.institution);
+        if (editInvestMeta.interestRate) parts.push(`Rate:${editInvestMeta.interestRate}%`);
+        if (editInvestMeta.tenure) parts.push(`Tenure:${editInvestMeta.tenure}m`);
+        if (editInvestMeta.fdType) parts.push(`Type:${editInvestMeta.fdType}`);
+        if (editInvestMeta.fdNumber) parts.push(`FD#:${editInvestMeta.fdNumber}`);
+        if (editInvestMeta.maturityDate) parts.push(`Mat:${editInvestMeta.maturityDate}`);
+        if (editForm.description) parts.push(editForm.description);
+        return parts.join(' | ');
+      }
+      if (editForm.category === 'Stocks' && (editInvestMeta.company || editInvestMeta.quantity)) {
+        const parts: string[] = [];
+        if (editInvestMeta.company) parts.push(editInvestMeta.company);
+        if (editInvestMeta.quantity) parts.push(`Qty:${editInvestMeta.quantity}`);
+        if (editInvestMeta.buyPrice) parts.push(`Buy@:${editInvestMeta.buyPrice}`);
+        if (editInvestMeta.exchange) parts.push(editInvestMeta.exchange);
+        if (editInvestMeta.stockMode) parts.push(editInvestMeta.stockMode);
+        if (editForm.description) parts.push(editForm.description);
+        return parts.join(' | ');
+      }
+    }
+    return editForm.description;
+  };
+
   const doEdit = (id: string) => {
-    updateTransaction(id, { amount: Number(editForm.amount), category: editForm.category, description: editForm.description, date: editForm.date, partnerAccountId: editForm.partnerAccountId || undefined });
+    const desc = buildEditDescription();
+    updateTransaction(id, { amount: Number(editForm.amount), category: editForm.category, description: desc, date: editForm.date, partnerAccountId: editForm.partnerAccountId || undefined });
     logActivity('entry_edited', `${type} — ${editForm.category}`);
     setEditingTransaction(null);
     setEditCategorySearch('');
     setEditCatHighlightIndex(-1);
+    setEditInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' });
     refresh();
+  };
+
+  const buildDescription = () => {
+    if (type === 'investment') {
+      if (form.category === 'Mutual Funds' && investMeta.fundName) {
+        const parts = [investMeta.fundName, `Mode:${investMeta.mode}`];
+        if (investMeta.nav) parts.push(`NAV:${investMeta.nav}`);
+        if (investMeta.units) parts.push(`Units:${investMeta.units}`);
+        if (form.description) parts.push(form.description);
+        return parts.join(' | ');
+      }
+      if ((form.category === 'FD' || form.category === 'Fixed Deposit') && (investMeta.institution || investMeta.interestRate || investMeta.fdType)) {
+        const parts: string[] = [];
+        if (investMeta.institution) parts.push(investMeta.institution);
+        if (investMeta.interestRate) parts.push(`Rate:${investMeta.interestRate}%`);
+        if (investMeta.tenure) parts.push(`Tenure:${investMeta.tenure}m`);
+        if (investMeta.fdType) parts.push(`Type:${investMeta.fdType}`);
+        if (investMeta.fdNumber) parts.push(`FD#:${investMeta.fdNumber}`);
+        if (investMeta.maturityDate) parts.push(`Mat:${investMeta.maturityDate}`);
+        if (form.description) parts.push(form.description);
+        return parts.join(' | ');
+      }
+      if (form.category === 'Stocks' && (investMeta.company || investMeta.quantity)) {
+        const parts: string[] = [];
+        if (investMeta.company) parts.push(investMeta.company);
+        if (investMeta.quantity) parts.push(`Qty:${investMeta.quantity}`);
+        if (investMeta.buyPrice) parts.push(`Buy@:${investMeta.buyPrice}`);
+        if (investMeta.exchange) parts.push(investMeta.exchange);
+        if (investMeta.stockMode) parts.push(investMeta.stockMode);
+        if (form.description) parts.push(form.description);
+        return parts.join(' | ');
+      }
+    }
+    return form.description;
   };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(form.amount);
-    const tx = { amount, type, category: form.category, description: form.description, date: form.date, partnerAccountId: form.partnerAccountId || undefined };
+    const desc = buildDescription();
+    const tx = { amount, type, category: form.category, description: desc, date: form.date, partnerAccountId: form.partnerAccountId || undefined };
     const dup = checkDuplicateTransaction(tx);
     if (dup) {
       setDupWarning({ ...tx, existing: dup, investSource: form.investSource });
@@ -214,6 +338,7 @@ export default function TransactionPage({ type, title, description }: Transactio
 
     setShowAddModal(false);
     setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash', party: '' });
+    setInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' });
     setPartySearch('');
     setShowPartyDropdown(false);
     setPartyHighlightIndex(-1);
@@ -239,6 +364,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     setDupWarning(null);
     setShowAddModal(false);
     setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash', party: '' });
+    setInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' });
     setPartySearch('');
     setShowPartyDropdown(false);
     setPartyHighlightIndex(-1);
@@ -345,26 +471,18 @@ export default function TransactionPage({ type, title, description }: Transactio
   const recentCategories = useMemo(() => {
     const typeKey = type === 'income' ? 'mm_income_categories' : type === 'expense' ? 'mm_expense_categories' : type === 'investment' ? 'mm_investment_categories' : null;
     if (!typeKey) return getSortedCategories(baseCategories, type);
+    let customCats: string[] = [];
     try {
       const saved = localStorage.getItem(typeKey);
-      if (saved) {
-        const customCats = JSON.parse(saved);
-        if (Array.isArray(customCats) && customCats.length > 0) {
-          return customCats;
-        }
-      }
+      if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed)) customCats = parsed; }
     } catch {}
     const userCats = new Map<string, number>();
-    transactions.forEach(t => {
-      if (t.category) {
-        userCats.set(t.category, (userCats.get(t.category) || 0) + 1);
-      }
-    });
-    const sorted = Array.from(userCats.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([cat]) => cat);
-    return sorted.length > 0 ? sorted : getSortedCategories(baseCategories, type);
+    transactions.forEach(t => { if (t.category) userCats.set(t.category, (userCats.get(t.category) || 0) + 1); });
+    const freqSorted = Array.from(userCats.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([cat]) => cat);
+    const merged = [...freqSorted];
+    for (const cat of customCats) { if (!merged.includes(cat)) merged.push(cat); }
+    for (const cat of baseCategories) { if (!merged.includes(cat)) merged.push(cat); }
+    return merged.length > 0 ? merged : getSortedCategories(baseCategories, type);
   }, [transactions, type]);
 
   const [categorySearch, setCategorySearch] = useState('');
@@ -434,8 +552,20 @@ export default function TransactionPage({ type, title, description }: Transactio
                 className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-[#2A2522] dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand"
                 placeholder="Search by description or category..." />
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} className="h-9 px-3 rounded-lg border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-brand-muted/50 transition-colors text-xs gap-1.5" type="button">
-              <SlidersHorizontal className="h-3.5 w-3.5" /> Filters
+            <button onClick={() => {
+                const count = [filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, search].filter(Boolean).length;
+                if (count > 0) {
+                  setSearch(''); setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setSortField('date'); setSortDir('desc');
+                  setShowFilters(false);
+                } else {
+                  setShowFilters(!showFilters);
+                }
+              }} className="relative h-9 px-3 rounded-lg border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-brand-muted/50 transition-colors text-xs gap-1.5" type="button">
+              <SlidersHorizontal className="h-3.5 w-3.5" /> {[filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, search].filter(Boolean).length > 0 ? 'Clear Filters' : 'Filters'}
+              {(() => {
+                const count = [filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, search].filter(Boolean).length;
+                return count > 0 ? <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{count}</span> : null;
+              })()}
             </button>
             <button onClick={() => { setSortField('date'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }} className="h-9 px-3 rounded-lg border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-brand-muted/50 transition-colors text-xs gap-1.5" type="button" title={sortDir === 'desc' ? 'Newest first' : 'Oldest first'}>
               <ArrowUpDown className="h-3.5 w-3.5" />
@@ -533,8 +663,8 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <option value="desc">Newest / Highest</option>
                 <option value="asc">Oldest / Lowest</option>
               </select>
-              <Button variant="ghost" size="sm" onClick={() => { setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setSortField('date'); setSortDir('desc'); }} className="text-xs text-brand dark:text-brand-secondary px-1.5">
-                Clear
+              <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setSortField('date'); setSortDir('desc'); }} className="text-xs text-red-500 px-1.5">
+                Clear All Filters
               </Button>
             </div>
           </div>
@@ -793,6 +923,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                 </div>
               )}
               {type === 'investment' && (
+                <>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Source of Funds</label>
                   <select value={form.investSource} onChange={e => setForm({ ...form, investSource: e.target.value })}
@@ -802,6 +933,164 @@ export default function TransactionPage({ type, title, description }: Transactio
                   </select>
                   <p className="text-xs text-slate-400 dark:text-slate-500">A corresponding outflow entry will be created from this source</p>
                 </div>
+                {(form.category === 'Mutual Funds' || form.category === 'FD' || form.category === 'Fixed Deposit' || form.category === 'Stocks') && (
+                  <div className="space-y-4 p-4 bg-slate-50 dark:bg-brand-muted/20 rounded-xl border border-slate-200 dark:border-brand-muted">
+                    <button type="button" onClick={() => setShowInvestDetails(!showInvestDetails)}
+                      className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-brand">
+                      <span>{form.category} Details</span>
+                      <svg className={cn("h-4 w-4 transition-transform", showInvestDetails && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {showInvestDetails && (
+                    <>
+                    {form.category === 'Mutual Funds' && (
+                      <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Fund Name</label>
+                        <input value={investMeta.fundName} onChange={e => setInvestMeta({ ...investMeta, fundName: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. HDFC Mid-Cap Opportunities Fund" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">NAV (₹)</label>
+                          <input type="number" step="0.001" min="0" value={investMeta.nav} onChange={e => setInvestMeta({ ...investMeta, nav: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="0.00" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Units</label>
+                          <input type="number" step="0.001" min="0" value={investMeta.units} onChange={e => setInvestMeta({ ...investMeta, units: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Auto" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Mode</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => setInvestMeta({ ...investMeta, mode: 'lumpsum' })}
+                            className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", investMeta.mode === 'lumpsum' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                            Lumpsum
+                          </button>
+                          <button type="button" onClick={() => setInvestMeta({ ...investMeta, mode: 'sip' })}
+                            className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", investMeta.mode === 'sip' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                            SIP
+                          </button>
+                        </div>
+                      </div>
+                      </>
+                    )}
+
+                    {(form.category === 'FD' || form.category === 'Fixed Deposit') && (
+                      <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Type of FD</label>
+                        <select value={investMeta.fdType} onChange={e => setInvestMeta({ ...investMeta, fdType: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
+                          <option value="cumulative">Cumulative</option>
+                          <option value="quarterly">Quarterly Payout</option>
+                          <option value="monthly">Monthly Payout</option>
+                          <option value="tax_saver">Tax Saver</option>
+                          <option value="senior">Senior Citizen</option>
+                          <option value="corporate">Corporate FD</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Institution / Bank</label>
+                        <input value={investMeta.institution} onChange={e => setInvestMeta({ ...investMeta, institution: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. SBI, HDFC Bank" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Interest Rate (%)</label>
+                          <input type="number" step="0.1" min="0" value={investMeta.interestRate} onChange={e => setInvestMeta({ ...investMeta, interestRate: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 7.5" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Tenure (months)</label>
+                          <input type="number" min="0" value={investMeta.tenure} onChange={e => setInvestMeta({ ...investMeta, tenure: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 12" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">FD Number</label>
+                          <input value={investMeta.fdNumber} onChange={e => setInvestMeta({ ...investMeta, fdNumber: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Receipt/ref number" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Maturity Date</label>
+                          <input type="date" value={investMeta.maturityDate} onChange={e => setInvestMeta({ ...investMeta, maturityDate: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                        </div>
+                      </div>
+                      {Number(form.amount) > 0 && Number(investMeta.interestRate) > 0 && Number(investMeta.tenure) > 0 && (
+                        <div className="bg-brand-light dark:bg-brand-muted/20 rounded-lg p-3 text-sm">
+                          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                            <span>Maturity Amount (approx)</span>
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
+                              ₹{Math.round(Number(form.amount) * Math.pow(1 + (Number(investMeta.interestRate) / 100) / 4, (Number(investMeta.tenure) / 12) * 4)).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-slate-400 mt-1">
+                            <span>Interest earned</span>
+                            <span className="text-green-600">+₹{Math.round(Number(form.amount) * Math.pow(1 + (Number(investMeta.interestRate) / 100) / 4, (Number(investMeta.tenure) / 12) * 4) - Number(form.amount)).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
+                      </>
+                    )}
+
+                    {form.category === 'Stocks' && (
+                      <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Company / Script</label>
+                        <input value={investMeta.company} onChange={e => setInvestMeta({ ...investMeta, company: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. Reliance Industries" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Quantity</label>
+                          <input type="number" min="0" value={investMeta.quantity} onChange={e => setInvestMeta({ ...investMeta, quantity: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 10" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Buy Price (₹)</label>
+                          <input type="number" step="0.01" min="0" value={investMeta.buyPrice} onChange={e => setInvestMeta({ ...investMeta, buyPrice: e.target.value })}
+                            className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 2500.50" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Exchange</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => setInvestMeta({ ...investMeta, exchange: 'NSE' })}
+                              className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", investMeta.exchange === 'NSE' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                              NSE
+                            </button>
+                            <button type="button" onClick={() => setInvestMeta({ ...investMeta, exchange: 'BSE' })}
+                              className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", investMeta.exchange === 'BSE' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                              BSE
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Mode</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => setInvestMeta({ ...investMeta, stockMode: 'delivery' })}
+                              className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", investMeta.stockMode === 'delivery' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                              Delivery
+                            </button>
+                            <button type="button" onClick={() => setInvestMeta({ ...investMeta, stockMode: 'intraday' })}
+                              className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", investMeta.stockMode === 'intraday' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                              Intraday
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      </>
+                    )}
+                    </>
+                    )}
+                  </div>
+                )}
+                </>
               )}
               <div className="space-y-2 relative" ref={partyRef}>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
@@ -854,7 +1143,7 @@ export default function TransactionPage({ type, title, description }: Transactio
 
       {/* Edit Modal */}
       {editingTransaction && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setEditingTransaction(null)}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => { setEditingTransaction(null); setEditInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' }); }}>
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Edit {title.slice(0, -1)}</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleEdit(); }} className="space-y-4">
@@ -917,6 +1206,163 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <input value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
               </div>
+              {(editForm.category === 'Mutual Funds' || editForm.category === 'FD' || editForm.category === 'Fixed Deposit' || editForm.category === 'Stocks') && type === 'investment' && (
+              <div className="space-y-4 p-4 bg-slate-50 dark:bg-brand-muted/20 rounded-xl border border-slate-200 dark:border-brand-muted">
+                <button type="button" onClick={() => setShowEditInvestDetails(!showEditInvestDetails)}
+                  className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-brand">
+                  <span>{editForm.category} Details</span>
+                  <svg className={cn("h-4 w-4 transition-transform", showEditInvestDetails && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {showEditInvestDetails && (
+                  <>
+                  {editForm.category === 'Mutual Funds' && (
+                    <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Fund Name</label>
+                      <input value={editInvestMeta.fundName} onChange={e => setEditInvestMeta({ ...editInvestMeta, fundName: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. HDFC Mid-Cap Opportunities Fund" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">NAV (₹)</label>
+                        <input type="number" step="0.001" min="0" value={editInvestMeta.nav} onChange={e => setEditInvestMeta({ ...editInvestMeta, nav: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="0.00" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Units</label>
+                        <input type="number" step="0.001" min="0" value={editInvestMeta.units} onChange={e => setEditInvestMeta({ ...editInvestMeta, units: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Auto" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Mode</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setEditInvestMeta({ ...editInvestMeta, mode: 'lumpsum' })}
+                          className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", editInvestMeta.mode === 'lumpsum' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                          Lumpsum
+                        </button>
+                        <button type="button" onClick={() => setEditInvestMeta({ ...editInvestMeta, mode: 'sip' })}
+                          className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", editInvestMeta.mode === 'sip' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                          SIP
+                        </button>
+                      </div>
+                    </div>
+                    </>
+                  )}
+
+                  {(editForm.category === 'FD' || editForm.category === 'Fixed Deposit') && (
+                    <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Type of FD</label>
+                      <select value={editInvestMeta.fdType} onChange={e => setEditInvestMeta({ ...editInvestMeta, fdType: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
+                        <option value="cumulative">Cumulative</option>
+                        <option value="quarterly">Quarterly Payout</option>
+                        <option value="monthly">Monthly Payout</option>
+                        <option value="tax_saver">Tax Saver</option>
+                        <option value="senior">Senior Citizen</option>
+                        <option value="corporate">Corporate FD</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Institution / Bank</label>
+                      <input value={editInvestMeta.institution} onChange={e => setEditInvestMeta({ ...editInvestMeta, institution: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. SBI, HDFC Bank" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Interest Rate (%)</label>
+                        <input type="number" step="0.1" min="0" value={editInvestMeta.interestRate} onChange={e => setEditInvestMeta({ ...editInvestMeta, interestRate: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 7.5" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Tenure (months)</label>
+                        <input type="number" min="0" value={editInvestMeta.tenure} onChange={e => setEditInvestMeta({ ...editInvestMeta, tenure: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 12" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">FD Number</label>
+                        <input value={editInvestMeta.fdNumber} onChange={e => setEditInvestMeta({ ...editInvestMeta, fdNumber: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Receipt/ref number" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Maturity Date</label>
+                        <input type="date" value={editInvestMeta.maturityDate} onChange={e => setEditInvestMeta({ ...editInvestMeta, maturityDate: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                      </div>
+                    </div>
+                    {Number(editForm.amount) > 0 && Number(editInvestMeta.interestRate) > 0 && Number(editInvestMeta.tenure) > 0 && (
+                      <div className="bg-brand-light dark:bg-brand-muted/20 rounded-lg p-3 text-sm">
+                        <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                          <span>Maturity Amount (approx)</span>
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            ₹{Math.round(Number(editForm.amount) * Math.pow(1 + (Number(editInvestMeta.interestRate) / 100) / 4, (Number(editInvestMeta.tenure) / 12) * 4)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-slate-400 mt-1">
+                          <span>Interest earned</span>
+                          <span className="text-green-600">+₹{Math.round(Number(editForm.amount) * Math.pow(1 + (Number(editInvestMeta.interestRate) / 100) / 4, (Number(editInvestMeta.tenure) / 12) * 4) - Number(editForm.amount)).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
+                    </>
+                  )}
+
+                  {editForm.category === 'Stocks' && (
+                    <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Company / Script</label>
+                      <input value={editInvestMeta.company} onChange={e => setEditInvestMeta({ ...editInvestMeta, company: e.target.value })}
+                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. Reliance Industries" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Quantity</label>
+                        <input type="number" min="0" value={editInvestMeta.quantity} onChange={e => setEditInvestMeta({ ...editInvestMeta, quantity: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 10" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Buy Price (₹)</label>
+                        <input type="number" step="0.01" min="0" value={editInvestMeta.buyPrice} onChange={e => setEditInvestMeta({ ...editInvestMeta, buyPrice: e.target.value })}
+                          className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="e.g. 2500.50" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Exchange</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => setEditInvestMeta({ ...editInvestMeta, exchange: 'NSE' })}
+                            className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", editInvestMeta.exchange === 'NSE' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                            NSE
+                          </button>
+                          <button type="button" onClick={() => setEditInvestMeta({ ...editInvestMeta, exchange: 'BSE' })}
+                            className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", editInvestMeta.exchange === 'BSE' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                            BSE
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Mode</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => setEditInvestMeta({ ...editInvestMeta, stockMode: 'delivery' })}
+                            className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", editInvestMeta.stockMode === 'delivery' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                            Delivery
+                          </button>
+                          <button type="button" onClick={() => setEditInvestMeta({ ...editInvestMeta, stockMode: 'intraday' })}
+                            className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors", editInvestMeta.stockMode === 'intraday' ? "bg-brand text-white border-brand" : "bg-white dark:bg-brand-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-brand-muted")}>
+                            Intraday
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    </>
+                  )}
+                  </>
+                )}
+              </div>
+              )}
               <div className="space-y-2 relative">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
                 {partners.length === 0 && !editForm.party ? (
@@ -1127,6 +1573,12 @@ export default function TransactionPage({ type, title, description }: Transactio
         <InvestmentCalculator onClose={() => setShowCalculator(false)} onApply={(amount) => {
           setShowCalculator(false);
         }} />
+      )}
+
+      {partyWarn && (
+        <div className="fixed bottom-6 right-6 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 shadow-lg z-50 text-sm text-amber-800 dark:text-amber-200 max-w-xs">
+          {partyWarn}
+        </div>
       )}
     </DashboardLayout>
   );

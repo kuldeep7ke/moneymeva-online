@@ -42,6 +42,7 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import SyncStatusBar from '@/components/SyncStatusBar';
 import { useTranslation } from '@/lib/i18n';
+import { copyText } from '@/lib/download';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -119,17 +120,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      setMobileOpen(false);
-    });
+    setMobileOpen(false);
   }, [pathname]);
 
   // Session lock: check periodically and track activity
   useEffect(() => {
-    Promise.resolve().then(() => {
-      setLockedState(isLocked());
-      setRemaining(hasPins() ? getRemainingPins() : 0);
-    });
+    setLockedState(isLocked());
+    setRemaining(hasPins() ? getRemainingPins() : 0);
 
     const handleLockRequest = () => setShowLockConfirm(true);
     window.addEventListener('request-lock-session', handleLockRequest);
@@ -248,7 +245,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             if (navigator.share) {
               try { await navigator.share({ title: 'Money Meva', text: 'Track expenses, watch savings grow, and see where your investments are headed — all wrapped in a minimalist canvas. Built for Indian wallets.', url }); return; } catch { /* */ }
             }
-            try { await navigator.clipboard.writeText(url); } catch { /* */ }
+            try { copyText(url); } catch { /* */ }
           }} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-brand-secondary dark:hover:bg-brand-muted/50 hover:text-brand transition-colors cursor-pointer active:scale-[0.98]">
             <Share2 className="h-3.5 w-3.5" /> {t('common.share')} Money Meva
           </button>
@@ -375,7 +372,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button onClick={() => setMobileOpen(true)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#2A2522] transition-colors">
               <Menu className="h-5 w-5" />
             </button>
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{navItems.find(i => pathname === i.href)?.name || t('nav.dashboard')}</span>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{navItems.find(i => pathname === i.href || (i.href !== '/dashboard' && pathname.startsWith(i.href + '/')))?.name || t('nav.dashboard')}</span>
           </div>
         </div>
         {ready && children}
