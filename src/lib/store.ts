@@ -480,12 +480,13 @@ export async function pushAllToPouch() {
 }
 
 export function addTransaction(tx: Omit<Transaction, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Transaction {
+  if (typeof tx.amount !== 'number' || !isFinite(tx.amount) || tx.amount <= 0) throw new Error('Amount must be a positive number');
   const t: Transaction = { ...tx, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.transactions.push(t);
   db.transactions.put(t).catch(() => {});
   syncWriteDoc('transactions', t);
   const partnerName = t.partnerAccountId ? getPartnerName(t.partnerAccountId) : null;
-  const detail = partnerName ? `${t.type} ₹${t.amount} · ${t.category} · ${partnerName}` : `${t.type} ₹${t.amount} · ${t.category}`;
+  const detail = partnerName ? `${t.type} ₹${t.amount.toLocaleString('en-IN')} · ${t.category} · ${partnerName}` : `${t.type} ₹${t.amount.toLocaleString('en-IN')} · ${t.category}`;
   logMutation('transaction', t.id, t.transitionId, 'created', detail);
   return t;
 }
@@ -1014,7 +1015,7 @@ export function getBudgetForCategory(category: string): { budget: Budget | undef
   const budget = budgets.find(b => b.category === category);
   if (!budget) return { budget: undefined, spent: 0, pct: 0 };
   const spent = getSpentInPeriod('expense', category, budget.period);
-  const pct = budget.limit > 0 ? Math.min(Math.round((spent / budget.limit) * 100), 100) : 0;
+  const pct = budget.limit > 0 ? Math.round((spent / budget.limit) * 100) : 0;
   return { budget, spent, pct };
 }
 

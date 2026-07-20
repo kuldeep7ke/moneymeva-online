@@ -252,7 +252,7 @@ export default function DashboardPage() {
     e.preventDefault();
     if (!showAddTx) return;
     const amount = Number(txForm.amount);
-    if (!amount || !txForm.category) return;
+    if (!amount || amount <= 0 || !txForm.category) return;
     const account = showAddTx === 'investment' ? 'invest' : txForm.account;
     addTransaction({ amount, type: showAddTx, category: txForm.category, description: txForm.description, date: txForm.date, partnerAccountId: undefined, account, isRecurring: false });
     logActivity('entry_created', `${showAddTx} — ${txForm.category}`);

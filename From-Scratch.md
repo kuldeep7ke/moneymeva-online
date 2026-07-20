@@ -12,7 +12,7 @@ npx create-next-app@latest money-meva --typescript --tailwind --eslint --app
 
 # Install core dependencies
 npm install dexie pouchdb-browser pouchdb-find \
-  @supabase/supabase-js \
+  # @supabase/supabase-js (removed, fully local-first)
   clsx tailwind-merge \
   date-fns \
   lucide-react \
@@ -385,15 +385,15 @@ Device A (PouchDB) ←──live sync──→ CouchDB (Remote) ←──live sy
 
 ### Implementation
 
-- **Local DB**: PouchDB instance named `mm_pouch` with compound index on `[_entity, updatedAt]`
+- **Local DB**: PouchDB instance named `mm_pouch` with compound index on `[entity, updatedAt]`
 - **Remote DB**: User-configurable CouchDB URL (e.g. Railway.app), stored in localStorage `mm_pouch_url`
 - **Live sync**: `localDB.sync(remoteDB, { live: true, retry: true })` — bi-directional, continuous
 - **Change events**: `syncHandler.on('change', ...)` fires listeners
 
 ### Entity Mapping
 Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`:
-- `transaction:abc123` → `_entity: 'transaction'`
-- `partner:def456` → `_entity: 'partner'`
+- `transaction:abc123` → `entity: 'transaction'`
+- `partner:def456` → `entity: 'partner'`
 - etc.
 
 ### Key Functions
@@ -407,7 +407,7 @@ Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`:
 | `ensureConnected()` | Ensures live sync is active, starts reconnect timer if not |
 | `putDoc(entity, data)` | Writes doc to local PouchDB (for sync to remote) |
 | `removeDoc(entity, id)` | Removes doc from local PouchDB |
-| `pullAll()` | Replicates from remote, returns all non-deleted docs with `_entity` |
+| `pullAll()` | Replicates from remote, returns all non-deleted docs with `entity` |
 | `clearPouch()` | Destroys local DB, reinitializes |
 | `onRemoteChange(fn)` | Subscribes to sync change events |
 
@@ -421,7 +421,7 @@ Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`:
 Every 2 minutes, calls `processRemoteChanges()` which:
 1. Checks connection
 2. Replicates from remote to local PouchDB
-3. Reads all docs with `_entity`
+3. Reads all docs with `entity`
 4. Merges into cache (respects `updatedAt` timestamps — skips if local is newer)
 
 ### Sync Flow (Settings Page)
@@ -609,7 +609,7 @@ Live sync change detected
     → checkConnection()
     → localDB.replicate.from(remoteDB)
     → localDB.allDocs({ include_docs: true })
-    → Filter by _entity + !_deleted
+    → Filter by entity + !_deleted
     → For each doc:
       → Find in cache by id
       → If local.updatedAt >= doc.updatedAt, skip
@@ -685,7 +685,7 @@ Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writi
 
 ## 20. Version File
 
-`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.0.10`).
+`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.1.13`).
 
 The build number (4th component) is incremented on each `npm run build` via the `prebuild` script. On CI, this bumps locally in the runner; the repo isn't modified.
 

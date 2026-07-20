@@ -1,10 +1,10 @@
 # Money Meva Premium — Memory Capsule
 
-**Version:** v7.1.0.10 (incremented on every build)
+**Version:** v7.1.1.13 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/money-meva-premium
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
-**Last Updated:** 2026-07-17
+**Last Updated:** 2026-07-20
 
 ---
 
@@ -17,7 +17,7 @@
 | Styling | Tailwind CSS v4 + CSS variables | Rapid prototyping; 3-brand theme via CSS custom properties |
 | i18n | Custom hook + translations.ts | 3 languages (mr/hi/en), no external lib needed |
 | Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 9 tables with compound indexes |
-| Sync | PouchDB ↔ CouchDB (manual + 12hr auto) | Quota-saving: manual "Sync Now" button + auto-sync every 12 hours |
+| Sync | PouchDB ↔ CouchDB (live + manual) | Live sync with auto-reconnect (30s), manual "Sync Now" push+pull, skip_setup: false |
 | State | In-memory cache + Dexie + PouchDB | Cache for instant reads, Dexie for persistence, PouchDB for sync |
 | Auth | Fully local (localStorage) | No server dependency; multi-user with session switching |
 | Security | One-time 4-digit PINs | Simple but effective; no PII stored remotely; auto-rotate after 10 uses |
@@ -47,7 +47,7 @@ Every entity has `deletedAt?: string`. Items disappear from active views, appear
 Every entity gets a `transitionId` at creation. Links all mutations across lifecycle. Used in Audit Ledger.
 
 ### 4. Offline-First Sync
-PouchDB → CouchDB is optional and manual-first. "Sync Now" does one-shot push+pull. Auto-sync every 12 hours.
+PouchDB → CouchDB is optional. Live sync with auto-reconnect (30s interval) keeps data in sync in real-time. Manual "Sync Now" does one-shot push+pull. Connection errors are logged but never kill the connection.
 
 ### 5. Local Auth with Multi-User
 Users in localStorage `mm_users`. Session in `mm_session`. No server needed.
@@ -285,3 +285,25 @@ Backward compat: `pullAll` and `processRemoteChanges` fall back to `doc._entity`
 | `src/types/index.ts` | Account type widened to include `'invest'` |
 | `src/lib/i18n/translations.ts` | New dashboard i18n keys for mr/hi/en |
 | `src/app/dashboard/page.tsx` | useTranslation hook + translated cards |
+
+## Recent Changes (v7.1.1.13)
+
+### Bug Fixes & Enhancements (2026-07-20)
+- **`_entity` → `entity` fix complete**: All PouchDB custom field references now use `entity` (not `_entity`). Backward compat retained in `pullAll` and `processRemoteChanges`.
+- **Mobile UI refinements**: Minimal ledger list with tap-to-view detail modal across income/expenses/investments. Compact action buttons on small screens.
+- **Import from File (JSON)**: Developer Zone now supports selecting a JSON export file, previewing tables, and bulk-importing into Dexie. Handles cross-user data reassignment.
+- **Animated Icons**: Sync spinner, loading states, status dots, and nav indicators now use CSS animations (spin, bounce, pulse) for richer visual feedback.
+- **Developer Zone page**: New `/dashboard/developer` page with session timer (auto-expires after 3 min idle), DB stats, localStorage inspector, sync diagnostics, raw JSON export, brand switcher, PIN viewer, and danger zone.
+- **Session timer auto-redirect**: Developer Zone auto-navigates to dashboard after 180s inactivity, with live countdown display.
+
+### File Changes
+| File | Change |
+|---|---|
+| `src/app/dashboard/developer/page.tsx` | New Developer Zone with timer, import, diagnostics |
+| `src/lib/pouchdb.ts` | `_entity` → `entity` everywhere, backward compat fallback |
+| `src/lib/store.ts` | `processRemoteChanges` reads `doc.entity \|\| doc._entity` |
+| `src/components/TransactionPage.tsx` | Mobile UI: compact layout, tap-to-view detail modal |
+| `src/app/dashboard/expenses/page.tsx` | Mobile-responsive ledger view |
+| `src/app/dashboard/income/page.tsx` | Mobile-responsive ledger view |
+| `src/app/dashboard/investments/page.tsx` | Mobile-responsive ledger view |
+| Various components | CSS animation classes added to key icons |

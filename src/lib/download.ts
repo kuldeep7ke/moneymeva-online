@@ -11,23 +11,25 @@ export async function downloadBlob(blob: Blob, filename: string) {
     }
   } catch {}
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.target = '_blank';
-  link.rel = 'noopener';
-  document.body.appendChild(link);
-  link.click();
-  setTimeout(() => {
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, 60000);
+  try {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 60000);
+  } catch {}
 }
 
-export function copyText(text: string) {
+export async function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    try { await navigator.clipboard.writeText(text); } catch { fallbackCopy(text); }
   } else {
     fallbackCopy(text);
   }
@@ -47,14 +49,10 @@ function fallbackCopy(text: string) {
 }
 
 export function printHtml(title: string, htmlContent: string) {
-  const fullHtml = `<html><head><title>${title}</title></head><body>${htmlContent}</body></html>`;
   const win = window.open('', '_blank');
   if (win) {
-    win.document.write(fullHtml);
+    win.document.write(htmlContent);
     win.document.close();
     setTimeout(() => { try { win.print(); } catch {} }, 500);
-  } else {
-    const encoded = encodeURIComponent(fullHtml);
-    window.open('data:text/html;charset=utf-8,' + encoded, '_blank');
   }
 }

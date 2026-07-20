@@ -3,7 +3,7 @@
 > **पैसे कुठे जातात? शोधूया.**
 > *Where does the money go? Let's find out.*
 
-**v7.1.0.10** — A minimalistic, local-first personal finance companion.
+**v7.1.1.13** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.
 Made in India.
 
@@ -33,6 +33,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal.
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
+- **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), DB stats viewer, localStorage inspector, sync diagnostics, raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
 - **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars.
 - **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party.
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days.
@@ -41,7 +42,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Reminders** — One-time or recurring (daily to yearly) with "Mark as Paid" that creates expense transactions and auto-reschedules.
 - **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected).
 - **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable lifecycle chain, copy transition ID, CSV export, entity/action filters, search.
-- **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup with cross-user detection and reassignment.
+- **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup/restore with cross-user detection and reassignment. Import from JSON file via Developer Zone to restore data across devices.
 
 ### Security & Privacy
 - **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data). Session auto-lock (1h–24h).
@@ -64,6 +65,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **3 Brand Colors** — Orange (default), Royal Blue, Emerald Green — changeable in Settings.
 - **i18n** — Marathi (default), Hindi, English. Grammar-preserving translations with context-appropriate vocabulary. English loanwords only for tech/modern terms.
 - **Scroll Animations** — Staggered Reveal animations on all major sections.
+- **Animated Icons** — Key UI elements (sync spinner, loading states, status dots, nav indicators) use CSS animations (spin, bounce, pulse) for visual feedback.
 - **Floating Mobile Nav** — Bottom-right FAB with filtered nav.
 - **Keyboard Navigation** — ArrowUp/Down/Enter/Escape for all custom dropdowns (category, party).
 - **Onboarding Wizard** — 6-step setup with optional steps and re-edit support.
@@ -84,7 +86,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 | PDF | jsPDF 4 + jspdf-autotable |
 | Excel | SheetJS (xlsx) |
 | Dates | date-fns 4 |
-| Auth | Local (email/password) + Supabase (optional, mock fallback) |
+| Auth | Local (email/password) — Supabase removed, fully local-first |
 | Mobile | Capacitor 8 (Android) |
 | Linting | ESLint 9 |
 
@@ -185,6 +187,7 @@ src/
 │   │   ├── savings/             # Savings + Goals
 │   │   ├── settings/            # Sync, theme, language, danger zone
 │   │   ├── summary/             # Monthly/yearly summaries
+│   │   ├── developer/           # Developer Zone with timer, diagnostics, import
 │   │   ├── support/             # Public support page
 │   │   ├── terms/               # Public terms page
 │   │   ├── page.tsx             # Dashboard home (cards, charts, quick-add)
@@ -222,7 +225,7 @@ src/
 │   ├── pouchdb.ts               # PouchDB remote connection + sync + PIN pouch
 │   ├── db.ts                    # Dexie schema (tables, indexes)
 │   ├── localAuth.ts             # Email/password auth (local)
-│   ├── supabase.ts              # Supabase client (optional, mock fallback)
+│   ├── supabase.ts              # Legacy (removed, kept for reference)
 │   ├── pinStore.ts              # PIN generation and validation
 │   ├── sync-notify.ts           # CustomEvent-based sync status dispatch
 │   ├── activityLog.ts           # Security + CRUD event history

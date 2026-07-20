@@ -538,7 +538,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                 </button>
               )}
               <button onClick={() => setShowAddModal(true)} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95" type="button" title="Add">
-                <Plus className="h-5 w-5" />
+                <Plus className="h-5 w-5 icon-bounce" />
               </button>
             </div>
           </div>
@@ -546,11 +546,11 @@ export default function TransactionPage({ type, title, description }: Transactio
 
         <Reveal delay={100}>
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 max-w-md hidden md:block">
+            <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-[#2A2522] dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand"
-                placeholder="Search by description or category..." />
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-[#2A2522] dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm"
+                placeholder={type === 'income' ? 'Search income...' : type === 'investment' ? 'Search investments...' : 'Search expenses...'} />
             </div>
             <button onClick={() => {
                 const count = [filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, search].filter(Boolean).length;
@@ -585,16 +585,10 @@ export default function TransactionPage({ type, title, description }: Transactio
         <Reveal delay={200}>
         {/* Filter Panel */}
         {showFilters && (
-          <div className="bg-white dark:bg-[#2A2522] p-4 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="col-span-full md:hidden">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm"
-                  placeholder="Description or category..." />
-              </div>
-            </div>
+          <div className="bg-white dark:bg-[#2A2522] p-4 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm grid grid-cols-2 md:grid-cols-5 gap-4 relative">
+            <button onClick={() => setShowFilters(false)} className="absolute top-2 right-2 p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-brand-muted transition-colors md:hidden" type="button" aria-label="Close filters">
+              <X className="h-4 w-4" />
+            </button>
             <div>
               <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Category</label>
               <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
@@ -701,13 +695,13 @@ export default function TransactionPage({ type, title, description }: Transactio
                       </p>
                       {confirmDelete === t.id ? (
                         <div className="flex gap-1 ml-1">
-                          <button className="w-6 h-6 rounded bg-red-500 text-white text-xs font-medium" onClick={() => handleDelete(t.id)}>Y</button>
-                          <button className="w-6 h-6 rounded bg-slate-200 dark:bg-brand-muted text-xs font-medium" onClick={() => setConfirmDelete(null)}>N</button>
+                          <button className="w-10 h-8 rounded bg-red-500 text-white text-xs font-medium" onClick={() => handleDelete(t.id)}>Y</button>
+                          <button className="w-10 h-8 rounded bg-slate-200 dark:bg-brand-muted text-xs font-medium" onClick={() => setConfirmDelete(null)}>N</button>
                         </div>
                       ) : (
                         <>
-                          <button className="p-1 rounded text-slate-300 hover:text-blue-500" onClick={e => { e.stopPropagation(); openEdit(t); }}><Pencil className="h-3 w-3" /></button>
-                          <button className="p-1 rounded text-slate-300 hover:text-red-500" onClick={e => { e.stopPropagation(); setConfirmDelete(t.id); }}><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button className="p-2 rounded text-slate-300 hover:text-blue-500 active:scale-95 transition-transform" onClick={e => { e.stopPropagation(); openEdit(t); }} aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                          <button className="p-2 rounded text-slate-300 hover:text-red-500 active:scale-95 transition-transform" onClick={e => { e.stopPropagation(); setConfirmDelete(t.id); }} aria-label="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                         </>
                       )}
                     </div>
@@ -1571,6 +1565,7 @@ export default function TransactionPage({ type, title, description }: Transactio
 
       {showCalculator && (
         <InvestmentCalculator onClose={() => setShowCalculator(false)} onApply={(amount) => {
+          setForm({ ...form, amount: String(amount) });
           setShowCalculator(false);
         }} />
       )}

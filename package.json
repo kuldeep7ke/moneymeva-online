@@ -1,6 +1,6 @@
 {
   "name": "money-meva",
-  "version": "7.0.0",
+  "version": "7.1.13",
   "private": true,
   "scripts": {
     "dev": "next dev",

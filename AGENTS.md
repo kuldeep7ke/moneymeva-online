@@ -111,7 +111,7 @@ npm run android:apk         # Full build → version → gradle assembleDebug
   - `manualSync()` returns `{ ok, pushed, pulled }` — does NOT call `notifyChange()` (no recursion)
   - `skip_setup: false` — PouchDB auto-creates remote DB
   - `startReconnectTimer(30s)` — auto-reconnect on disconnect
-  - `putDoc(entity, data)` — write doc as `entity:id` with `_entity` tag
+  - `putDoc(entity, data)` — write doc as `entity:id` with `entity` tag
   - Error handler uses `console.warn` — never kills connection
   - `checkConnection()` / `ensureConnected()` — utility guards
 - **`src/lib/sync-notify.ts`** — CustomEvent-based sync status dispatch
