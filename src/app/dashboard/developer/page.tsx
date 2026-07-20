@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
 import { clearRemote, getConfig, checkConnection, connected as syncConnected } from '@/lib/pouchdb';
 import { downloadBlob } from '@/lib/download';
-import { AlertTriangle, Trash2, Loader2, Download, Key, Eye, EyeOff, Database, BarChart3, HardDrive, Search, Wifi, Palette, User, Beaker } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Download, Key, Eye, EyeOff, Database, BarChart3, HardDrive, Search, Wifi, Palette, User } from 'lucide-react';
 import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { cn } from '@/lib/utils';
 import { getSession } from '@/lib/localAuth';
@@ -209,21 +209,6 @@ export default function DeveloperPage() {
             <div className="flex justify-between"><span className="text-slate-500">ID</span><span className="font-mono text-slate-700 dark:text-slate-300">{session?.user?.id || 'unknown'}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Name</span><span className="font-mono text-slate-700 dark:text-slate-300">{session?.user?.full_name || session?.user?.email || 'unknown'}</span></div>
           </div>
-        </Section>
-
-        {/* Sample Data */}
-        <Section icon={Beaker} title="Generate Sample Data" iconColor="text-rose-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Fill DB with up to 50 placeholder entries (for testing).</p>
-          <Button variant="outline" onClick={async () => {
-            const samples = [];
-              for (let i = 0; i < 50; i++) {
-                const d = new Date(2026, 6, 1 + i);
-                samples.push({ id: gid(), transitionId: gtid(), userId: 'local-user', amount: Math.floor(Math.random() * 5000) + 100, type: i % 2 === 0 ? 'expense' : 'income', category: i % 2 === 0 ? 'Food' : 'Freelance', description: `Sample #${i + 1}`, date: d.toISOString().split('T')[0], account: 'bank', partnerAccountId: '', isRecurring: false, createdAt: now(), updatedAt: now() });
-              }
-            await db.transactions.bulkAdd(samples as any);
-            setStatus(`Added ${samples.length} sample entries.`);
-            setTimeout(() => setStatus(''), 3000);
-          }} className="w-full text-xs">Generate 50 Entries</Button>
         </Section>
 
         {/* User PINs */}
