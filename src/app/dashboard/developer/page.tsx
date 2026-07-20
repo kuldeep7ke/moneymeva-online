@@ -166,6 +166,7 @@ export default function DeveloperPage() {
   const [cleared, setCleared] = useState(false);
   const [showPins, setShowPins] = useState(false);
   const [dbStats, setDbStats] = useState<Record<string, number> | null>(null);
+  const [preview, setPreview] = useState<any[] | null>(null);
   const [lsData, setLsData] = useState<{ key: string; value: string }[] | null>(null);
   const [syncOk, setSyncOk] = useState<boolean | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -238,6 +239,11 @@ export default function DeveloperPage() {
     setDbStats(stats);
   };
 
+  const loadPreview = () => {
+    const all = generateAll();
+    setPreview(all);
+  };
+
   const loadLsInspector = () => {
     const items: { key: string; value: string }[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -307,6 +313,26 @@ export default function DeveloperPage() {
           {status && <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm text-green-700 dark:text-green-300">{status}</div>}
           {skipped > 0 && <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-700 dark:text-amber-300">{skipped} duplicates skipped.</div>}
           {count > 0 && <Button variant="outline" onClick={() => router.push('/dashboard')} className="w-full">Go to Dashboard</Button>}
+        </Section>
+
+        {/* Preview Import */}
+        <Section icon={Search} title="Preview Import" iconColor="text-blue-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">See what entries <code>generateAll()</code> will produce.</p>
+          <Button variant="outline" onClick={loadPreview} className="w-full text-xs">Preview {preview === null ? 'Entries' : 'Refresh'}</Button>
+          {preview !== null && (
+            <div className="text-xs text-slate-600 dark:text-slate-300 max-h-40 overflow-y-auto space-y-0.5">
+              <p className="text-slate-400 font-medium mb-1">Total: {preview.length} entries</p>
+              {preview.slice(0, 50).map((t, i) => (
+                <div key={i} className="truncate opacity-80 hover:opacity-100">
+                  <span className="text-[10px] font-mono text-slate-400">{t.date}</span>
+                  {' '}<span className={cn(t.type === 'income' ? 'text-green-600' : 'text-red-500')}>{t.type === 'income' ? '+' : '-'}₹{t.amount}</span>
+                  {' '}<span className="text-slate-400">{t.category}</span>
+                  {' '}<span className="text-slate-500">{t.description?.slice(0, 60)}</span>
+                </div>
+              ))}
+              {preview.length > 50 && <p className="text-slate-400 italic">...and {preview.length - 50} more</p>}
+            </div>
+          )}
         </Section>
 
         {/* DB Stats */}
