@@ -1,7 +1,7 @@
-# Money Meva Premium — Memory Capsule
+# Money Meva — Memory Capsule
 
 **Version:** v7.1.1.13 (incremented on every build)
-**Repository:** github.com/kuldeep7ke/money-meva-premium
+**Repository:** github.com/kuldeep7ke/money-meva
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Last Updated:** 2026-07-20

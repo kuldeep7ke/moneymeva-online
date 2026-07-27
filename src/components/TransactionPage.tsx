@@ -81,6 +81,19 @@ export default function TransactionPage({ type, title, description }: Transactio
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const [editCategorySearch, setEditCategorySearch] = useState('');
+  const [showEditCategoryDropdown, setShowEditCategoryDropdown] = useState(false);
+  const [catHighlightIndex, setCatHighlightIndex] = useState(-1);
+  const [editCatHighlightIndex, setEditCatHighlightIndex] = useState(-1);
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const editCategoryRef = useRef<HTMLDivElement>(null);
+  const [partySearch, setPartySearch] = useState('');
+  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+  const [partyHighlightIndex, setPartyHighlightIndex] = useState(-1);
+  const partyRef = useRef<HTMLDivElement>(null);
+  const [showCreateParty, setShowCreateParty] = useState<string | null>(null);
+  const [createPartyForm, setCreatePartyForm] = useState({ group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (partyRef.current && !partyRef.current.contains(e.target as Node)) setShowPartyDropdown(false);
@@ -136,19 +149,6 @@ export default function TransactionPage({ type, title, description }: Transactio
       company: d.company || '', quantity: d.quantity || '', buyPrice: d.buyPrice || '', exchange: d.exchange || 'NSE', stockMode: d.stockMode || 'delivery',
     });
   };
-
-  const [editCategorySearch, setEditCategorySearch] = useState('');
-  const [showEditCategoryDropdown, setShowEditCategoryDropdown] = useState(false);
-  const [catHighlightIndex, setCatHighlightIndex] = useState(-1);
-  const [editCatHighlightIndex, setEditCatHighlightIndex] = useState(-1);
-  const categoryRef = useRef<HTMLDivElement>(null);
-  const editCategoryRef = useRef<HTMLDivElement>(null);
-  const [partySearch, setPartySearch] = useState('');
-  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
-  const [partyHighlightIndex, setPartyHighlightIndex] = useState(-1);
-  const partyRef = useRef<HTMLDivElement>(null);
-  const [showCreateParty, setShowCreateParty] = useState<string | null>(null);
-  const [createPartyForm, setCreatePartyForm] = useState({ group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
 
   const [partyWarn, setPartyWarn] = useState<string | null>(null);
   const [investMeta, setInvestMeta] = useState({ fundName: '', nav: '', units: '', mode: 'lumpsum' as string, institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative' as string, fdType: 'cumulative' as string, company: '', quantity: '', buyPrice: '', exchange: 'NSE' as string, stockMode: 'delivery' as string });
@@ -264,6 +264,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   const doEdit = (id: string) => {
     const desc = buildEditDescription();
     updateTransaction(id, { amount: Number(editForm.amount), category: editForm.category, description: desc, date: editForm.date, partnerAccountId: editForm.partnerAccountId || undefined });
+    saveCategoryToLocalStorage(editForm.category);
     logActivity('entry_edited', `${type} — ${editForm.category}`);
     setEditingTransaction(null);
     setEditCategorySearch('');
@@ -306,6 +307,20 @@ export default function TransactionPage({ type, title, description }: Transactio
     return form.description;
   };
 
+  const saveCategoryToLocalStorage = (cat: string) => {
+    if (!cat) return;
+    const typeKey = type === 'income' ? 'mm_income_categories' : type === 'expense' ? 'mm_expense_categories' : type === 'investment' ? 'mm_investment_categories' : null;
+    if (!typeKey) return;
+    try {
+      const saved = localStorage.getItem(typeKey);
+      let cats: string[] = saved ? JSON.parse(saved) : [];
+      if (Array.isArray(cats) && !cats.includes(cat)) {
+        cats.push(cat);
+        localStorage.setItem(typeKey, JSON.stringify(cats));
+      }
+    } catch {}
+  };
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(form.amount);
@@ -323,6 +338,7 @@ export default function TransactionPage({ type, title, description }: Transactio
       account = form.investSource === 'cash' ? form.account : 'invest';
     }
     addTransaction({ ...tx, account, isRecurring: false });
+    saveCategoryToLocalStorage(form.category);
     logActivity('entry_created', `${type} — ${form.category}`);
 
     if (type === 'investment' && form.investSource !== 'cash') {
@@ -478,7 +494,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     } catch {}
     const userCats = new Map<string, number>();
     transactions.forEach(t => { if (t.category) userCats.set(t.category, (userCats.get(t.category) || 0) + 1); });
-    const freqSorted = Array.from(userCats.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([cat]) => cat);
+    const freqSorted = Array.from(userCats.entries()).sort((a, b) => b[1] - a[1]).map(([cat]) => cat);
     const merged = [...freqSorted];
     for (const cat of customCats) { if (!merged.includes(cat)) merged.push(cat); }
     for (const cat of baseCategories) { if (!merged.includes(cat)) merged.push(cat); }
@@ -860,9 +876,10 @@ export default function TransactionPage({ type, title, description }: Transactio
                     onChange={e => { setForm({ ...form, category: e.target.value }); setCategorySearch(e.target.value); setShowCategoryDropdown(true); setCatHighlightIndex(-1); }}
                     onFocus={() => setShowCategoryDropdown(true)}
                     onKeyDown={e => {
-                      if (e.key === 'ArrowDown') { e.preventDefault(); setShowCategoryDropdown(true); setCatHighlightIndex(i => Math.min(i + 1, filteredCategories.length - 1)); }
+                      const totalItems = filteredCategories.length + (categorySearch && !filteredCategories.includes(categorySearch) ? 1 : 0);
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setShowCategoryDropdown(true); setCatHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
                       else if (e.key === 'ArrowUp') { e.preventDefault(); setCatHighlightIndex(i => Math.max(i - 1, 0)); }
-                      else if (e.key === 'Enter' && showCategoryDropdown && catHighlightIndex >= 0) { e.preventDefault(); setForm({ ...form, category: filteredCategories[catHighlightIndex] }); setShowCategoryDropdown(false); setCategorySearch(''); setCatHighlightIndex(-1); }
+                      else if (e.key === 'Enter' && showCategoryDropdown && catHighlightIndex >= 0) { e.preventDefault(); if (catHighlightIndex < filteredCategories.length) { setForm({ ...form, category: filteredCategories[catHighlightIndex] }); } else { setForm({ ...form, category: categorySearch }); } setShowCategoryDropdown(false); setCategorySearch(''); setCatHighlightIndex(-1); }
                       else if (e.key === 'Escape') { setShowCategoryDropdown(false); setCatHighlightIndex(-1); }
                     }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
@@ -1155,9 +1172,10 @@ export default function TransactionPage({ type, title, description }: Transactio
                     onChange={e => { setEditForm({ ...editForm, category: e.target.value }); setEditCategorySearch(e.target.value); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(-1); }}
                     onFocus={() => setShowEditCategoryDropdown(true)}
                     onKeyDown={e => {
-                      if (e.key === 'ArrowDown') { e.preventDefault(); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(i => Math.min(i + 1, filteredCategories.length - 1)); }
+                      const totalItems = filteredCategories.length + (editCategorySearch && !filteredCategories.includes(editCategorySearch) ? 1 : 0);
+                      if (e.key === 'ArrowDown') { e.preventDefault(); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
                       else if (e.key === 'ArrowUp') { e.preventDefault(); setEditCatHighlightIndex(i => Math.max(i - 1, 0)); }
-                      else if (e.key === 'Enter' && showEditCategoryDropdown && editCatHighlightIndex >= 0) { e.preventDefault(); setEditForm({ ...editForm, category: filteredCategories[editCatHighlightIndex] }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }
+                      else if (e.key === 'Enter' && showEditCategoryDropdown && editCatHighlightIndex >= 0) { e.preventDefault(); if (editCatHighlightIndex < filteredCategories.length) { setEditForm({ ...editForm, category: filteredCategories[editCatHighlightIndex] }); } else { setEditForm({ ...editForm, category: editCategorySearch }); } setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }
                       else if (e.key === 'Escape') { setShowEditCategoryDropdown(false); setEditCatHighlightIndex(-1); }
                     }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"

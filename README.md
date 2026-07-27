@@ -303,7 +303,7 @@ The APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.
 Requires Android 7+ (API 24). Features back button navigation, status bar handling, and local notifications.
 
 A GitHub Actions workflow also builds the APK automatically on every push to master:
-[Build Android APK](https://github.com/kuldeep7ke/money-meva-premium/actions/workflows/build-apk.yml)
+[Build Android APK](https://github.com/kuldeep7ke/money-meva/actions/workflows/build-apk.yml)
 
 ---
 

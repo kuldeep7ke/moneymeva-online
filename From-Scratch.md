@@ -1,4 +1,4 @@
-# Money Meva Premium — Build from Scratch Guide
+# Money Meva — Build from Scratch Guide
 
 A step-by-step blueprint for an AI agent to build this personal finance management app. Each section contains exact implementation details drawn from the working codebase.
 
@@ -576,7 +576,7 @@ Triggered on push to `master`:
 1. Checkout + Node 22 setup
 2. `npm ci`
 3. `npm run build` (static export → `out/`)
-4. `wrangler pages deploy out --project-name=money-meva-premium --branch=master`
+4. `wrangler pages deploy out --project-name=money-meva --branch=master`
 
 Requires `CLOUDFLARE_API_TOKEN` GitHub secret.
 
@@ -723,7 +723,7 @@ The build number (4th component) is incremented on each `npm run build` via the 
 ## 21. File Skeleton Reference
 
 ```
-money-meva-premium/
+money-meva/
 ├── .github/workflows/
 │   ├── nextjs.yml              # Cloudflare Pages deploy
 │   └── build-apk.yml           # Android APK build

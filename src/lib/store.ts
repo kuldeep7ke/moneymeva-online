@@ -15,7 +15,7 @@ const LS_KEYS = {
 };
 
 // ─── In-memory cache (sync reads) ────────────────────────────
-let cache: {
+const cache: {
   transactions: Transaction[];
   partners: PartnerAccount[];
   recurring: RecurringTx[];

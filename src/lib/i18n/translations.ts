@@ -33,6 +33,7 @@ const mr: Record<string, string> = {
   'nav.support': 'मदत',
   'nav.terms': 'अटी',
   'nav.privacy': 'गोपनीयता',
+  'nav.categories': 'वर्ग',
 
   'common.loading': 'Loading…',
   'common.cancel': 'रद्द करा',
@@ -264,6 +265,7 @@ const hi: Record<string, string> = {
   'nav.support': 'मदद',
   'nav.terms': 'शर्तें',
   'nav.privacy': 'गोपनीयता',
+  'nav.categories': 'वर्ग',
 
   'common.loading': 'Loading…',
   'common.cancel': 'रद्द करें',
@@ -495,6 +497,7 @@ const en: Record<string, string> = {
   'nav.support': 'Support',
   'nav.terms': 'Terms',
   'nav.privacy': 'Privacy',
+  'nav.categories': 'Categories',
 
   'common.loading': 'Loading…',
   'common.cancel': 'Cancel',
