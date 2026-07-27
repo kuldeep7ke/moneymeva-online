@@ -1,7 +1,7 @@
 # Money Meva
 
-> **पैसे कुठे जातात? शोधूया.**
 > *Where does the money go? Let's find out.*
+> > **पैसे कुठे जातात? शोधूया.**
 
 **v7.1.1.13** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.
