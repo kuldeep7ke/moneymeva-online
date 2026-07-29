@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /terms
+Allow: /privacy
+
+Disallow: /onboarding
+Disallow: /dashboard
+Disallow: /auth
+
+Sitemap: https://money-meva.pages.dev/sitemap.xml

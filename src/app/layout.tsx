@@ -18,7 +18,7 @@ try { APP_VERSION = readFileSync(join(process.cwd(), "VERSION"), "utf-8").trim()
 
 export const metadata: Metadata = {
   title: "Money Meva - Personal Finance App",
-  description: "Manage your expenses, income, savings, and investments with ease.",
+  description: "Manage your expenses, income, savings, and investments with ease. पैसे कुठे जातात? शोधूया. — Local-first, privacy-focused, multi-language personal finance companion.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Money Meva" },
   icons: {
@@ -27,6 +27,43 @@ export const metadata: Metadata = {
       { url: "/icon.svg", sizes: "any", type: "image/svg+xml" },
     ],
     apple: "/icon-512.png",
+  },
+  openGraph: {
+    title: "Money Meva — Personal Finance App",
+    description: "पैसे कुठे जातात? शोधूया. Manage expenses, income, savings, and investments. Local-first, multi-language, privacy-focused.",
+    url: "https://money-meva.pages.dev",
+    siteName: "Money Meva",
+    images: [
+      {
+        url: "/og-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "Money Meva — Where does the money go? Let's find out.",
+      },
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Money Meva — Personal Finance App",
+    description: "पैसे कुठे जातात? शोधूया. Local-first personal finance companion.",
+    images: ["/og-image.svg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  metadataBase: new URL("https://money-meva.pages.dev"),
+  other: {
+    "sitemap": "/sitemap.xml",
   },
 };
 
@@ -46,6 +83,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="app-version" content={APP_VERSION} />
         <link rel="apple-touch-icon" href="/icon-512.png" />
+        <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
