@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import ThemeProvider from "@/components/ThemeProvider";
 import { I18nProvider } from "@/lib/i18n";
+import { ToastProvider } from "@/components/Toast";
 import RegisterSW from "@/components/RegisterSW";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -88,9 +89,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <I18nProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
+            <ToastProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </ToastProvider>
           </I18nProvider>
           <RegisterSW />
         </ThemeProvider>

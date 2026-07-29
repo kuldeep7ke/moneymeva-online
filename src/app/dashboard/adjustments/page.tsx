@@ -11,8 +11,10 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
+import { useToast } from '@/components/Toast';
 
 export default function AdjustmentsPage() {
+  const toast = useToast();
   const [adjustments, setAdjustments] = useState<any[]>([]);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function AdjustmentsPage() {
     e.preventDefault();
     const amount = Number(adjForm.amount);
     if (!amount || Math.abs(amount) > 999999999) {
-      alert('Invalid amount. Enter a non-zero value between -₹99,99,99,999 and ₹99,99,99,999.');
+      toast('Invalid amount. Enter a non-zero value between -₹99,99,99,999 and ₹99,99,99,999.', 'warning');
       return;
     }
     if (hasPins()) {

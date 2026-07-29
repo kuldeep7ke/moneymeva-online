@@ -24,7 +24,9 @@ import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory } from '@/lib/pouchdb';
 import { dispatchSyncEvent } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
+import { useToast } from '@/components/Toast';
 export default function SettingsPage() {
+  const toast = useToast();
   const { refreshAuth } = useAuth();
   const { brand, setBrand } = useTheme();
   const router = useRouter();
@@ -140,7 +142,7 @@ export default function SettingsPage() {
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result as string);
-        if (!data._metadata || !data._metadata.app) { alert('Invalid backup file'); return; }
+        if (!data._metadata || !data._metadata.app) { toast('Invalid backup file', 'error'); return; }
         const session = JSON.parse(localStorage.getItem('money_meva_session') || '{}');
         const currentId = session.id || 'local-user';
         const currentName = session.full_name || session.email || 'Current User';
@@ -158,7 +160,7 @@ export default function SettingsPage() {
           doImport(data, currentId);
         }
       } catch (err) {
-        alert('Error importing backup. Make sure the file is a valid JSON backup file.');
+        toast('Error importing backup. Make sure the file is a valid JSON backup file.', 'error');
       }
     };
     reader.readAsText(file);
@@ -503,7 +505,7 @@ export default function SettingsPage() {
                     addTransaction({ amount, type: type as any, category, description, date, partnerAccountId: undefined, isRecurring: false });
                     imported++;
                   }
-                  alert(`Imported ${imported} transaction(s) from CSV.`);
+                  toast(`Imported ${imported} transaction(s) from CSV.`, 'success');
                   e.target.value = '';
                 };
                 reader.readAsText(file);
@@ -1030,7 +1032,7 @@ export default function SettingsPage() {
                   if (switchUser(importConfirm.backupId)) {
                     window.location.reload();
                   } else {
-                    alert('This user does not have a local account. Use "Import & Reassign" instead.');
+                    toast('This user does not have a local account. Use "Import & Reassign" instead.', 'warning');
                   }
                 }}>
                   Switch to This User

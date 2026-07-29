@@ -12,8 +12,10 @@ import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore
 import { cn } from '@/lib/utils';
 import { getSession } from '@/lib/localAuth';
 import { useTheme, getBrands } from '@/components/ThemeProvider';
+import { useToast } from '@/components/Toast';
 
 export default function DeveloperPage() {
+  const toast = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [warnDismissed, setWarnDismissed] = useState(false);
@@ -62,7 +64,7 @@ export default function DeveloperPage() {
       setTimeout(() => window.location.reload(), 1500);
     } catch {
       setClearing(false);
-      alert('Failed to clear data.');
+      toast('Failed to clear data.', 'error');
     }
   };
 

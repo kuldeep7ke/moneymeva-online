@@ -206,8 +206,19 @@ export default function LedgerPage() {
 
         <Reveal delay={200}>
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin h-6 w-6 border-2 border-brand border-t-transparent rounded-full" />
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="bg-white dark:bg-[#2A2522] rounded-xl border border-slate-200 dark:border-brand-muted p-4 animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-slate-200 dark:bg-brand-muted" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-slate-200 dark:bg-brand-muted rounded w-1/3" />
+                      <div className="h-3 bg-slate-200 dark:bg-brand-muted rounded w-1/2" />
+                    </div>
+                    <div className="h-4 bg-slate-200 dark:bg-brand-muted rounded w-16" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted p-12 text-center">

@@ -606,7 +606,11 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
           ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">No transaction data yet. Add income or expenses to see the chart.</p>
+            <div className="text-center py-16">
+              <TrendingUp className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No transaction data yet</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add income or expenses to see the chart.</p>
+            </div>
           )}
         </div>
         </Reveal>
@@ -645,7 +649,11 @@ export default function DashboardPage() {
             </div>
             </>
             ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No expenses yet. Add expenses to see the breakdown.</p>
+              <div className="text-center py-8">
+                <ArrowDownCircle className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No expenses yet</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add expenses to see the breakdown.</p>
+              </div>
             )}
           </div>
 
@@ -669,7 +677,11 @@ export default function DashboardPage() {
               ))}
             </div>
             ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No transactions yet.</p>
+              <div className="text-center py-8">
+                <Repeat className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No transactions yet</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Your recent activity will appear here.</p>
+              </div>
             )}
           </div>
         </div>
@@ -704,7 +716,11 @@ export default function DashboardPage() {
               ))}
             </div>
             ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No tasks yet. Add tasks from the Savings page.</p>
+              <div className="text-center py-8">
+                <CheckCircle2 className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No tasks yet</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add tasks from the Savings page.</p>
+              </div>
             )}
           </div>
 
@@ -738,7 +754,11 @@ export default function DashboardPage() {
               ))}
             </div>
             ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No recurring transactions yet.</p>
+              <div className="text-center py-8">
+                <Repeat className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No recurring transactions yet</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Set up recurring income or expenses.</p>
+              </div>
             )}
           </div>
         </div>
@@ -806,7 +826,11 @@ export default function DashboardPage() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-8">No goals yet. Click + to create one.</p>
+            <div className="text-center py-8">
+              <PiggyBank className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No goals yet</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Click + to create a savings goal.</p>
+            </div>
           )}
         </div>
         </Reveal>
