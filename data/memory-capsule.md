@@ -1,6 +1,6 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.23 (incremented on every build)
+**Version:** v7.1.1.24 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/money-meva
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
@@ -101,12 +101,18 @@ t('tx.add', { title: 'खर्च' }) // "खर्च — नवीन"
 ## Party Field in Transaction Forms
 
 ### Behavior
-1. **No parties exist** → Disabled "None" input shown
-2. **Parties exist** → Dropdown shows latest 3 most-used parties
-3. **Typing** → Searches all parties by name
-4. **No match** → "Create Party (Name)" option appears
-5. **Click Create** → Opens inline modal (group, type, description)
-6. **Create & Select** → Party created via `addPartner()`, list refreshed, new party auto-selected
+1. **Default state** — Input always shows "None" when no party is selected (both Add and Edit modals)
+2. **No parties exist** → Just "None" displayed (no dropdown items)
+3. **Parties exist** → Dropdown shows latest 3 most-used parties, with "None" as the first option
+4. **Typing** → Searches all parties by name
+5. **No match** → "Create Party (Name)" option appears
+6. **Click Create** → Opens inline modal (group, type, description)
+7. **Create & Select** → Party created via `addPartner()`, list refreshed, new party auto-selected
+8. **Select "None"** → Clears `partnerAccountId` and `party` values
+
+### Modal Behavior
+- **No backdrop click-to-close**: All modals across the app (Add, Edit, Create Party, Duplicate Warning, Detail, PIN prompts, Install prompt, Calculator, Data/security notices) require explicit Cancel/X button dismissals
+- Closed via dedicated buttons only — accidental outside clicks never lose form state
 
 ### Files
 - `src/components/TransactionPage.tsx` — Party field in Add/Edit modals (lines ~789-843, ~903-955)
@@ -190,6 +196,7 @@ t('tx.add', { title: 'खर्च' }) // "खर्च — नवीन"
 - Default categories set during onboarding (profession-based), surfaced in transaction dropdowns via `recentCategories`
 
 ### Settings (`/dashboard/settings`)
+- Profile, PIN Security, Brand picker, Theme toggle
 - Multi-Device Sync (CouchDB URL, Connect/Sync/Disconnect)
 - Export/Import (PDF, Excel, JSON)
 - Language selector with portal dropdown
@@ -252,45 +259,6 @@ Backward compat: `pullAll` and `processRemoteChanges` fall back to `doc._entity`
 - `getDefaultLanguage()` returns `'mr'`
 
 ---
-
-## Recent Changes (v7.1.0.10)
-
-### Dashboard Enhancements (2026-07-17)
-- **Tasks & Recurring 2-col grid**: Cards now split entries into two columns inside each card (`md:grid-cols-2`)
-- **Transaction modals on action**: ✅/🔄 buttons open a form (type, amount, account, date, description) instead of directly creating ledger entries — user confirms before write
-- **Removed Bills & Due card**: Consolidated — no separate Bills section on dashboard
-- **Cleanup**: Removed dead reminder modal code, unused state/functions
-
-### File Changes
-| File | Change |
-|---|---|
-| `src/app/dashboard/page.tsx` | 2-col grid for entries, task/recurring modals, removed Bills card & dead code |
-
-## Recent Changes (v7.0.0.19)
-
-### Bug Fixes (Comprehensive Audit 2026-07-16)
-
-#### Sync Fix (Pushed 6 · Pulled 0 → Working)
-- **`_entity` → `entity` everywhere**: PouchDB 9 rejects custom `_`-prefixed fields. `putDoc()` silently failed on every write. Renamed to `entity` — now docs write and sync correctly. (`pouchdb.ts`, `store.ts`)
-
-#### Critical Financial Fixes
-- **Investment source double-counting**: Investment from non-cash sources (savings/adjustment/partner) now sets `account: 'invest'` — excluded from cash/bank balance. Only the fund-source entry affects cash balance. Fixes ₹2000 reduction for ₹1000 investment. (`TransactionPage.tsx:191-196`, `store.ts:947-949`)
-- **Budget notifications ignore period**: `getBudgetNotifications()` now filters by `budget.period` (monthly/yearly), matching the period-specific budget calculation. Previously showed inflated percentages. (`store.ts:1052-1071`)
-- **Sync skips remote deletes**: `processRemoteChanges()` now applies `deletedAt` from remote documents to local cache, ensuring deletes sync across devices. (`store.ts:423-442`)
-- **Stale category data**: `getSortedCategories()` reads from in-memory store cache instead of deleted `localStorage` (which was cleared during v4 migration). (`utils.ts:41-53`)
-
-#### i18n Additions
-- New dashboard keys: `dashboard.available`, `dashboard.totalIncome`, `dashboard.totalExpenses`, `dashboard.investments`, `dashboard.partners` — all 3 languages (mr/hi/en)
-
-### File Changes
-| File | Change |
-|---|---|
-| `src/lib/store.ts` | Investment `account='invest'` filtering (cashBankTransactions), budget period filter, remote delete sync |
-| `src/components/TransactionPage.tsx` | Investment account assignment by investSource |
-| `src/lib/utils.ts` | getSortedCategories uses in-memory cache |
-| `src/types/index.ts` | Account type widened to include `'invest'` |
-| `src/lib/i18n/translations.ts` | New dashboard i18n keys for mr/hi/en |
-| `src/app/dashboard/page.tsx` | useTranslation hook + translated cards |
 
 ## Recent Changes (v7.1.1.23)
 

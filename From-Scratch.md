@@ -343,6 +343,8 @@ src/app/
     ├── summary/page.tsx    # Charts: cash flow, spending breakdown, month-by-month
     ├── archive/page.tsx    # Soft-deleted items: restore, permanent delete, empty all
     ├── settings/page.tsx   # PIN setup, sync config, export/import, themes, brand, auto-lock, clear data
+    ├── developer/page.tsx  # DB stats, localStorage inspector, sync diagnostics, JSON import, PIN viewer
+    ├── account/page.tsx    # PIN-gated password change and user management
     ├── support/page.tsx    # Contact support (Telegram, email, website)
     ├── about/page.tsx      # App info, version, edit profile
     ├── privacy/page.tsx    # Privacy (dashboard version)
@@ -724,9 +726,15 @@ Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writi
 
 ## 20. Version File
 
-`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.1.13`).
+`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.1.23`).
 
 The build number (4th component) is incremented on each `npm run build` via the `prebuild` script. On CI, this bumps locally in the runner; the repo isn't modified.
+
+### Modal Behavior (all popups/forms)
+- No modal closes when clicking outside/on the backdrop overlay
+- Users must use explicit Cancel/X buttons to dismiss any modal (Add, Edit, Create Party, Duplicate Warning, Detail, PIN prompts, install prompt, calculator, notices)
+- Applies across all dashboard pages, TransactionPage, and every modal component (PinPrompt, PinSetupGuide, InstallPrompt, InvestmentCalculator, DataSafetyNotice, SecurityTipNotice)
+- Implemented by removing `onClick` handlers from all backdrop overlay divs
 
 ---
 
