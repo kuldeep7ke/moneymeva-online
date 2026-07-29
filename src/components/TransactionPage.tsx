@@ -89,6 +89,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   const editCategoryRef = useRef<HTMLDivElement>(null);
   const [partySearch, setPartySearch] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+  const [partyFocused, setPartyFocused] = useState(false);
   const [partyHighlightIndex, setPartyHighlightIndex] = useState(-1);
   const partyRef = useRef<HTMLDivElement>(null);
   const [showCreateParty, setShowCreateParty] = useState<string | null>(null);
@@ -1105,8 +1106,9 @@ export default function TransactionPage({ type, title, description }: Transactio
               )}
               <div className="space-y-2 relative" ref={partyRef}>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
-                <input value={partySearch || form.party || 'None'} onChange={e => { setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
-                  onFocus={() => setShowPartyDropdown(true)}
+                <input value={partyFocused && !form.party && !partySearch ? '' : (partySearch || form.party || 'None')} onChange={e => { setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
+                  onFocus={() => { setPartyFocused(true); setShowPartyDropdown(true); }}
+                  onBlur={() => { if (!partySearch && !form.party) setPartyFocused(false); }}
                   onKeyDown={e => {
                     const totalItems = 1 + filteredParties.length + (partySearch && !filteredParties.some(p => p.name.toLowerCase() === partySearch.toLowerCase()) ? 1 : 0);
                     if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
@@ -1377,8 +1379,9 @@ export default function TransactionPage({ type, title, description }: Transactio
               )}
               <div className="space-y-2 relative">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
-                <input value={editForm.party || 'None'} onChange={e => { setEditForm({ ...editForm, party: e.target.value, partnerAccountId: '' }); setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
-                  onFocus={() => setShowPartyDropdown(true)}
+                <input value={partyFocused && !editForm.party && !partySearch ? '' : (partySearch || editForm.party || 'None')} onChange={e => { setEditForm({ ...editForm, party: e.target.value, partnerAccountId: '' }); setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
+                  onFocus={() => { setPartyFocused(true); setShowPartyDropdown(true); }}
+                  onBlur={() => { if (!partySearch && !editForm.party) setPartyFocused(false); }}
                   onKeyDown={e => {
                     const totalItems = 1 + filteredParties.length + (editForm.party && !filteredParties.some(p => p.name.toLowerCase() === editForm.party.toLowerCase()) ? 1 : 0);
                     if (e.key === 'ArrowDown') { e.preventDefault(); setShowPartyDropdown(true); setPartyHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
