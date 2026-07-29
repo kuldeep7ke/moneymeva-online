@@ -1,10 +1,10 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.13 (incremented on every build)
+**Version:** v7.1.1.23 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/money-meva
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
-**Last Updated:** 2026-07-20
+**Last Updated:** 2026-07-27
 
 ---
 
@@ -84,10 +84,10 @@ t('tx.add', { title: 'खर्च' }) // "खर्च — नवीन"
 - **English footer**: Copyright always `© 2026 Money Meva.` in all languages
 
 ### Nav Labels (Marathi)
-डॅशबोर्ड, उत्पन्न, खर्च, ध्येय, गुंतवणूक, पार्टी, आवर्ती, खाती, एडजस्टमेंट, सारांश, लेजर, आर्काइव्ह, सेटिंग्ज, माहिती, मदत, अटी, गोपनीयता
+डॅशबोर्ड, उत्पन्न, खर्च, ध्येय, गुंतवणूक, पार्टी, आवर्ती, खाती, वर्ग, एडजस्टमेंट, सारांश, लेजर, आर्काइव्ह, सेटिंग्ज, माहिती, मदत, अटी, गोपनीयता
 
 ### Nav Labels (Hindi)
-डैशबोर्ड, कमाई, खर्च, बचत, निवेश, पार्टी, आवर्ती, खाते, एडजस्टमेंट, सारांश, लेजर, आर्काइव्ह, सेटिंग्स, जानकारी, मदद, शर्तें, गोपनीयता
+डैशबोर्ड, कमाई, खर्च, बचत, निवेश, पार्टी, आवर्ती, खाते, वर्ग, एडजस्टमेंट, सारांश, लेजर, आर्काइव्ह, सेटिंग्स, जानकारी, मदद, शर्तें, गोपनीयता
 
 ### Language Selector
 - `src/components/LanguageSelector.tsx`
@@ -182,8 +182,14 @@ t('tx.add', { title: 'खर्च' }) // "खर्च — नवीन"
 - Frequency: daily, weekly, monthly, yearly, custom
 - "Advance" button creates transaction, computes next date
 
+### Categories (`/dashboard/categories`)
+- Three tabs: Income / Expense / Investment categories
+- Reads from localStorage keys (`mm_income_categories`, `mm_expense_categories`, `mm_investment_categories`) + categories found in transaction records
+- Inline edit, delete with confirmation, add new categories
+- PIN-protected batch save — all changes saved at once to localStorage
+- Default categories set during onboarding (profession-based), surfaced in transaction dropdowns via `recentCategories`
+
 ### Settings (`/dashboard/settings`)
-- Profile, PIN Security, Brand picker, Theme toggle
 - Multi-Device Sync (CouchDB URL, Connect/Sync/Disconnect)
 - Export/Import (PDF, Excel, JSON)
 - Language selector with portal dropdown
@@ -285,6 +291,49 @@ Backward compat: `pullAll` and `processRemoteChanges` fall back to `doc._entity`
 | `src/types/index.ts` | Account type widened to include `'invest'` |
 | `src/lib/i18n/translations.ts` | New dashboard i18n keys for mr/hi/en |
 | `src/app/dashboard/page.tsx` | useTranslation hook + translated cards |
+
+## Recent Changes (v7.1.1.23)
+
+### UX Polish (2026-07-27)
+- **Party field defaults to "None"**: Both Add and Edit forms now show "None" in the Party (Optional) input when no party is selected. A "None" option added as the first item in the party dropdown for both forms. Selecting "None" clears `partnerAccountId`.
+- **No backdrop click-to-close on any modal**: Removed all `onClick` handlers from backdrop overlays across 9 files (TransactionPage, DataSafetyNotice, InstallPrompt, InvestmentCalculator, PinPrompt, PinSetupGuide, SecurityTipNotice, and all dashboard pages). Users must use explicit Cancel/X buttons to dismiss modals.
+
+### File Changes
+| File | Change |
+|---|---|
+| `src/components/TransactionPage.tsx` | Party field shows "None" default + "None" option in dropdown; removed backdrop onClick on Add, Edit, Create Party, Dup Warning, Detail modals |
+| `src/app/dashboard/page.tsx` | Removed backdrop onClick on 8 modals (Add Money, Goal, Goal Tx, Task, Recurring, Quick Add Tx, Quick Add Party, Confirm) |
+| `src/app/dashboard/adjustments/page.tsx` | Removed backdrop onClick |
+| `src/app/dashboard/recurring/page.tsx` | Removed backdrop onClick |
+| `src/app/dashboard/summary/page.tsx` | Removed backdrop onClick |
+| `src/app/dashboard/partners/page.tsx` | Removed backdrop onClick on 4 modals (Add, Tx, Dup Warning, Ledger) |
+| `src/app/dashboard/savings/page.tsx` | Removed backdrop onClick on Goal and Todo modals |
+| `src/app/dashboard/settings/page.tsx` | Removed backdrop onClick on 4 modals (Clear, PIN Conf, Sync Fail, Import) |
+| `src/components/DataSafetyNotice.tsx` | Removed backdrop onClick |
+| `src/components/InstallPrompt.tsx` | Removed backdrop onClick |
+| `src/components/InvestmentCalculator.tsx` | Removed backdrop onClick |
+| `src/components/PinPrompt.tsx` | Removed backdrop onClick |
+| `src/components/PinSetupGuide.tsx` | Removed backdrop onClick |
+| `src/components/SecurityTipNotice.tsx` | Removed backdrop onClick |
+
+## Recent Changes (v7.1.1.21)
+
+### Bug Fixes & Categories Management (2026-07-27)
+- **Category dropdown keyboard nav fixed**: ArrowDown can now reach the "Create" button in category dropdowns (add + edit modals). Enter key activates "Create" when highlighted instead of crashing. Both add and edit modal dropdowns fixed.
+- **New categories persist in localStorage**: `saveCategoryToLocalStorage()` writes new categories to `mm_income_categories`/`mm_expense_categories`/`mm_investment_categories` on transaction add and edit.
+- **All transaction categories shown in dropdown**: Removed `.slice(0,10)` limit from `recentCategories` — every category used in any transaction now appears in the dropdown.
+- **Categories management page**: New `/dashboard/categories` page with Income/Expense/Investment tabs. Inline edit, delete with confirmation, add new. PIN-protected batch save to localStorage. Nav item added with `Tag` icon.
+- **Repo renamed**: `money-meva-premium` → `money-meva`. All docs, git remote, and URLs updated.
+- **`let cache` → `const cache`**: Fixed ESLint prefer-const warning in `store.ts`.
+
+### File Changes
+| File | Change |
+|---|---|
+| `src/app/dashboard/categories/page.tsx` | New page: category CRUD with PIN-protected save |
+| `src/components/TransactionPage.tsx` | Keyboard nav fix for category dropdowns, `saveCategoryToLocalStorage()`, removed `.slice(0,10)` |
+| `src/components/DashboardLayout.tsx` | Added Categories nav item with `Tag` icon |
+| `src/lib/i18n/translations.ts` | Added `nav.categories` key for mr/hi/en |
+| `src/lib/store.ts` | `let cache` → `const cache` |
 
 ## Recent Changes (v7.1.1.13)
 

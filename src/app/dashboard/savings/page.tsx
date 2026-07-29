@@ -326,8 +326,8 @@ export default function GoalsPage() {
 
       {/* Goal Modal */}
       {showGoalModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowGoalModal(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">New Goal</h2>
             <form onSubmit={handleAddGoal} className="space-y-4">
               <div className="space-y-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Goal Name</label>
@@ -352,8 +352,8 @@ export default function GoalsPage() {
 
       {/* Todo Modal */}
       {showTodoModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTodoModal(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl w-full max-w-sm shadow-2xl">
             <div className="px-4 py-4 border-b border-slate-100 dark:border-brand-muted flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">New Task</h2>
               <button type="button" onClick={() => setShowTodoModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-brand-muted transition-colors">

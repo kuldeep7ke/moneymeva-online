@@ -17,8 +17,8 @@ export default function PinSetupGuide({ open, onClose, action }: PinSetupGuidePr
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border border-brand/20 overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4">
+      <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border border-brand/20 overflow-hidden">
         <div className="bg-gradient-to-r from-brand to-orange-600 px-6 py-5 text-center">
           <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
             <Shield className="h-7 w-7 text-white" />

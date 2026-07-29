@@ -125,7 +125,7 @@ export default function AdjustmentsPage() {
 
       {/* Add Modal */}
       {showAdjustmentModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowAdjustmentModal(false)}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">New Adjustment</h2>
             <form onSubmit={handleAddAdjustment} className="space-y-4">

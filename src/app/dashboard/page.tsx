@@ -836,8 +836,8 @@ export default function DashboardPage() {
 
       {/* Add Money & Transfer */}
       {showAddMoney && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowAddMoney(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{addMoneyMode === 'transfer' ? 'Transfer Between Accounts' : 'Add Money'}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
               {addMoneyMode === 'transfer' ? 'Move money between Cash and Bank. Both accounts will be updated.' : 'Add funds to your Cash or Bank account.'}
@@ -930,8 +930,8 @@ export default function DashboardPage() {
 
       {/* Add/Edit Goal Modal */}
       {editGoal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setEditGoal(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{editGoal._new ? 'New Goal' : 'Edit Goal'}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{editGoal._new ? 'Set a savings target' : `Edit "${editGoal.name}"`}</p>
             <form onSubmit={(e) => {
@@ -974,8 +974,8 @@ export default function DashboardPage() {
 
       {/* Goal Transaction Modal */}
       {showGoalTx && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowGoalTx(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
               {showGoalTx.type === 'contribute' ? 'Contribute' : 'Withdraw'}
             </h3>
@@ -1023,8 +1023,8 @@ export default function DashboardPage() {
 
       {/* Task Transaction Modal */}
       {showTaskForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowTaskForm(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Complete Task</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Record transaction for "{showTaskForm.title}"</p>
             <form onSubmit={(e) => {
@@ -1085,8 +1085,8 @@ export default function DashboardPage() {
 
       {/* Recurring Transaction Modal */}
       {showRecurringForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowRecurringForm(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Advance Recurring</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Record transaction for "{showRecurringForm.title}"</p>
             <form onSubmit={(e) => {
@@ -1146,8 +1146,8 @@ export default function DashboardPage() {
 
       {/* Quick Add Transaction Modal */}
       {showAddTx && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowAddTx(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Add {showAddTx === 'income' ? 'Income' : showAddTx === 'expense' ? 'Expense' : 'Investment'}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Quick entry from dashboard — recent categories shown first</p>
             <form onSubmit={handleQuickAddTx} className="space-y-4">
@@ -1227,8 +1227,8 @@ export default function DashboardPage() {
 
       {/* Quick Add Party Modal */}
       {showAddParty && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowAddParty(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">New Party</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Add a person or business</p>
             <form onSubmit={handleQuickAddParty} className="space-y-4">
@@ -1274,8 +1274,8 @@ export default function DashboardPage() {
 
       {/* Save Confirmation Modal */}
       {confirmTx && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirmTx(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-6 shadow-2xl mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-6 shadow-2xl mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Entry Saved</h3>
               <button onClick={() => setConfirmTx(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">

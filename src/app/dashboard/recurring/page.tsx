@@ -168,8 +168,8 @@ export default function RecurringPage() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">New Recurring Transaction</h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-2">

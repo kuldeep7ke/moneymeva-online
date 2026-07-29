@@ -823,8 +823,8 @@ export default function SettingsPage() {
 
       {/* Final Confirmation Modal */}
       {clearStep === 'confirm' && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4" onClick={() => setClearStep('captcha')}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border-2 border-red-400 dark:border-red-600 overflow-hidden my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border-2 border-red-400 dark:border-red-600 overflow-hidden my-4">
             <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
                 <Trash2 className="h-7 w-7 text-white" />
@@ -877,8 +877,8 @@ export default function SettingsPage() {
 
       {/* PIN Confirmation Modal */}
       {showPinsConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4" onClick={() => setShowPinsConfirm(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border border-amber-300 dark:border-amber-700 overflow-hidden my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border border-amber-300 dark:border-amber-700 overflow-hidden my-4">
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-5 text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
                 <Key className="h-7 w-7 text-white" />
@@ -951,8 +951,8 @@ export default function SettingsPage() {
 
       {/* Sync Failure Popup */}
       {showSyncFailPopup && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[130] p-4" onClick={() => setShowSyncFailPopup(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[130] p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden">
             <div className="p-6 text-center">
               <div className="mx-auto w-14 h-14 rounded-full bg-sky-50 dark:bg-sky-900/30 flex items-center justify-center mb-4">
                 <Cloud className="h-7 w-7 text-sky-500" />
@@ -979,8 +979,8 @@ export default function SettingsPage() {
 
       {/* Import Warning Modal */}
       {importConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4" onClick={() => setImportConfirm(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto flex items-start sm:items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full shadow-2xl my-4">
             <div className="p-6 border-b border-slate-200 dark:border-brand-muted">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-full bg-amber-50 dark:bg-amber-900/30">

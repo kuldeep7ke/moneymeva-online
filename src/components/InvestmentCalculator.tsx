@@ -124,8 +124,8 @@ export default function InvestmentCalculator({ onClose, onApply }: Props) {
   const activeTab = TABS.find(t => t.key === tab);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-[60] overflow-y-auto" onClick={onClose}>
-      <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl mt-20 sm:mt-28 mx-4" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-[60] overflow-y-auto">
+      <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl mt-20 sm:mt-28 mx-4">
         
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 dark:border-brand-muted/50 shrink-0">

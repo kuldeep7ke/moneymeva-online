@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.13** — A minimalistic, local-first personal finance companion.
+**v7.1.1.22** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.
 Made in India.
 
@@ -327,8 +327,8 @@ A GitHub Actions workflow also builds the APK automatically on every push to mas
 | Investments | गुंतवणूक | Settings | सेटिंग्ज |
 | Partners | पार्टी | About | माहिती |
 | Recurring | आवर्ती | Support | मदत |
-| Accounts | खाती | Terms | अटी |
-| | | Privacy | गोपनीयता |
+| Accounts | खाती | Categories | वर्ग |
+| Terms | अटी | Privacy | गोपनीयता |
 
 ### Nav Item Labels — Hindi (hi)
 | English | Hindi | | English | Hindi |
@@ -340,8 +340,8 @@ A GitHub Actions workflow also builds the APK automatically on every push to mas
 | Investments | निवेश | Settings | सेटिंग्स |
 | Partners | पार्टी | About | जानकारी |
 | Recurring | आवर्ती | Support | मदद |
-| Accounts | खाते | Terms | शर्तें |
-| | | Privacy | गोपनीयता |
+| Accounts | खाते | Categories | वर्ग |
+| Terms | शर्तें | Privacy | गोपनीयता |
 
 ---
 

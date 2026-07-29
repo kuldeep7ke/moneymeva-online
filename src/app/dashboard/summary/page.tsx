@@ -256,8 +256,8 @@ export default function SummaryPage() {
 
         {/* Full History Modal */}
         {showFullModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowFullModal(false)}>
-            <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-4 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-4 max-h-[85vh] flex flex-col">
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Activity History</h2>
                 <Button variant="ghost" size="sm" className="p-1 h-auto" onClick={() => setShowFullModal(false)}><X className="h-5 w-5" /></Button>

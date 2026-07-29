@@ -336,7 +336,8 @@ src/app/
     ├── savings/page.tsx    # Goals + Savings (dual-tab: savings list / goals grid)
     ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal
     ├── accounts/page.tsx   # Account overview
-    ├── adjustments/page.tsx# Balance corrections
+    ├── categories/page.tsx  # Categories CRUD with tabs, inline edit/delete, PIN-protected batch save
+    ├── adjustments/page.tsx # Balance corrections
     ├── recurring/page.tsx  # Recurring transactions management + tabs (Income/Expense/Investment/Notifications/History)
     ├── ledger/page.tsx     # Audit log — mutation history with filters, CSV export
     ├── summary/page.tsx    # Charts: cash flow, spending breakdown, month-by-month
@@ -380,6 +381,12 @@ A reusable CRUD page used by Income, Expenses, and Investments.
 - Mobile minimal list view (icon + description + date + amount)
 - Tap-to-view detail modal on mobile (full info)
 - Archive view with restore permanent delete
+
+**Category dropdown:** Reads from localStorage keys (`mm_income_categories`, `mm_expense_categories`, `mm_investment_categories`) merged with categories found in existing transactions. `saveCategoryToLocalStorage()` persists new categories on add/edit. No `.slice(0,10)` limit — all used categories appear. Keyboard navigation (ArrowDown/Enter) reaches the inline "Create" button in both add and edit modals.
+
+**Party field:** Shows "None" by default in both Add and Edit modals when no party is selected. A "None" option is the first item in the party dropdown. Selecting "None" clears `partnerAccountId` and `party` values.
+
+**Modal behavior:** No modal closes when clicking outside/on the backdrop overlay. Users must use explicit Cancel/X buttons to dismiss any modal (Add, Edit, Create Party, Duplicate Warning, Detail, or any popup across the app).
 
 ---
 
@@ -612,6 +619,9 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 | `LoadingOverlay` | Full-screen loading overlay |
 | `RegisterSW` | Service worker registration |
 | `ui/button` | Base button component |
+| `InvestmentCalculator` | FD/SIP/RD/PPF calculator for investments page |
+| `LanguageSelector` | Language dropdown (default/minimal variants, uses portal for dropdown) |
+| `I18nProvider` | i18n context wrapper providing `useTranslation()` hook |
 
 ---
 
@@ -754,7 +764,8 @@ money-meva/
 │   │   ├── defaultCategories.ts# Category definitions
 │   │   ├── utils.ts            # Shared utilities
 │   │   ├── supabase.ts         # Legacy (unused)
-│   │   └── capacitor-notifications.ts
+│   │   ├── capacitor-notifications.ts
+│   │   └── i18n/               # Translations (mr/hi/en) + I18nProvider
 │   └── types/index.ts          # TypeScript interfaces
 ├── VERSION                     # Current version string
 ├── capacitor.config.ts         # Capacitor configuration

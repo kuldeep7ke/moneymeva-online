@@ -32,8 +32,8 @@ export default function PinPrompt({ open, onClose, onSuccess, title, message }: 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[110] p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+      <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-full bg-brand-secondary dark:bg-brand-muted/30">
             <Key className="h-5 w-5 text-brand dark:text-brand-secondary" />

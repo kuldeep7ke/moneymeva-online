@@ -299,8 +299,8 @@ export default function PartnersPage() {
 
       {/* Add Partner Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-6 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-6 shadow-2xl my-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">New Party</h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
@@ -346,8 +346,8 @@ export default function PartnersPage() {
 
       {/* Add Transaction Modal */}
       {showTxModal && (
-        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowTxModal(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add Partner Transaction</h2>
             <form onSubmit={handleAddTx} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -399,8 +399,8 @@ export default function PartnersPage() {
       )}
 
       {dupWarning && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setDupWarning(null)}>
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl border-l-4 border-amber-500 my-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl border-l-4 border-amber-500 my-4">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Possible Duplicate</h3>
@@ -435,8 +435,8 @@ export default function PartnersPage() {
 
       {/* Party Ledger Modal */}
       {showLedger && partnerSummary && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowLedger(null)}>
-          <div className="bg-white dark:bg-[#2A2522] w-full max-w-sm rounded-2xl max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#2A2522] w-full max-w-sm rounded-2xl max-h-[80vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-brand-muted">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">{partnerSummary.name}</h2>
               <button onClick={() => setShowLedger(null)} className="p-1 text-slate-400"><X className="h-5 w-5" /></button>
