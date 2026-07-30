@@ -14,3 +14,4 @@ android/build/
 android/local.properties
 .cxx/
 tsconfig.tsbuildinfo  
+.obsidian/ 
