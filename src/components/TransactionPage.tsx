@@ -481,7 +481,6 @@ export default function TransactionPage({ type, title, description }: Transactio
   }, [filtered, groupBy]);
 
   const baseCategories = type === 'income' ? ['Salary', 'Freelance', 'Business', 'Interest', 'Dividends', 'Rental', 'Other']
-    : type === 'saving' ? ['Emergency Fund', 'Goal Savings', 'Retirement', 'Education', 'Other']
     : type === 'investment' ? ['Stocks', 'Mutual Funds', 'Fixed Deposit', 'Real Estate', 'Gold', 'Crypto', 'Other']
     : ['Rent', 'Groceries', 'Utilities', 'Transport', 'Healthcare', 'Entertainment', 'Dining', 'Shopping', 'Bills', 'Insurance', 'Education', 'Other'];
   
@@ -702,8 +701,8 @@ export default function TransactionPage({ type, title, description }: Transactio
                 {txns.map((t, idx) => (
                   <div key={t.id} className="px-4 py-2.5 flex items-center justify-between active:bg-slate-50 dark:active:bg-brand-muted/20 cursor-pointer" onClick={() => setShowDetail(t)}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className={cn("shrink-0", type === 'income' || type === 'saving' ? "text-green-500" : "text-red-500")}>
-                        {type === 'income' || type === 'saving' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                      <span className={cn("shrink-0", type === 'income' ? "text-green-500" : "text-red-500")}>
+                        {type === 'income' ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
@@ -711,7 +710,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
-                      <p className={cn("text-sm font-semibold", type === 'income' || type === 'saving' ? "text-green-600" : "text-red-600")}>
+                      <p className={cn("text-sm font-semibold", type === 'income' ? "text-green-600" : "text-red-600")}>
                         {formatCurrency(t.amount)}
                       </p>
                       {confirmDelete === t.id ? (
@@ -733,7 +732,7 @@ export default function TransactionPage({ type, title, description }: Transactio
             {filtered.length > 0 && (
               <div className="px-4 py-3 bg-slate-50 dark:bg-brand-muted border-t border-slate-200 dark:border-slate-600 flex items-center justify-between text-sm">
                 <span className="font-semibold text-slate-700 dark:text-slate-300">Total · {filtered.length} entries</span>
-                <span className={cn("font-bold", type === 'income' || type === 'saving' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                <span className={cn("font-bold", type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
                   {formatCurrency(filtered.reduce((s, t) => s + t.amount, 0))}
                 </span>
               </div>
@@ -784,7 +783,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                           {t.partnerAccountId && <span className="px-2 py-0.5 rounded-full bg-brand-secondary/20 dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-[11px] font-medium shrink-0">{partners.find(p => p.id === t.partnerAccountId)?.name || 'Party'}</span>}
                         </div>
                       </td>
-                      <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' || type === 'saving' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                      <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
                         {formatCurrency(t.amount)}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -815,7 +814,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <tr>
                   <td colSpan={2} className="px-6 py-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Total</td>
                   <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{filtered.length} entries</td>
-                  <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' || type === 'saving' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                  <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
                     {formatCurrency(filtered.reduce((s, t) => s + t.amount, 0))}
                   </td>
                   <td></td>
@@ -1513,10 +1512,10 @@ export default function TransactionPage({ type, title, description }: Transactio
               <button onClick={() => setShowDetail(null)} className="p-1 text-slate-400"><X className="h-5 w-5" /></button>
             </div>
             <div className="p-4 space-y-3 text-sm">
-              <div className={cn("p-3 rounded-xl text-center", type === 'income' || type === 'saving' ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20")}>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Amount</p>
-                <p className={cn("text-2xl font-bold", type === 'income' || type === 'saving' ? "text-green-600" : "text-red-600")}>
-                  {type === 'income' || type === 'saving' ? '+' : '-'}{formatCurrency(showDetail.amount)}
+              <div className={cn("p-3 rounded-xl text-center", type === 'income' ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20")}>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{showDetail.type}</p>
+                <p className={cn("text-2xl font-bold", type === 'income' ? "text-green-600" : "text-red-600")}>
+                  {type === 'income' ? '+' : '-'}{formatCurrency(showDetail.amount)}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">

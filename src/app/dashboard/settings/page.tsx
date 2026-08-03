@@ -500,7 +500,7 @@ export default function SettingsPage() {
                     const category = catIdx >= 0 ? cols[catIdx] : 'Other';
                     const description = descIdx >= 0 ? cols[descIdx] : '';
                     let type = typeIdx >= 0 ? cols[typeIdx].toLowerCase() : 'expense';
-                    type = ['income', 'expense', 'saving', 'investment'].includes(type) ? type : 'expense';
+                    type = ['income', 'expense', 'investment'].includes(type) ? type : 'expense';
                     if (!amount || isNaN(amount)) continue;
                     addTransaction({ amount, type: type as any, category, description, date, partnerAccountId: undefined, isRecurring: false });
                     imported++;

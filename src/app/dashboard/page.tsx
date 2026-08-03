@@ -47,7 +47,7 @@ export default function DashboardPage() {
   const lockSession = () => window.dispatchEvent(new Event('request-lock-session'));
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('mm_dash_period') as any) || '1M' : '1M'));
-  const [aggregates, setAggregates] = useState({ balance: 0, income: 0, expense: 0, saving: 0, investment: 0, cashBankBalance: 0 });
+  const [aggregates, setAggregates] = useState({ balance: 0, income: 0, expense: 0, investment: 0, cashBankBalance: 0 });
   const [carryFwd, setCarryFwd] = useState({ lastMonthCarry: 0, currentStart: 0, currentBalance: 0 });
   const [reminders, setReminders] = useState<any[]>([]);
   const [allReminders, setAllReminders] = useState<any[]>([]);
@@ -146,7 +146,6 @@ export default function DashboardPage() {
         name: d.toLocaleString('default', { month: 'short' }),
         income: sm.income,
         expense: sm.expense,
-        saving: sm.saving,
         investment: sm.investment,
       });
     }
@@ -291,7 +290,7 @@ export default function DashboardPage() {
 
   const expenseLimit = Math.round(aggregates.income * expenseQuota / 100);
   const investLimit = Math.round(aggregates.income * investQuota / 100);
-  const availableToSpend = aggregates.income - expenseLimit - investLimit - aggregates.saving;
+  const availableToSpend = aggregates.income - expenseLimit - investLimit;
 
   const CATEGORY_COLORS: Record<string, string> = {
     'Food': '#FF6384', 'Transport': '#36A2EB', 'Shopping': '#FFCE56',
@@ -1014,7 +1013,7 @@ export default function DashboardPage() {
               if (!amt || amt <= 0) return;
               if (showGoalTx.type === 'withdraw' && amt > g.saved) { setToast(`Amount exceeds saved balance`); setTimeout(() => setToast(null), 3000); return; }
               const isContribute = showGoalTx.type === 'contribute';
-              addTransaction({ amount: amt, type: isContribute ? 'saving' : 'income', category: isContribute ? g.name : 'Savings Withdrawal', description: isContribute ? `Contribute to ${g.name}` : `Withdraw from ${g.name}`, date: new Date().toISOString().split('T')[0], partnerAccountId: undefined, account: goalTxForm.account, isRecurring: false });
+              addTransaction({ amount: amt, type: isContribute ? 'expense' : 'income', category: isContribute ? g.name : 'Savings Withdrawal', description: isContribute ? `Contribute to ${g.name}` : `Withdraw from ${g.name}`, date: new Date().toISOString().split('T')[0], partnerAccountId: undefined, account: goalTxForm.account, isRecurring: false });
               updateGoal(g.id, { saved: g.saved + (isContribute ? amt : -amt) });
               refreshGoals();
               setAggregates(getAggregates());

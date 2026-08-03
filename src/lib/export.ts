@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import { getTransactions } from './store';
 import { downloadFile, downloadBlob } from './download';
 
-export async function exportSummaryPDF(data: { month: string; income: number; expense: number; saving: number; investment: number }[]) {
+export async function exportSummaryPDF(data: { month: string; income: number; expense: number; investment: number }[]) {
   try {
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -12,26 +12,25 @@ export async function exportSummaryPDF(data: { month: string; income: number; ex
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 30);
 
-    const headers = [['Month', 'Income', 'Expense', 'Savings', 'Investment']];
+    const headers = [['Month', 'Income', 'Expense', 'Investment']];
     const rows = data.map(d => [
       d.month,
       `₹${d.income.toLocaleString('en-IN')}`,
       `₹${d.expense.toLocaleString('en-IN')}`,
-      `₹${d.saving.toLocaleString('en-IN')}`,
       `₹${d.investment.toLocaleString('en-IN')}`,
     ]);
-    const totals = data.reduce((s, d) => ({ income: s.income + d.income, expense: s.expense + d.expense, saving: s.saving + d.saving, investment: s.investment + d.investment }), { income: 0, expense: 0, saving: 0, investment: 0 });
-    rows.push(['Total', `₹${totals.income.toLocaleString('en-IN')}`, `₹${totals.expense.toLocaleString('en-IN')}`, `₹${totals.saving.toLocaleString('en-IN')}`, `₹${totals.investment.toLocaleString('en-IN')}`]);
+    const totals = data.reduce((s, d) => ({ income: s.income + d.income, expense: s.expense + d.expense, investment: s.investment + d.investment }), { income: 0, expense: 0, investment: 0 });
+    rows.push(['Total', `₹${totals.income.toLocaleString('en-IN')}`, `₹${totals.expense.toLocaleString('en-IN')}`, `₹${totals.investment.toLocaleString('en-IN')}`]);
 
     autoTable(doc, { head: headers, body: rows, startY: 36, theme: 'striped', headStyles: { fillColor: [79, 70, 229] } });
     await downloadBlob(doc.output('blob'), 'money-meva-summary.pdf');
   } catch (e) { console.error('PDF export failed:', e); }
 }
 
-export async function exportSummaryExcel(data: { month: string; income: number; expense: number; saving: number; investment: number }[]) {
+export async function exportSummaryExcel(data: { month: string; income: number; expense: number; investment: number }[]) {
   try {
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data.map(d => ({ Month: d.month, Income: d.income, Expense: d.expense, Savings: d.saving, Investment: d.investment })));
+    const ws = XLSX.utils.json_to_sheet(data.map(d => ({ Month: d.month, Income: d.income, Expense: d.expense, Investment: d.investment })));
     XLSX.utils.book_append_sheet(wb, ws, 'Summary');
     const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     await downloadBlob(new Blob([wbOut], { type: 'application/octet-stream' }), 'money-meva-summary.xlsx');

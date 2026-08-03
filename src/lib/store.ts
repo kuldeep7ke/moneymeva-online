@@ -978,7 +978,6 @@ export function getMonthlySummary(year: number, month: number) {
   return {
     income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
     expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
-    saving: txs.filter(t => t.type === 'saving').reduce((s, t) => s + t.amount, 0),
     investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     total: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
     cashBankBalance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
@@ -992,7 +991,6 @@ export function getAggregates(since?: Date) {
     balance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
     income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
     expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
-    saving: txs.filter(t => t.type === 'saving').reduce((s, t) => s + t.amount, 0),
     investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     cashBankBalance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
   };
