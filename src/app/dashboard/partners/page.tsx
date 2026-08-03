@@ -11,6 +11,9 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
+import { useToast } from '@/components/Toast';
+
+const todayStr = () => new Date().toISOString().split('T')[0];
 
 const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> = {
   vendor: [
@@ -44,6 +47,7 @@ const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> =
 };
 
 export default function PartnersPage() {
+  const toast = useToast();
   const [partners, setPartners] = useState<any[]>([]);
   
   const refresh = () => {
@@ -117,6 +121,7 @@ export default function PartnersPage() {
     if (!showTxModal) return;
     const amount = Number(txForm.amount);
     const date = txForm.date;
+    if (date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
     const tx = { amount, type: txForm.type, category: txForm.category, description: txForm.description, date, partnerAccountId: showTxModal };
     const dup = checkDuplicateTransaction(tx);
     if (dup) {
@@ -373,7 +378,7 @@ export default function PartnersPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Date</label>
-                  <input required type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })}
+                  <input required type="date" max={todayStr()} value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
                 </div>
               </div>

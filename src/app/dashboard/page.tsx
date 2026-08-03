@@ -17,6 +17,9 @@ import { pushAllToPouch, processRemoteChanges } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { logActivity } from '@/lib/activityLog';
 import InvestmentCalculator from '@/components/InvestmentCalculator';
+import { useToast } from '@/components/Toast';
+
+const todayStr = () => new Date().toISOString().split('T')[0];
 
 function CardSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -42,6 +45,7 @@ function ChartSkeleton({ className = "" }: { className?: string }) {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const showToast = useToast();
   const { profile } = useAuth();
   const { t } = useTranslation();
   const lockSession = () => window.dispatchEvent(new Event('request-lock-session'));
@@ -252,6 +256,7 @@ export default function DashboardPage() {
     if (!showAddTx) return;
     const amount = Number(txForm.amount);
     if (!amount || amount <= 0 || !txForm.category) return;
+    if (txForm.date > todayStr()) { showToast('Cannot add entries with future dates.', 'warning'); return; }
     const account = showAddTx === 'investment' ? 'invest' : txForm.account;
     addTransaction({ amount, type: showAddTx, category: txForm.category, description: txForm.description, date: txForm.date, partnerAccountId: undefined, account, isRecurring: false });
     logActivity('entry_created', `${showAddTx} — ${txForm.category}`);
@@ -1209,7 +1214,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Date</label>
-                  <input required type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })}
+                  <input required type="date" max={todayStr()} value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" />
                 </div>
                 {showAddTx !== 'investment' && (

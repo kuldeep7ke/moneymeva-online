@@ -14,6 +14,9 @@ import { hasPins } from '@/lib/pinStore';
 import { getSession } from '@/lib/localAuth';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
+import { useToast } from '@/components/Toast';
+
+const todayStr = () => new Date().toISOString().split('T')[0];
 
 interface TransactionPageProps {
   type: TransactionType;
@@ -22,6 +25,7 @@ interface TransactionPageProps {
 }
 
 export default function TransactionPage({ type, title, description }: TransactionPageProps) {
+  const toast = useToast();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -263,6 +267,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   };
 
   const doEdit = (id: string) => {
+    if (editForm.date > todayStr()) { toast('Cannot set entries to future dates.', 'warning'); return; }
     const desc = buildEditDescription();
     updateTransaction(id, { amount: Number(editForm.amount), category: editForm.category, description: desc, date: editForm.date, partnerAccountId: editForm.partnerAccountId || undefined });
     saveCategoryToLocalStorage(editForm.category);
@@ -327,6 +332,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     const amount = Number(form.amount);
     const desc = buildDescription();
     const tx = { amount, type, category: form.category, description: desc, date: form.date, partnerAccountId: form.partnerAccountId || undefined };
+    if (form.date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
     const dup = checkDuplicateTransaction(tx);
     if (dup) {
       setDupWarning({ ...tx, existing: dup, investSource: form.investSource });
@@ -925,7 +931,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Date</label>
-                  <input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
+                  <input required type="date" max={todayStr()} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
                 </div>
               </div>
@@ -1222,7 +1228,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Date</label>
-                  <input required type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                  <input required type="date" max={todayStr()} value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
                 </div>
               </div>
