@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Target, Download, Clock, Trash2, X } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Target, Download, Clock, Trash2, X } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getMonthlySummary, getTransactions, getGoals, getAllArchivedItems } from '@/lib/store';
@@ -19,7 +19,7 @@ export default function SummaryPage() {
   const [goals, setGoals] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [systemActivity, setSystemActivity] = useState<ActivityEntry[]>([]);
-  const [totals, setTotals] = useState({ income: 0, expense: 0, saving: 0, investment: 0 });
+  const [totals, setTotals] = useState({ income: 0, expense: 0, investment: 0 });
   const [pinAction, setPinAction] = useState<string | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -72,7 +72,6 @@ export default function SummaryPage() {
     setTotals({
       income: all.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
       expense: all.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
-      saving: all.filter(t => t.type === 'saving').reduce((s, t) => s + t.amount, 0),
       investment: all.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     });
 
@@ -119,7 +118,6 @@ export default function SummaryPage() {
           {[
             { label: 'Total Income', value: totals.income, icon: ArrowUpCircle, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30' },
             { label: 'Total Expenses', value: totals.expense, icon: ArrowDownCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30' },
-            { label: 'Total Savings', value: totals.saving, icon: PiggyBank, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/30' },
             { label: 'Investments', value: totals.investment, icon: TrendingUp, color: 'text-brand dark:text-brand-secondary', bg: 'bg-brand-secondary dark:bg-brand-muted/30' },
           ].map(item => (
             <div key={item.label} className="bg-white dark:bg-[#2A2522] p-5 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm">
@@ -146,7 +144,6 @@ export default function SummaryPage() {
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
                 <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} name="Income" />
                 <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} name="Expense" />
-                <Bar dataKey="saving" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Savings" />
                 <Bar dataKey="investment" fill="#6366f1" radius={[4, 4, 0, 0]} name="Investments" />
               </BarChart>
             </ResponsiveContainer>
