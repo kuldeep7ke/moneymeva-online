@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Wallet, TrendingUp, TrendingDown, MoreVertical, Trash2, X, Undo2, AlertTriangle } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, MoreVertical, Trash2, X, Undo2, AlertTriangle, Pencil } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
@@ -64,6 +64,7 @@ export default function PartnersPage() {
 
   const [activeGroup, setActiveGroup] = useState<'all' | 'customer' | 'vendor' | 'contact'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showTxModal, setShowTxModal] = useState<string | null>(null);
   const [showLedger, setShowLedger] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -95,7 +96,7 @@ export default function PartnersPage() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    const existing = getPartners().find((p: any) => !p.deletedAt && p.name.toLowerCase() === form.name.trim().toLowerCase());
+    const existing = getPartners().find((p: any) => !p.deletedAt && p.id !== editingId && p.name.toLowerCase() === form.name.trim().toLowerCase());
     if (existing) {
       setPartyWarn(`"${existing.name}" already exists`);
       setTimeout(() => setPartyWarn(null), 3000);
@@ -110,10 +111,22 @@ export default function PartnersPage() {
       budgetWindowEnd: form.budgetWindowEnd,
       initialInvestment: Number(form.initialInvestment) || 0,
     };
-    addPartner(partner);
+    if (editingId) {
+      updatePartner(editingId, partner);
+      toast('Party updated.', 'success');
+    } else {
+      addPartner(partner);
+    }
     setShowAddModal(false);
+    setEditingId(null);
     setForm({ name: '', type: 'supplier', group: 'vendor', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
     refresh();
+  };
+
+  const handleEditClick = (p: any) => {
+    setEditingId(p.id);
+    setForm({ name: p.name, type: p.type || 'supplier', group: p.group || 'vendor', description: p.description || '', budgetWindowStart: p.budgetWindowStart || '', budgetWindowEnd: p.budgetWindowEnd || '', initialInvestment: p.initialInvestment ? String(p.initialInvestment) : '' });
+    setShowAddModal(true);
   };
 
   const handleAddTx = (e: React.FormEvent) => {
@@ -179,7 +192,7 @@ export default function PartnersPage() {
               <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Track your joint ventures and project budgets.".split(' ').slice(0, 5).join(' ')}{"Track your joint ventures and project budgets.".split(' ').length > 5 ? '...' : ''}</p>
               <p className="text-slate-500 dark:text-slate-400 hidden md:block">Track your joint ventures and project budgets.</p>
             </div>
-            <button onClick={() => setShowAddModal(true)} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" type="button" title="Add Party Account">
+            <button onClick={() => { setEditingId(null); setShowAddModal(true); }} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" type="button" title="Add Party Account">
               <Plus className="h-5 w-5" />
             </button>
           </div>
@@ -254,6 +267,10 @@ export default function PartnersPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-brand gap-1" onClick={() => handleEditClick(partner)}>
+                    <Pencil className="h-4 w-4" />
+                    <span className="hidden md:inline text-xs">Edit</span>
+                  </Button>
                   {confirmDelete === partner.id ? (
                     <div className="flex gap-1 items-center">
                       <Button size="sm" variant="danger" className="h-6 px-1.5 text-xs min-w-0" onClick={() => handleDelete(partner.id)}>Yes</Button>
@@ -306,7 +323,7 @@ export default function PartnersPage() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-6 shadow-2xl my-4">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">New Party</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">{editingId ? 'Edit Party' : 'New Party'}</h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-base" placeholder="Account name" />
@@ -341,8 +358,8 @@ export default function PartnersPage() {
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Optional notes..." />
               </div>
               <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>Cancel</Button>
-                <Button type="submit" size="sm">Create</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowAddModal(false); setEditingId(null); setForm({ name: '', type: 'supplier', group: 'vendor', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' }); }}>Cancel</Button>
+                <Button type="submit" size="sm">{editingId ? 'Save' : 'Create'}</Button>
               </div>
             </form>
           </div>
