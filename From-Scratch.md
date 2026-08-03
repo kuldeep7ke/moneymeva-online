@@ -71,7 +71,7 @@ const config: CapacitorConfig = {
 
 Define all data entities. Key types:
 
-- **`Transaction`** — id, userId, transitionId, amount, type ('income'|'expense'|'saving'|'investment'), category, description, date, account ('cash'|'bank'|'upi'), savingTag?, transferId?, partnerAccountId?, isRecurring, recurringId?, deletedAt?, createdAt, updatedAt
+- **`Transaction`** — id, userId, transitionId, amount, type ('income'|'expense'|'investment'), category, description, date, account ('cash'|'bank'|'upi'), savingTag?, transferId?, partnerAccountId?, isRecurring, recurringId?, deletedAt?, createdAt, updatedAt
 - **`PartnerAccount`** — id, userId, transitionId, name, type, group ('customer'|'vendor'|'contact'), description, budgetWindowStart, budgetWindowEnd, initialInvestment, deletedAt?, createdAt, updatedAt
 - **`RecurringTx`** — id, userId, transitionId, title, amount, category, txType, frequency, customIntervalDays?, startDate, endDate?, status, nextDate, reminderDays, deletedAt?, createdAt
 - **`Budget`** — id, userId, transitionId, category, limit, period ('monthly'|'yearly'), deletedAt?, createdAt
@@ -83,7 +83,9 @@ Define all data entities. Key types:
 - **`ArchivedItem`** — id, type, label, subtitle, amount, deletedAt, original
 - **`UserProfile`** — id, full_name, currency, onboarding_completed, email?, phone?, monthly_income?, etc.
 
-Use `TransactionType = 'income' | 'expense' | 'saving' | 'investment'`, `ReminderFrequency`, `TodoPriority`, `MutationAction`, `ArchiveItemType`.
+Use `TransactionType = 'income' | 'expense' | 'investment'`, `ReminderFrequency`, `TodoPriority`, `MutationAction`, `ArchiveItemType`.
+
+> **Note:** There is no `saving` transaction type. Savings goals track their own `saved` balance; goal contributions are recorded as `expense` transactions and withdrawals as `income`. Categories are kept separate per type (`mm_income_categories`, `mm_expense_categories`, `mm_investment_categories`) — they are never merged across types.
 
 ---
 
@@ -317,7 +319,7 @@ Use `clsx` + `tailwind-merge` for class merging.
 
 ```
 src/app/
-├── layout.tsx              # Root layout: ThemeProvider + AuthProvider + RegisterSW
+├── layout.tsx              # Root layout: ThemeProvider + I18nProvider + ToastProvider + AuthProvider + RegisterSW
 ├── page.tsx                # Landing page (marketing, demo chart, Login/Register CTA)
 ├── loading.tsx             # Global loading skeleton
 ├── globals.css             # Tailwind v4 + brand variables + animations
@@ -333,8 +335,8 @@ src/app/
     ├── income/page.tsx     # Income CRUD (wraps TransactionPage)
     ├── expenses/page.tsx   # Expenses CRUD (wraps TransactionPage)
     ├── investments/page.tsx# Investments CRUD (wraps TransactionPage)
-    ├── savings/page.tsx    # Goals + Savings (dual-tab: savings list / goals grid)
-    ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal
+    ├── savings/page.tsx    # Goals + Tasks (dual-tab: goals grid / to-do list)
+    ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal, edit support
     ├── accounts/page.tsx   # Account overview
     ├── categories/page.tsx  # Categories CRUD with tabs, inline edit/delete, PIN-protected batch save
     ├── adjustments/page.tsx # Balance corrections
@@ -383,6 +385,12 @@ A reusable CRUD page used by Income, Expenses, and Investments.
 - Mobile minimal list view (icon + description + date + amount)
 - Tap-to-view detail modal on mobile (full info)
 - Archive view with restore permanent delete
+
+**Future-date guard:** Income/expense/investment entries cannot be dated in the future. Date inputs use `max={today}`, and submit handlers validate with a warning toast (a shared `todayStr()` helper in each file). Recurring start/end dates, task/todo due dates, and investment maturity dates are exempt.
+
+**Empty states:** When no transactions exist, mobile/desktop views and the archive show an icon + heading + hint ("Click + Add to record your first ...") instead of bare text. Ledger uses animated skeleton rows while loading.
+
+**Toast feedback:** Pages use the global `useToast()` hook (`src/components/Toast.tsx`, provider in root layout) — no native `alert()` calls anywhere.
 
 **Category dropdown:** Reads from localStorage keys (`mm_income_categories`, `mm_expense_categories`, `mm_investment_categories`) merged with categories found in existing transactions. `saveCategoryToLocalStorage()` persists new categories on add/edit. No `.slice(0,10)` limit — all used categories appear. Keyboard navigation (ArrowDown/Enter) reaches the inline "Create" button in both add and edit modals.
 
@@ -608,6 +616,9 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 |---|---|
 | `AuthProvider` | Auth context wrapper |
 | `ThemeProvider` | Theme/brand context |
+| `I18nProvider` | i18n context wrapper providing `useTranslation()` hook |
+| `ToastProvider` / `useToast()` | Global toast system (success/error/warning/info), replaces `alert()` |
+| `Skeleton` | Reusable skeletons: `SkeletonCard`, `SkeletonTable`, `SkeletonChart`, `SkeletonList` |
 | `DashboardLayout` | Main dashboard shell (nav, auth guard, DB init, PIN lock) |
 | `TransactionPage` | Reusable CRUD for income/expense/investment |
 | `NotificationPanel` | Dropdown panel showing all notifications |
@@ -623,7 +634,6 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 | `ui/button` | Base button component |
 | `InvestmentCalculator` | FD/SIP/RD/PPF calculator for investments page |
 | `LanguageSelector` | Language dropdown (default/minimal variants, uses portal for dropdown) |
-| `I18nProvider` | i18n context wrapper providing `useTranslation()` hook |
 
 ---
 
@@ -711,10 +721,23 @@ Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writi
 - Returns the matching transaction or null
 
 ### Dashboard Calculations
-- **Available to Spend** = cash/bank/upi income - cash/bank/upi expense (current month)
-- **Balance** = total income - total expense (all time, cash/bank/upi)
+- **Expense limit** = income × expense quota (default 15%)
+- **Invest limit** = income × invest quota (default 35%)
+- **Available to Spend** = income − expense limit − invest limit (quotas editable via "Editing Quota" UI)
+- **Balance** = total income − total expense (all time, cash/bank/upi)
 - **Carry Forward** = last month's cash/bank/upi balance (positive only)
-- **Total Income/Expense** = across all accounts
+- **Total Income/Expense/Investment** = across all accounts (per type; no saving type exists)
+
+### Partner P&L + Edit
+- `getPartnerPnL(partnerId)` — filters transactions by `partnerAccountId`, sums income/expense, returns `{ income, expense, net }`
+- Partners page has a pencil **Edit** button per card → reuses the add modal pre-filled → `updatePartner(id, updates)`. Duplicate-name check skips the party being edited.
+
+### Future-Date Guard
+All income/expense/investment entry points block future dates:
+- `TransactionPage` add + edit modals
+- Dashboard quick-add modal
+- Partners page transaction modal
+Implementation: `max={todayStr()}` on `<input type="date">` + submit-time string comparison `date > todayStr()` → warning toast. Exempt: recurring dates, task/todo due dates, investment maturity dates.
 
 ### Mobile Responsiveness
 - Desktop: sidebar nav + full table views
@@ -726,7 +749,7 @@ Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writi
 
 ## 20. Version File
 
-`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.1.23`).
+`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.1.33`).
 
 The build number (4th component) is incremented on each `npm run build` via the `prebuild` script. On CI, this bumps locally in the runner; the repo isn't modified.
 
@@ -748,10 +771,17 @@ money-meva/
 ├── android/                    # Capacitor Android project
 │   ├── app/build.gradle        # Version synced from VERSION
 │   └── app/src/main/res/       # Icons, notifications
+├── docs/                       # Obsidian documentation vault
+│   ├── Home.md                 # Vault dashboard
+│   ├── templates/              # Feature / Bug Report / Dev Log templates
+│   └── dev/                    # Daily dev logs
 ├── public/
 │   ├── manifest.webmanifest
 │   ├── icon-512.png
 │   ├── icon.svg
+│   ├── og-image.svg            # Social media preview
+│   ├── sitemap.xml             # SEO sitemap (public pages only)
+│   ├── robots.txt              # Crawler directives
 │   └── favicon-32.png
 ├── scripts/
 │   ├── bump-version.cjs        # Version increment
@@ -760,7 +790,7 @@ money-meva/
 │   └── seed-data.js
 ├── src/
 │   ├── app/                    # Next.js App Router pages
-│   ├── components/             # React components
+│   ├── components/             # React components (incl. Toast.tsx, Skeleton.tsx)
 │   ├── lib/                    # Business logic
 │   │   ├── db.ts               # Dexie schema
 │   │   ├── store.ts            # State management + CRUD

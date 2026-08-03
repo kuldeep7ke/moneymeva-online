@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.22** — A minimalistic, local-first personal finance companion.
+**v7.1.1.33** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.
 Made in India.
 
@@ -30,18 +30,19 @@ Money Meva was built around a single belief: **financial clarity should not requ
 ## Features
 
 ### Core
-- **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal.
+- **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal. Transaction types are exactly three: `income`, `expense`, `investment` (no savings type). Categories stay separate per type (income/expense/investment lists). Future-dated entries are blocked — date pickers cap at today and submit validates with a warning toast.
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
 - **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), DB stats viewer, localStorage inspector, sync diagnostics, raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
-- **Savings & Goals** — Dual-tab page: savings list with source-of-funds tracking + goals grid with contribute/withdraw and progress bars.
-- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party.
-- **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days.
+- **Savings & Goals** — Dual-tab page: goals grid with contribute/withdraw + progress bars, and a finance to-do list. Goal contributions record as `expense` transactions (withdrawals as `income`).
+- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit (name, group, type, investment, description) from the partners page.
+- **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days. Future start/end dates allowed.
 - **Adjustments** — Balance corrections between personal and partner accounts with amount guards.
 - **Budgets** — Category-based monthly/yearly spending limits with overrun warnings at ≥80%.
 - **Reminders** — One-time or recurring (daily to yearly) with "Mark as Paid" that creates expense transactions and auto-reschedules.
 - **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected).
 - **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable lifecycle chain, copy transition ID, CSV export, entity/action filters, search.
+- **Categories Page** — Dedicated management page with Income/Expense/Investment tabs; inline edit, delete, add; PIN-protected batch save to localStorage.
 - **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup/restore with cross-user detection and reassignment. Import from JSON file via Developer Zone to restore data across devices.
 
 ### Security & Privacy
@@ -64,6 +65,9 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Dark / Light Theme** — Toggleable, persisted in localStorage.
 - **3 Brand Colors** — Orange (default), Royal Blue, Emerald Green — changeable in Settings.
 - **i18n** — Marathi (default), Hindi, English. Grammar-preserving translations with context-appropriate vocabulary. English loanwords only for tech/modern terms.
+- **Global Toast System** — Success/error/warning/info toasts via `useToast()` (replaces all native `alert()` calls).
+- **Skeleton Loading** — Animated skeleton components (`SkeletonCard`, `SkeletonTable`, `SkeletonChart`, `SkeletonList`) replace spinners on data-heavy pages.
+- **Empty States** — Every list/table/chart shows an icon + heading + hint CTA when empty.
 - **Scroll Animations** — Staggered Reveal animations on all major sections.
 - **Animated Icons** — Key UI elements (sync spinner, loading states, status dots, nav indicators) use CSS animations (spin, bounce, pulse) for visual feedback.
 - **Floating Mobile Nav** — Bottom-right FAB with filtered nav.
@@ -205,6 +209,8 @@ src/
 │   ├── DashboardLayout.tsx      # Sidebar nav + layout wrapper
 │   ├── TransactionPage.tsx      # Shared income/expense/investment CRUD page
 │   ├── InvestmentCalculator.tsx # FD/SIP/RD/PPF calculator (4 pill tabs)
+│   ├── Toast.tsx                # Global toast system (context + container)
+│   ├── Skeleton.tsx             # Skeleton loading components (card/table/chart/list)
 │   ├── LanguageSelector.tsx     # i18n language dropdown (portal)
 │   ├── PinPrompt.tsx            # PIN entry modal
 │   ├── PinSetupGuide.tsx        # PIN setup instructions
@@ -238,6 +244,19 @@ src/
 │       └── translations.ts      # All translation data (mr, hi, en)
 └── types/
     └── index.ts                 # All TypeScript interfaces/types
+```
+
+The project also contains a **documentation vault** at `docs/` (Obsidian-compatible):
+```
+docs/
+├── Home.md             # Dashboards the vault
+├── Start-Here.md       # Onboarding
+├── Active-Tasks.md     # Current work tracker
+├── Bug-Tracker.md      # Open issues
+├── File-Map.md         # Every source file linked
+├── Architecture.md · Data-Flow.md · i18n.md · Sync.md · Security.md · Capacitor.md · Changelog.md
+├── templates/          # Feature / Bug Report / Daily Dev Log / Quick Note
+└── dev/                # Daily development logs
 ```
 
 ---
