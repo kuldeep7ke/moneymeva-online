@@ -424,20 +424,19 @@ All sets get "Other" appended.
 ### Architecture
 
 ```
-Device A (PouchDB) ←──live sync──→ CouchDB (Remote) ←──live sync──→ Device B (PouchDB)
-       │                                                                    │
-  IndexedDB                                                            IndexedDB
+Device A (PouchDB) ──push/pull──→ Supabase sync_docs (RLS per user) ←──realtime── Device B (PouchDB)
+       │                                │
+  IndexedDB                         cloud hub + backup
 ```
 
-### Implementation
-
-- **Local DB**: PouchDB instance named `mm_pouch` with compound index on `[entity, updatedAt]`
-- **Remote DB**: User-configurable CouchDB URL (e.g. Railway.app), stored in localStorage `mm_pouch_url`
-- **Live sync**: `localDB.sync(remoteDB, { live: true, retry: true })` — bi-directional, continuous
-- **Change events**: `syncHandler.on('change', ...)` fires listeners
+- **Local buffer**: PouchDB instance named `mm_pouch` with compound index on `[entity, updatedAt]`
+- **Cloud hub**: Supabase `sync_docs` table (PK `(user_id, id)`, `data` jsonb) — see `supabase/schema.sql`
+- **Auth**: Supabase Auth — email + password, JWT session in `mm_sb_session`
+- **Isolation**: Row-Level Security (`auth.uid() = user_id`) — cross-account access impossible
+- **Live updates**: realtime subscription on `sync_docs_realtime` (replica identity full)
 
 ### Entity Mapping
-Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`:
+Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`; the cloud row id is the same (`entityType:id`):
 - `transaction:abc123` → `entity: 'transaction'`
 - `partner:def456` → `entity: 'partner'`
 - etc.
@@ -446,36 +445,38 @@ Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`:
 
 | Function | Purpose |
 |---|---|
+| `getConfig()` | `{ url, key }` from build env or localStorage override |
 | `initPouchDB()` | Creates local PouchDB instance, creates indexes |
-| `connectRemote(url)` | Connects to remote CouchDB, starts live sync |
-| `disconnectRemote()` | Cancels sync, clears handlers |
-| `checkConnection()` | Tests connection, reconnects if needed |
-| `ensureConnected()` | Ensures live sync is active, starts reconnect timer if not |
-| `putDoc(entity, data)` | Writes doc to local PouchDB (for sync to remote) |
-| `removeDoc(entity, id)` | Removes doc from local PouchDB |
-| `pullAll()` | Replicates from remote, returns all non-deleted docs with `entity` |
+| `signUpUser(url, key, email, password)` | Creates Supabase account + connects |
+| `connectRemote(url, key, email, password)` | Signs in, pushes local buffer, subscribes to realtime, pulls |
+| `disconnectRemote()` | Stops realtime subscription, clears session |
+| `checkConnection()` | Validates session + ping |
+| `ensureConnected()` | Re-subscribes if session exists but subscription dropped |
+| `putDoc(entity, data)` | Writes doc to local PouchDB + pushes to Supabase (`onConflict user_id,id`) |
+| `removeDoc(entity, id)` | Removes doc from local PouchDB + upserts `deleted_at` on cloud |
+| `pullAll()` | Fetches own rows from Supabase, maps to PouchDB docs |
 | `clearPouch()` | Destroys local DB, reinitializes |
-| `onRemoteChange(fn)` | Subscribes to sync change events |
+| `onRemoteChange(fn)` | Subscribes to realtime changes (live UI updates) |
 
 ### Reconnect Strategy
 - 30-second interval timer (`RECONNECT_INTERVAL`)
 - Only active when not already connected
-- Creates a test connection with `skip_setup: true`
-- Replaces `syncHandler` on successful reconnect
+- `ensureConnected()` re-establishes the realtime subscription using the stored session
 
 ### Periodic Pull (in store.ts)
 Every 2 minutes, calls `processRemoteChanges()` which:
-1. Checks connection
-2. Replicates from remote to local PouchDB
-3. Reads all docs with `entity`
+1. Checks connection (`checkConnection()`)
+2. Pulls own rows from Supabase
+3. Maps rows to PouchDB docs, reads all docs with `entity`
 4. Merges into cache (respects `updatedAt` timestamps — skips if local is newer)
 
 ### Sync Flow (Settings Page)
-1. User enters CouchDB URL → `connectRemote(url)`
-2. URL saved to localStorage
-3. Status indicators: idle → connecting → connected / error
-4. Sync failure popup after 2 consecutive errors (Telegram/Website support link)
-5. Disconnect button + confirmation
+1. URL + anon key pre-filled from env (`mm_sb_url`/`mm_sb_key` overrides allowed)
+2. User enters email + password → **Create account & sync** (`signUpUser`) or **Connect** (`connectRemote`)
+3. Session saved to localStorage
+4. Status indicators: idle → connecting → connected / error
+5. Sync failure toast after consecutive errors
+6. Disconnect button + confirmation (local data stays)
 
 ---
 

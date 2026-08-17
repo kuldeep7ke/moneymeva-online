@@ -1,34 +1,77 @@
-# Sync
+# Sync (Cloud Sync)
+
+> **Architecture:** PouchDB (local IndexedDB buffer) ↔ Supabase (shared cloud database).
+> **Supersedes:** the old CouchDB sync (PouchDB replication to a user-provided CouchDB URL).
 
 ## How It Works
 
-PouchDB (browser) ↔ CouchDB (remote server)
+```
+Device PouchDB (mm_pouch)
+   │  push (upsert onConflict user_id,id)
+   ▼
+Supabase sync_docs table  ←  row-level security: each row tied to auth.uid()
+   │  pull (RLS-filtered select) + realtime subscription
+   ▼
+Device PouchDB (same account, another device)
+```
+
+- **Local buffer**: `src/lib/pouchdb.ts` keeps a PouchDB instance named `mm_pouch`
+  so sync never blocks the UI and works offline.
+- **Cloud storage**: the actual cloud copy lives in the Supabase `sync_docs` table
+  (not a device-to-device relay). Supabase is the hub + backup.
+- **Realtime**: live subscription to `sync_docs_realtime` pushes remote changes
+  into local PouchDB within seconds.
 
 ## Connection
 
 ```ts
 // src/lib/pouchdb.ts
-connectRemote(url)  // returns { ok, error? }
-// Live sync: { live: true, retry: true }
-// Auto-reconnect: 30s interval
+getConfig()                                   // { url, key } — from env or localStorage override
+signUpUser(url, key, email, password)         // create account + connect  → { ok, needsConfirmation?, error? }
+connectRemote(url, key, email, password)      // sign in + start realtime → { ok, error? }
+manualSync()                                  // one-shot push+pull → { ok, pushed, pulled }
+checkConnection()                             // session + ping
+ensureConnected()                             // reconnect if session exists but subscription dropped
+disconnectRemote()                            // stop realtime, keep local data
 ```
+
+- Auth is **Supabase Auth** (email + password, JWT session in `mm_sb_session`).
+- Reconnect: 30s interval + `onRemoteChange` callback for live UI updates.
 
 ## Sync Modes
 
 | Mode | Trigger | Behavior |
 |---|---|---|
-| Live | Auto on connect | Continuous push+pull |
-| Manual | "Sync Now" button | One-shot push+pull |
+| Live | Auto after connect | Realtime push/pull via Supabase subscription |
+| Manual | "Sync Now" button | One-shot full push + pull |
+| Initial | First connect on device | `pushAllToPouch` then `pullAll` → `processRemoteChanges` |
 
-## URL Storage
+## Storage (localStorage)
 
-- `localStorage('mm_pouch_url')` — current URL
-- `localStorage('mm_pouch_urls')` — last 5 URLs
+- `mm_sb_session` — Supabase auth session
+- `mm_sb_url` / `mm_sb_key` — manual URL/key overrides (defaults from build env)
+- `mm_sync_urls` — last 5 URLs used (history dropdown)
+
+## Schema & Security
+
+- Table: `sync_docs` — see `supabase/schema.sql`
+  - PK `(user_id, id)` — every row owned by the signed-in user
+  - `data` jsonb holds the full entity (`entityType:id` doc ids)
+  - `deleted_at` soft-delete marker
+- **Row-Level Security** (`auth.uid() = user_id`):
+  - select: only own rows → other users' data is invisible
+  - insert/update/delete: only own rows → cross-account writes are blocked
+- Realtime publication on `sync_docs` + `replica identity full`
+- Unauthenticated anon key: can sign up/sign in, but **cannot read any rows**
+  (0 rows returned), so exposing the anon key is safe.
 
 ## Error Handling
 
-- `console.warn` on errors — never kills connection
+- `console.warn` on errors — never kills the connection
 - `checkConnection()` / `ensureConnected()` — utility guards
+- Sign-in failures return `{ ok: false, error }` → shown as toast in Settings
+- `over_email_send_rate_limit` (429) — Supabase rate limit when "Confirm email"
+  is still on; disable it in the project dashboard (see CLOUD-SYNC-GUIDE.md)
 
 ## Events
 
@@ -39,6 +82,17 @@ listenSyncEvents(fn)   // subscribe to status
 // Types: started | pushing | pulled | processing | complete | error
 ```
 
-## Setup
+## Setup (Owners)
 
-User provides their own CouchDB URL. No hardcoded defaults.
+1. Create a Supabase project (free tier OK)
+2. Run `supabase/schema.sql` in SQL Editor (creates `sync_docs` + RLS + realtime)
+3. Optional: turn **OFF** "Confirm email" in Authentication → Email
+4. Build with `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   (baked in; users only enter email + password)
+5. Users can override URL/key manually in Settings (bring-your-own-Supabase)
+
+See `CLOUD-SYNC-GUIDE.md` for the full owner walkthrough.
+
+---
+
+#money-meva #reference #sync

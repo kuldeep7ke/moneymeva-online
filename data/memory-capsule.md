@@ -1,11 +1,12 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.33 (incremented on every build)
-**Repository:** github.com/kuldeep7ke/money-meva
+**Version:** v7.1.1.34 (incremented on every build)
+**Repository:** github.com/kuldeep7ke/money-meva-online (private, Supabase sync)
+**Legacy repository:** github.com/kuldeep7ke/money-meva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
-**Last Updated:** 2026-08-03
+**Last Updated:** 2026-08-17
 
 ---
 
@@ -18,10 +19,10 @@
 | Styling | Tailwind CSS v4 + CSS variables | Rapid prototyping; 3-brand theme via CSS custom properties |
 | i18n | Custom hook + translations.ts | 3 languages (mr/hi/en), no external lib needed |
 | Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 9 tables with compound indexes |
-| Sync | PouchDB ↔ CouchDB (live + manual) | Live sync with auto-reconnect (30s), manual "Sync Now" push+pull, skip_setup: false |
+| Sync | PouchDB ↔ Supabase `sync_docs` (realtime) | Local PouchDB buffer (`mm_pouch`); cloud hub = Supabase table; live realtime + manual "Sync Now"; 30s reconnect |
 | State | In-memory cache + Dexie + PouchDB | Cache for instant reads, Dexie for persistence, PouchDB for sync |
-| Auth | Fully local (localStorage) | No server dependency; multi-user with session switching |
-| Security | One-time 4-digit PINs | Simple but effective; no PII stored remotely; auto-rotate after 10 uses |
+| Auth | Local (localStorage) + optional Supabase Auth | Local multi-user profiles; cloud login (email+password, JWT in `mm_sb_session`) only when Multi-Device Sync enabled |
+| Security | One-time 4-digit PINs + Supabase RLS | PINs for app access; cloud rows isolated per `auth.uid()` via Row-Level Security; no PII stored remotely |
 | Mobile | Capacitor v8 (Android) | Wraps static Next.js output as native APK |
 | Charts | Recharts | Lightweight, React-native charting |
 | PDF Export | jsPDF + jsPDF-autotable | Client-side PDF generation |
@@ -29,7 +30,7 @@
 | Toasts | Custom context (Toast.tsx) | Global success/error/warning/info — replaces `alert()` |
 
 ### Why Not...
-- **Supabase/Firebase** → Removed. Fully local-first with optional CouchDB sync.
+- **Self-hosted/CouchDB sync** → Removed. Railway CouchDB instance decommissioned (dead 404). Replaced by a shared Supabase project with per-user isolation — zero server to run, free tier, realtime built-in.
 - **Server components** → Cannot use. Dexie/PouchDB are browser-only. All pages `'use client'`.
 - **Zustand/Redux** → Unnecessary. In-memory cache arrays + direct reads are simpler.
 - **Prisma/SQLite** → Dexie is the only offline-capable option for browser storage.
@@ -51,11 +52,18 @@ Every entity has `deletedAt?: string`. Items disappear from active views, appear
 ### 3. transitionId System
 Every entity gets a `transitionId` at creation. Links all mutations across lifecycle. Used in Audit Ledger.
 
-### 4. Offline-First Sync
-PouchDB → CouchDB is optional. Live sync with auto-reconnect (30s interval) keeps data in sync in real-time. Manual "Sync Now" does one-shot push+pull. Connection errors are logged but never kill the connection.
+### 4. Offline-First Cloud Sync (Supabase)
+Local PouchDB buffer (`mm_pouch`) + Supabase `sync_docs` table as the cloud hub (not a relay — data IS stored on Supabase). Optional: app fully works offline without it.
+- **Sign-up**: `signUpUser(url, key, email, password)` → Supabase Auth → connect
+- **Connect**: `connectRemote(url, key, email, password)` → sign in → initial `pushAllToPouch` → realtime subscription → `pullAll` → `processRemoteChanges`
+- **Push**: upsert with `onConflict: 'user_id,id'` (composite PK — every row owned by the signed-in user)
+- **Pull**: `select` scoped by RLS (`auth.uid() = user_id`)
+- **Live updates**: realtime channel on `sync_docs_realtime` (replica identity full); 30s reconnect interval; `onRemoteChange` for UI refresh
+- **URL/key overrides**: Settings can paste a different URL + anon key (bring-your-own-Supabase); defaults baked from `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.local`, gitignored)
+- **Multi-user isolation**: verified E2E — account B sees 0 rows of account A, RLS blocks cross-account writes, realtime events never cross accounts
 
 ### 5. Local Auth with Multi-User
-Users in localStorage `mm_users`. Session in `mm_session`. No server needed.
+Users in localStorage `mm_users`. Session in `mm_session`. No server needed. Cloud login (Supabase) is separate and only used for Multi-Device Sync.
 
 ### 6. Future-Date Guard
 Income/expense/investment entries cannot be dated after today. Dated picker capped via `max={todayStr()}`, submit validated with warning toast. Exempt: recurring start/end, task/todo due, investment maturity. Needed in: TransactionPage add/edit, Dashboard quick-add, Partners transaction modal.
@@ -206,7 +214,7 @@ All list/table/chart empty views show **icon + bold heading + grey hint** (not b
 
 ### Settings (`/dashboard/settings`)
 - Profile, PIN Security, Brand picker, Theme toggle
-- Multi-Device Sync (CouchDB URL, Connect/Sync/Disconnect)
+- Multi-Device Sync (Supabase: URL+key auto-filled, email/password, Connect / Create account & sync / Sync Now / Disconnect)
 - Export/Import (PDF, Excel, JSON) — summary exports have no Savings column
 - Language selector with portal dropdown
 - Danger Zone
@@ -228,11 +236,15 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ## Known Gotchas
 
-### PouchDB
+### PouchDB / Supabase Sync
 - `db.type()` deprecated in PouchDB 9.x (harmless warning)
 - `_`-prefixed custom fields (like `_entity`) rejected — use `entity` instead
-- `skip_setup: false` — PouchDB auto-creates remote DB
-- Sync errors silent — use `syncHandler.on('error')` for visibility
+- Upserts against Supabase need `onConflict: 'user_id,id'` (composite PK) — plain `onConflict: 'id'` silently no-ops/fails
+- Realtime requires `ALTER PUBLICATION supabase_realtime ADD TABLE sync_docs;` + replica identity full, else events never fire
+- SQL-created `auth.users` rows break GoTrue (500 "Database error querying schema") — always create users via the sign-up API
+- `over_email_send_rate_limit` (429): turn OFF "Confirm email" in Authentication → Email to let users sign up instantly without rate limits
+- Anon key without session: select returns 0 rows, insert blocked, delete no-ops — safe to expose
+- Sync errors silent — use `syncHandler.on('error')` / `onRemoteChange` for visibility
 
 ### Dexie
 - Bulk operations: chunk at 500 items
@@ -255,6 +267,15 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.34 (2026-08-17) — Cloud Sync 2.0 (Supabase)
+- **Migrated cloud sync CouchDB → Supabase** after the Railway CouchDB instance died (404 "Application not found").
+- **Supabase project** `orpgmbrycnmjwtalupce` (ap-south-1, PG 17.6): `sync_docs` table (PK `(user_id,id)`, `data` jsonb, `updated_at`, `deleted_at`), RLS policies `sync_docs_own_{select,insert,update,delete}`, realtime publication, `mailer_autoconfirm: true`.
+- **`pouchdb.ts`**: `signUpUser`, `connectRemote(url, key, email, password)`, `checkConnection`, `ensureConnected`, `disconnectRemote`, user-scoped `putDoc`/`removeDoc` (push upsert `onConflict user_id,id`), realtime subscription, `mm_sb_session`/`mm_sb_url`/`mm_sb_key` in localStorage, env fallback in `getConfig()`.
+- **Settings**: URL + anon key auto-filled from `.env.local`; email + password inputs; "Create account & sync" / "Connect" / "Sync Now" / "Disconnect".
+- **Verified E2E**: ping, push, pull, conflict-update, realtime event, delete, alice/bob isolation, RLS delete-block. All test users cleaned up.
+- **Repo split**: new private repo `money-meva-online`; origin retargeted; old `money-meva` untouched at `dc965eb`.
+- **Docs**: USER-GUIDE.md, CLOUD-SYNC-GUIDE.md, updated Sync/Security/Architecture/Data-Flow/File-Map, README, memory capsule.
 
 ### v7.1.1.33 (2026-08-03)
 - **Party edit**: Partners page cards now have a pencil Edit button → pre-filled modal → `updatePartner()`. Duplicate-name check excludes self. "+" resets create mode.
@@ -287,11 +308,14 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ## Sync Debug — From Scratch
 
-### The Bug (Pushed 0 · Pulled 0)
+### The Bug (Pushed 0 · Pulled 0) — historical (CouchDB era)
 `putDoc` added a `_entity` field to every PouchDB doc. PouchDB 9 rejects custom fields starting with `_` (only `_id`, `_rev`, `_deleted`, `_attachments`, `_conflicts` allowed). Each `localDB.put()` threw `"Bad special document member: _entity"` — silently caught, zero docs reached CouchDB.
 
 ### The Fix
 Renamed `_entity` → `entity` everywhere (`src/lib/pouchdb.ts`, `src/lib/store.ts`). Backward compat: `pullAll`/`processRemoteChanges` fall back to `doc._entity` for old remote docs.
+
+### Supabase migration (v7.1.1.34)
+Remote is no longer a CouchDB database. `pullAll` maps `sync_docs` rows back into PouchDB docs (`id` → `entityType:id`); push maps PouchDB docs back to rows. Old CouchDB-era docs in a user's local PouchDB keep working (same `entityType:id` ids).
 
 ---
 

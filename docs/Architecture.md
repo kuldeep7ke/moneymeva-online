@@ -8,9 +8,9 @@
 | Styling | Tailwind CSS v4 + CSS vars | 3-brand theme |
 | i18n | Custom hook | mr/hi/en, no external lib |
 | Database | Dexie.js (IndexedDB) | Offline-first, 9 tables |
-| Sync | PouchDB ↔ CouchDB | Live + manual sync |
+| Sync | PouchDB ↔ Supabase | Live (realtime) + manual sync |
 | State | In-memory cache + Dexie | Instant reads |
-| Auth | localStorage | Multi-user, no server |
+| Auth | localStorage + Supabase Auth | Local profiles + optional cloud login |
 | Security | One-time 4-digit PINs | Simple, auto-rotate |
 | Mobile | Capacitor v8 | Android APK |
 | Charts | Recharts | Lightweight |
@@ -19,7 +19,8 @@
 
 ## Why Not...
 
-- **Supabase/Firebase** → Removed. Fully local-first.
+- **Self-hosted server / CouchDB** → Removed (Railway instance decommissioned).
+  Cloud sync is now a shared Supabase project with per-user isolation (RLS).
 - **Server components** → Browser-only (Dexie/PouchDB).
 - **Zustand/Redux** → Cache arrays are simpler.
 - **Prisma/SQLite** → Dexie is the only browser option.

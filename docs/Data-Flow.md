@@ -25,11 +25,13 @@ Page loads
 ## Sync Path
 
 ```
-PouchDB (local)
-  ↔ CouchDB (remote)
-  ├── Live sync: { live: true, retry: true }
-  ├── Manual sync: one-shot push+pull
-  └── Auto-reconnect: 30s interval
+Local PouchDB (mm_pouch)
+  → push (upsert, onConflict user_id,id)
+  → Supabase sync_docs (per-user rows, RLS)
+  → realtime subscription → other devices' PouchDB
+  ├── Live: realtime push/pull after connect
+  ├── Manual: "Sync Now" one-shot push+pull
+  └── Reconnect: 30s interval + ensureConnected()
 ```
 
 ## Key Rules
@@ -39,3 +41,5 @@ PouchDB (local)
 3. **Soft-delete** — `deletedAt` field, never hard delete
 4. **transitionId** — Links all mutations for one entity
 5. **mutation_log** — Every write logged for audit ledger
+6. **Cloud rows are user-scoped** — every `sync_docs` row carries `user_id`;
+   RLS guarantees isolation between accounts

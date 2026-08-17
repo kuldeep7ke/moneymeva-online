@@ -66,7 +66,7 @@ export default function DataSafetyNotice({ delay = 8000 }: { delay?: number }) {
           <div className="flex items-center gap-2.5 px-3 py-2 bg-brand-light dark:bg-brand-muted rounded-lg">
             <Shield className="h-3.5 w-3.5 text-brand shrink-0" />
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              Stored <strong>locally on this device</strong> — nothing is sent to any server
+              Stored <strong>locally on this device</strong> — nothing is sent to any server unless you enable <strong>Multi-Device Sync</strong>
             </p>
           </div>
           <div className="flex items-center gap-2.5 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">

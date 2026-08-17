@@ -3,8 +3,8 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.33** — A minimalistic, local-first personal finance companion.
-Built with Next.js 16, TypeScript, Dexie.js, PouchDB, and Tailwind CSS v4.
+**v7.1.1.34** — A minimalistic, local-first personal finance companion.
+Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India.
 
 ---
@@ -20,7 +20,7 @@ This README is a memory capsule — a snapshot of the project's philosophy, arch
 Money Meva was built around a single belief: **financial clarity should not require surrendering privacy**. Every feature, every tradeoff, every line of code traces back to this.
 
 - **Local-first by default** — your data lives in your browser's IndexedDB. No cloud required, no accounts to create, no subscription to maintain.
-- **Sync is optional** — multi-device sync exists only so you are not chained to one device. It uses CouchDB + PouchDB, and you bring your own server.
+- **Sync is optional** — multi-device sync exists only so you are not chained to one device. It uses a shared Supabase database with per-user isolation (email + password), and you can bring your own Supabase project.
 - **PINs, not passwords** — sensitive operations (deletes, edits, exports) require a 4-digit PIN, not a backend call. Security without dependence.
 - **Soft-delete everywhere** — nothing is truly gone. Every entity carries a `deletedAt` timestamp. The archive is your safety net.
 - **Transitions are traceable** — every mutation carries a `transitionId`, linking lifecycles across entities. The ledger is the source of truth.
@@ -51,14 +51,14 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Activity Log** — Tracks 200 most recent security and CRUD events with color-coded timeline in Settings.
 - **100% local-first** — no cookies, analytics, or tracking services. No external data transmission unless you explicitly export or enable sync.
 
-### Multi-Device Sync
-- **CouchDB + PouchDB** — Manual + live sync. Push your local IndexedDB to a remote CouchDB server, pull on another device.
-- **Your own server** — Bring your own CouchDB URL (e.g., Railway, Cloudant, self-hosted). Enter `https://user:pass@host/db-name` in Settings → Cloud Sync.
-- **Live replication** — Once connected, changes sync in real-time. Errors are logged but never kill the connection (`retry: true`).
-- **Auto-reconnect** — If live sync disconnects, a 30-second interval timer attempts reconnection automatically.
-- **Manual sync** — `manualSync()` returns `{ ok, pushed, pulled }` with actual doc counts. No infinite recursion (removed `notifyChange` call from push path).
-- **`skip_setup: false`** — PouchDB auto-creates the remote database on connect. No manual DB creation needed.
-- **Sync URL history** — Last 5 URLs saved for quick reconnection. Saved URLs always visible.
+### Multi-Device Sync (Supabase)
+- **PouchDB + Supabase** — a local PouchDB buffer (`mm_pouch`) syncs to a shared Supabase `sync_docs` table. Manual + live (realtime) sync. Data is stored on the cloud — it doubles as a backup.
+- **Per-user isolation** — every row carries `user_id`; Row-Level Security guarantees no account can read or write another account's data.
+- **Email + password login** — Supabase Auth. URL + anon key are pre-configured from the build; users just enter their email + password.
+- **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device.
+- **Live sync** — realtime subscription pushes remote changes into the local buffer within seconds; a 30-second reconnect timer handles drops.
+- **Manual sync** — `manualSync()` returns `{ ok, pushed, pulled }` with actual doc counts. No infinite recursion.
+- **Bring your own Supabase** — advanced users can paste a different URL + anon key in Settings to use their own project (see `CLOUD-SYNC-GUIDE.md`).
 
 ### User Experience
 - **Multi-user** — Multiple profiles with quick-switch from login screen.
@@ -85,12 +85,12 @@ Money Meva was built around a single belief: **financial clarity should not requ
 | Language | TypeScript 5 |
 | UI | React 19, Tailwind CSS v4, Lucide React |
 | Local DB | Dexie.js 4 (IndexedDB) |
-| Sync DB | PouchDB 9 + CouchDB 3 (multi-device) |
+| Sync | PouchDB 9 (local buffer) + Supabase Postgres (cloud hub, realtime) |
 | Charts | Recharts 3 |
 | PDF | jsPDF 4 + jspdf-autotable |
 | Excel | SheetJS (xlsx) |
 | Dates | date-fns 4 |
-| Auth | Local (email/password) — Supabase removed, fully local-first |
+| Auth | Local (email/password) + optional Supabase Auth for cloud sync |
 | Mobile | Capacitor 8 (Android) |
 | Linting | ESLint 9 |
 
@@ -134,15 +134,17 @@ Money Meva was built around a single belief: **financial clarity should not requ
                          └─────────────┬──────────────┘
                                        │
                          ┌─────────────▼──────────────┐
-                         │  CouchDB (remote — opt-in) │
-                         │  Live replication (sync)   │
-                         │  Manual push/pull          │
-                         │  Auto-reconnect (30s)      │
+                         │  Supabase sync_docs (opt-in)│
+                         │  Cloud hub + backup         │
+                         │  Per-user rows (user_id)    │
+                         │  Row-Level Security         │
+                         │  Realtime subscription      │
+                         │  Auto-reconnect (30s)       │
                          └────────────────────────────┘
 
-Write path:  Cache → Dexie → Mutation Log → PouchDB ──→ CouchDB (fire-and-forget)
+Write path:  Cache → Dexie → Mutation Log → PouchDB ──→ Supabase (fire-and-forget)
 Read path:   Cache ← Dexie (hydration on load)
-Sync path:   PouchDB ↔ CouchDB (bidirectional, live + manual)
+Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 ```
 
 Every entity carries: `id`, `transitionId`, `userId`, `createdAt`, `updatedAt`, `deletedAt`.
@@ -150,20 +152,29 @@ Every entity carries: `id`, `transitionId`, `userId`, `createdAt`, `updatedAt`, 
 ### Sync Architecture Details
 
 ```
+signUpUser(url, key, email, password):
+  supabase.auth.signUp({ email, password })
+    → creates account (JWT session)
+    → connectRemote(...) on success
+
+connectRemote(url, key, email, password):
+  init Supabase client (url + anon key)
+  supabase.auth.signInWithPassword({ email, password })
+    → session stored in mm_sb_session
+  pushAllToPouch()      ← push local PouchDB → sync_docs (upsert, onConflict user_id,id)
+  subscribe to sync_docs_realtime (replica identity full)
+  pullAll() → processRemoteChanges()   ← pull remote rows into local PouchDB
+  → onRemoteChange(fn) fires live UI updates
+  → startReconnectTimer(30s interval) on disconnect
+
 manualSync():
-  localDB.replicate.to(remoteDB)     ← push local changes
-  localDB.replicate.from(remoteDB)   ← pull remote changes
+  pushAllToPouch()  ← upsert local changes (onConflict 'user_id,id')
+  pullAll() + processRemoteChanges()  ← apply remote changes
   returns { ok, pushed, pulled }
 
-connectRemote(url):
-  createRemote(Pouch, url) with { skip_setup: false }
-    → PouchDB auto-creates remote DB on connect
-  localDB.sync(remoteDB, { live: true, retry: true })
-    → live replication with built-in retry
-  syncHandler.on('error', console.warn)
-    → errors logged, connection never killed
-  On disconnect: startReconnectTimer(30s interval)
-    → attempts reconnection until successful
+checkConnection():
+  session valid + lightweight ping
+ensureConnected():  ← re-subscribe if session exists but subscription dropped
 ```
 
 ---
@@ -228,10 +239,9 @@ src/
 │       └── button.tsx           # Reusable button component
 ├── lib/                         # Core logic
 │   ├── store.ts                 # Data layer (cache + Dexie + sync + CRUD)
-│   ├── pouchdb.ts               # PouchDB remote connection + sync + PIN pouch
+│   ├── pouchdb.ts               # Cloud sync: Supabase Auth + sync_docs + local PouchDB buffer
 │   ├── db.ts                    # Dexie schema (tables, indexes)
 │   ├── localAuth.ts             # Email/password auth (local)
-│   ├── supabase.ts              # Legacy (removed, kept for reference)
 │   ├── pinStore.ts              # PIN generation and validation
 │   ├── sync-notify.ts           # CustomEvent-based sync status dispatch
 │   ├── activityLog.ts           # Security + CRUD event history
@@ -251,6 +261,7 @@ The project also contains a **documentation vault** at `docs/` (Obsidian-compati
 docs/
 ├── Home.md             # Dashboards the vault
 ├── Start-Here.md       # Onboarding
+├── USER-GUIDE.md       # End-user manual
 ├── Active-Tasks.md     # Current work tracker
 ├── Bug-Tracker.md      # Open issues
 ├── File-Map.md         # Every source file linked
@@ -258,6 +269,7 @@ docs/
 ├── templates/          # Feature / Bug Report / Daily Dev Log / Quick Note
 └── dev/                # Daily development logs
 ```
+Cloud sync schema lives in [`supabase/schema.sql`](supabase/schema.sql). Owner setup + troubleshooting: [`CLOUD-SYNC-GUIDE.md`](CLOUD-SYNC-GUIDE.md).
 
 ---
 
@@ -281,21 +293,29 @@ docs/
 
 ## Cloud Sync Setup
 
-Cloud sync uses **Supabase** (Postgres + Auth) — every user gets their own private data space with email + password login.
+Cloud sync uses **Supabase** (Postgres + Auth + Realtime) — every user gets their own private data space with email + password login.
 
 1. **Create a Supabase project** at https://supabase.com (free tier is enough)
 2. **Create the sync table** — open SQL Editor, run the contents of [`supabase/schema.sql`](supabase/schema.sql)
 3. **Get your keys** — Project Settings → API:
    - Project URL: `https://<project-ref>.supabase.co`
    - anon public key (starts with `eyJ…`)
-4. **Settings → Cloud Sync** — paste the Project URL + anon key, then:
-   - **New user:** enter email + password → tap **Create account & sync** (confirm the email if prompted)
+4. **Bake into the build** — put them in `.env.local`:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
+   ```
+   then build (`npm run build`). The URL + key are embedded; users only enter email + password.
+5. **In-app** — Settings → Multi-Device Sync:
+   - **New user:** enter email + password → tap **Create account & sync**
    - **Existing user:** enter email + password → tap **Connect**
-5. **Repeat on each device** — same URL, key, email & password on every device
+6. **Repeat on each device** — same email + password on every device
 
 Each account's data is isolated in the cloud (row-level security) — no user can see another user's data. The app works fully offline without sync; sync is optional.
 
-> **Tip:** to let new users sign up without email confirmation, turn off **Authentication → Sign In / Providers → Email → "Confirm email"** in the Supabase dashboard (or run the one-liner at the bottom of `supabase/schema.sql`).
+> **Tip:** to let new users sign up instantly without email confirmation, turn off **Authentication → Sign In / Providers → Email → "Confirm email"** in the Supabase dashboard (or run the one-liner at the bottom of `supabase/schema.sql`).
+
+> **Advanced:** users can paste a different URL + anon key directly in Settings to point at their own Supabase project (bring-your-own-Supabase).
 
 ---
 
@@ -314,7 +334,7 @@ The APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.
 Requires Android 7+ (API 24). Features back button navigation, status bar handling, and local notifications.
 
 A GitHub Actions workflow also builds the APK automatically on every push to master:
-[Build Android APK](https://github.com/kuldeep7ke/money-meva/actions/workflows/build-apk.yml)
+[Build Android APK](https://github.com/kuldeep7ke/money-meva-online/actions/workflows/build-apk.yml)
 
 ---
 
@@ -362,4 +382,4 @@ All Rights Reserved. Copyright © 2026 Money Meva.
 
 ---
 
-*Made in India. Built with Next.js, TypeScript, Tailwind CSS, Dexie.js, PouchDB, and love.*
+*Made in India. Built with Next.js, TypeScript, Tailwind CSS, Dexie.js, PouchDB, Supabase, and love.*

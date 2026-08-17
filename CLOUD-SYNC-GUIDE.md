@@ -3,6 +3,9 @@
 Cloud sync backs up your Money Meva data to a shared cloud database (Supabase) and
 keeps it in sync across your devices — privately, per account.
 
+> **Users:** see the full manual in [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md).
+> This file is the sync-specific reference, including owner/developer setup.
+
 ---
 
 ## For App Users
@@ -30,7 +33,8 @@ keeps it in sync across your devices — privately, per account.
 
 ### Data privacy
 
-- Each account has its **own private space** — no user can see another user's data
+- Each account has its **own private space** (row-level security) — no user can
+  see another user's data, and this is enforced at the database level
 - Your email + password are the only thing protecting your cloud data —
   **don't share them**
 
@@ -65,3 +69,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key from Project Settings → API>
 | "Email rate limit exceeded" | Disable "Confirm email" in Authentication settings |
 | Sign-in says invalid credentials | User must tap **Create account & sync** first (or confirm their email) |
 | Data missing on other device | Check both devices use the same email + password |
+| Realtime updates not arriving | `ALTER PUBLICATION supabase_realtime ADD TABLE sync_docs;` + `REPLICA IDENTITY FULL` (both are in `schema.sql`) |
+
+---
+
+## Migrating from the old CouchDB setup
+
+- The old sync used a **CouchDB URL** (e.g. Railway) with PouchDB replication.
+- That path was **removed in v7.1.1.34** — the Railway instance is decommissioned.
+- Local data is unaffected: connect to Supabase with the same app, and
+  `pushAllToPouch` uploads your existing local PouchDB buffer to the cloud.

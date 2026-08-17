@@ -31,8 +31,9 @@
 | | |
 |---|---|
 | 🌐 [i18n Guide](i18n.md) | Translation system |
-| 🔗 [Sync Guide](Sync.md) | PouchDB ↔ CouchDB |
-| 🔒 [Security](Security.md) | PINs & auth |
+| 📖 [User Guide](USER-GUIDE.md) | End-user manual |
+| 🔗 [Sync Guide](Sync.md) | PouchDB ↔ Supabase |
+| 🔒 [Security](Security.md) | PINs, auth & RLS |
 | 📱 [Capacitor](Capacitor.md) | Android build |
 
 ---

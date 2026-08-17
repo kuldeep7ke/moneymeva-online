@@ -21,11 +21,9 @@ docs/
 ├── Start-Here.md        ← You are here
 ├── Active-Tasks.md      ← Current work
 ├── Bug-Tracker.md       ← Open bugs
+├── USER-GUIDE.md        ← End-user manual
 ├── templates/           ← Reusable note templates
 ├── dev/                 ← Daily dev logs
-├── features/            ← Feature planning docs
-├── bugs/                ← Bug investigation notes
-├── archive/             ← Completed/old notes
 └── *.md                 ← Reference docs
 ```
 

@@ -300,7 +300,7 @@ export default function DeveloperPage() {
             <Trash2 className="h-4 w-4 text-red-500" />
             <h2 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Danger Zone</h2>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Wipes all data from local storage, IndexedDB, and remote CouchDB.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Wipes all data from local storage, IndexedDB, and your cloud sync rows (Supabase).</p>
           {cleared ? (
             <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-700 dark:text-amber-300">Data cleared. Refresh the app.</div>
           ) : (

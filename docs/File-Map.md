@@ -51,7 +51,7 @@
 |---|---|
 | `store.ts` | All CRUD operations |
 | `db.ts` | Dexie schema |
-| `pouchdb.ts` | Remote sync |
+| `pouchdb.ts` | Cloud sync (Supabase + local PouchDB buffer) |
 | `sync-notify.ts` | Sync events |
 | `pinStore.ts` | PIN management |
 | `localAuth.ts` | Multi-user auth |
@@ -62,6 +62,14 @@
 | `i18n/translations.ts` | Translation strings |
 | `i18n/index.tsx` | i18n provider |
 | `ThemeProvider.tsx` | Theme system |
+
+## Sync / Cloud
+
+| File | Purpose |
+|---|---|
+| `supabase/schema.sql` | `sync_docs` table + RLS + realtime (run in Supabase SQL Editor) |
+| `.env.local` | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (gitignored) |
+| `CLOUD-SYNC-GUIDE.md` | Owner setup + troubleshooting |
 
 ## Config
 
@@ -74,6 +82,7 @@
 | `package.json` | Dependencies |
 | `AGENTS.md` | AI instructions |
 | `From-Scratch.md` | Build guide |
+| `docs/USER-GUIDE.md` | End-user manual |
 | `data/memory-capsule.md` | AI context |
 
 ---
