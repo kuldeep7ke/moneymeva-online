@@ -75,6 +75,17 @@ function LoginForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
+  const [serverHost, setServerHost] = useState('');
+
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="app-version"]');
+    if (meta) setAppVersion(meta.getAttribute('content') || '');
+    try {
+      const cfg = getConfig();
+      if (cfg.url) setServerHost(cfg.url.replace(/^https?:\/\//, '').replace(/\/$/, ''));
+    } catch {}
+  }, []);
 
   const strength = mode === 'register' && password ? getPasswordStrength(password, '', email) : null;
 
@@ -351,6 +362,11 @@ function LoginForm() {
 
         {/* Existing Users Quick Switch */}
         {mode === 'login' && <ExistingUsers onRefresh={refreshAuth} />}
+
+        <div className="text-center space-y-0.5">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">v{appVersion} · {Capacitor.isNativePlatform() ? 'Android' : 'Web'}</p>
+          {serverHost && <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">Cloud: {serverHost}</p>}
+        </div>
         </div>
       </div>
 
