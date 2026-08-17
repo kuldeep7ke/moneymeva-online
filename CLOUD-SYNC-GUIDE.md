@@ -10,11 +10,13 @@ keeps it in sync across your devices — privately, per account.
 
 ## For App Users
 
+> **Which password?** The sync email + password are your **cloud account** credentials for Money Meva — you create them yourself the first time (any email, any password ≥ 6 chars). They are **not** your app unlock password and **not** your Google password. Signed in with Google? Use the same Google email and tap **Create account & sync** to pick a password.
+
 ### First time (create your account)
 
 1. Open **Settings → Multi-Device Sync**
 2. The Supabase URL and anon key are already filled in — don't change them
-3. Enter **your email** and a **password** (min 6 characters)
+3. Enter **your email** and a **password you choose** (min 6 characters)
 4. Tap **Create account & sync**
 5. Done — your data is now backed up to the cloud
 

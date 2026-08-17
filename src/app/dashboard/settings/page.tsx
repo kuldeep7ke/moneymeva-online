@@ -501,6 +501,12 @@ export default function SettingsPage() {
                         />
                       </div>
                     </div>
+                    <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                      This is your <strong>cloud account password</strong> — you choose it yourself (min 6 characters) and
+                      reuse it on every device. It is <strong>not</strong> your app unlock password, and <strong>not</strong>{' '}
+                      your Google password. Signed in with Google? Tap <strong>Create account &amp; sync</strong> with the
+                      same Google email to get cloud credentials.
+                    </p>
                   </>
                 )}
 
@@ -557,7 +563,7 @@ export default function SettingsPage() {
         <Reveal delay={300}>
           <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-4 space-y-2">
             <p className="text-xs text-sky-700 dark:text-sky-400 leading-relaxed">
-              Enter the same Supabase project URL, anon key, and your email + password on each device to sync all your data across devices. Each account gets its own private data space. First time here? Tap <strong>Create account &amp; sync</strong>. Run <code className="font-mono">supabase/schema.sql</code> in your project&apos;s SQL Editor once before connecting. Data syncs in real-time once connected.
+              Enter the same Supabase project URL, anon key, and your email + password on each device to sync all your data across devices. Each account gets its own private data space. First time here? Tap <strong>Create account &amp; sync</strong> — you pick the email + password (min 6 characters); that is your cloud account. Run <code className="font-mono">supabase/schema.sql</code> in your project&apos;s SQL Editor once before connecting. Data syncs in real-time once connected.
             </p>
           </div>
         </Reveal>

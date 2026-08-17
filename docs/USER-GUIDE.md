@@ -85,18 +85,32 @@ Three transaction types: **Income · Expense · Investment**.
 
 > Sync backs up your data to a private cloud space and keeps all your devices in sync. Requires internet. Works independently of local usage — the app always works offline.
 
+### 5.0 Which password is which?
+
+The app has **three different passwords** — don't mix them up:
+
+| Password | Where you set it | Used for |
+|---|---|---|
+| **App unlock password** | First launch / Onboarding | Opening the app on this device only |
+| **Cloud sync password** | Settings → Multi-Device Sync → "Create account & sync" (you choose it, min 6 characters) | Signing in to your cloud account to sync on any device |
+| **Google password** | Google account | Signing in with "Continue with Google" — the app never sees it |
+
+The sync email + password are **your cloud account credentials** — a fresh account you create for Money Meva. You are not asked for (and never need) a Supabase dashboard password or your Google password. If you signed in with Google, tap **Create account & sync** with the same Google email to create the cloud account (you pick any password).
+
 ### 5.1 Create your cloud account (first device)
 
 1. Open **Settings → Multi-Device Sync**.
 2. The **Supabase URL** and **anon key** are already filled in — leave them as-is (the app is pre-configured).
-3. Enter **your email** + **password** (min 6 characters).
+3. Enter **your email** + a **new password you choose** (min 6 characters) — this becomes your cloud account.
 4. Tap **Create account & sync**.
 5. Done — your data is now backed up to the cloud.
+
+> Already signed in with Google? Use the **same Google email** and tap **Create account & sync** — you only pick the password; it links to your Google account.
 
 ### 5.2 Add another device
 
 1. On the second device, open **Settings → Multi-Device Sync**.
-2. Enter the **same email + password**.
+2. Enter the **same email + password** (the cloud account you created in 5.1).
 3. Tap **Connect**.
 4. Your cloud data appears on this device. From now on, changes sync live between devices.
 

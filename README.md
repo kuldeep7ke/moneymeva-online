@@ -307,8 +307,9 @@ Cloud sync uses **Supabase** (Postgres + Auth + Realtime) — every user gets th
    ```
    then build (`npm run build`). The URL + key are embedded; users only enter email + password.
 5. **In-app** — Settings → Multi-Device Sync:
-   - **New user:** enter email + password → tap **Create account & sync**
-   - **Existing user:** enter email + password → tap **Connect**
+   - **New user:** enter an email + a **password you choose** (min 6 characters — this is your *cloud account* password, unrelated to the app unlock password or your Google password) → tap **Create account & sync**
+   - **Existing user:** enter the same email + password → tap **Connect**
+   - **Signed in with Google:** use the same Google email and tap **Create account & sync** to pick a password for that account
 6. **Repeat on each device** — same email + password on every device
 
 Each account's data is isolated in the cloud (row-level security) — no user can see another user's data. The app works fully offline without sync; sync is optional.
