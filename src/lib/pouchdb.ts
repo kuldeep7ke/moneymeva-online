@@ -24,13 +24,24 @@ async function ensurePouch() {
   return _PouchDB;
 }
 
+function isLegacyCouchDbUrl(url: string): boolean {
+  const u = (url || '').trim();
+  if (!u) return false;
+  if (/^https?:\/\/[^/@]+@[^/]+/i.test(u)) return true;
+  return /couchdb|railway|cloudant|iriscouch/i.test(u);
+}
+
 export function getConfig() {
   const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   try {
-    const url = localStorage.getItem(LS_URL) || envUrl;
+    let url = localStorage.getItem(LS_URL) || '';
+    if (isLegacyCouchDbUrl(url)) {
+      localStorage.removeItem(LS_URL);
+      url = '';
+    }
     const key = localStorage.getItem(LS_KEY) || envKey;
-    return { url, key };
+    return { url: url || envUrl, key: key || envKey };
   } catch { return { url: envUrl, key: envKey }; }
 }
 
@@ -46,11 +57,18 @@ const LS_URLS_HISTORY = 'mm_pouch_urls';
 export function getSyncUrlHistory(): string[] {
   try {
     const raw = localStorage.getItem(LS_URLS_HISTORY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed: string[] = JSON.parse(raw);
+    const kept = parsed.filter(u => !isLegacyCouchDbUrl(u));
+    if (kept.length !== parsed.length) {
+      localStorage.setItem(LS_URLS_HISTORY, JSON.stringify(kept));
+    }
+    return kept;
   } catch { return []; }
 }
 
 export function saveSyncUrlHistory(url: string) {
+  if (isLegacyCouchDbUrl(url)) return;
   const list = getSyncUrlHistory().filter(u => u !== url);
   list.unshift(url);
   const kept = list.slice(0, 5);
@@ -148,6 +166,46 @@ export async function signUpUser(url: string, key: string, email: string, passwo
     return { ok: true, needsConfirmation };
   } catch (e: any) {
     return { ok: false, error: e?.message || String(e || 'Sign up failed') };
+  }
+}
+
+// ─── Google OAuth ──────────────────────────────────────────────
+
+export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string }> {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key) {
+    return { ok: false, error: 'Cloud sync is not configured — set the Supabase URL and anon key first (Settings → Multi-Device Sync)' };
+  }
+  try {
+    const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
+    const { error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || String(e || 'Google sign-in failed') };
+  }
+}
+
+export async function getOAuthSessionUser(): Promise<{ email: string; fullName: string } | null> {
+  const cfg = getConfig();
+  if (!cfg.url || !cfg.key) return null;
+  try {
+    const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
+    let user: any = null;
+    for (let i = 0; i < 10; i++) {
+      const { data } = await client.auth.getSession();
+      if (data.session?.user) { user = data.session.user; break; }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    if (!user || !user.email) return null;
+    const meta = user.user_metadata || {};
+    const fullName = meta.full_name || meta.name || meta.email || '';
+    return { email: user.email, fullName };
+  } catch {
+    return null;
   }
 }
 

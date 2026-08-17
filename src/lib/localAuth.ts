@@ -143,6 +143,42 @@ export function loginUser(email: string, password: string): { user: Omit<LocalUs
   return { user: setActiveUser(user.id) };
 }
 
+export function registerGoogleUser(email: string, fullName: string): { user: Omit<LocalUser, 'password'> | null; error?: string } {
+  const users = getUsers();
+  const existing = users.find(u => u.email === email);
+  if (existing) {
+    logActivity('login', `Google: ${email}`);
+    return { user: setActiveUser(existing.id) };
+  }
+  const now = new Date().toISOString();
+  const newUser: LocalUser = {
+    id: 'user_' + Date.now(),
+    email,
+    password: 'google-oauth-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    full_name: fullName,
+    phone: '',
+    currency: 'INR',
+    monthly_income: '',
+    primary_goal: '',
+    occupation: '',
+    business_name: '',
+    business_type: '',
+    onboarding_completed: false,
+    onboarding_step: 1,
+    terms_accepted: false,
+    createdAt: now,
+    lastLoginAt: now,
+  };
+  users.push(newUser);
+  saveUsers(users);
+  setUserId(newUser.id);
+  const { password: removedPassword, ...safeUser } = newUser;
+  void removedPassword;
+  localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+  logActivity('register', `Google: ${email}`);
+  return { user: safeUser };
+}
+
 export function switchUser(userId: string): boolean {
   return Boolean(setActiveUser(userId));
 }

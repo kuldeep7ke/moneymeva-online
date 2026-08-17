@@ -61,6 +61,24 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key from Project Settings → API>
 > Users can also paste a different URL + anon key in Settings manually
 > (overrides the baked-in values) — e.g. for testing another project.
 
+### Enabling "Continue with Google" (login page)
+
+The app has a Google sign-in button on the login page (web/PWA only — not in the Android APK).
+
+1. **Google Cloud Console** (https://console.cloud.google.com) → APIs & Services →
+   Credentials → **Create Credentials → OAuth client ID** (Application type: Web application):
+   - Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
+   - Copy the **Client ID** + **Client Secret**
+2. **Supabase dashboard** → Authentication → Providers → **Google** → Enable:
+   - Paste Client ID + Client Secret → Save
+3. **Supabase dashboard** → Authentication → URL Configuration → add the app URL to
+   **Redirect URLs** (e.g. `http://localhost:3000/login`, `https://<your-domain>/login`)
+4. Done — tapping "Continue with Google" creates/connects the cloud account and
+   logs the user into the app automatically (new users go to onboarding).
+
+> Google sign-in is only available in browsers (web/PWA). In the Android APK the
+> button is disabled with a hint to use email & password.
+
 ### Troubleshooting
 
 | Symptom | Fix |
