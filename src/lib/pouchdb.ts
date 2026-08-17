@@ -213,6 +213,51 @@ function readStoredOAuthUser(cfg: { url: string; key: string }): { email: string
   }
 }
 
+function parseOAuthUserFromHash(): { email: string; fullName: string } | null {
+  try {
+    const hash = window.location.hash;
+    if (!hash) return null;
+    const params = new URLSearchParams(hash.slice(1));
+    const token = params.get('access_token');
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const email = typeof payload?.email === 'string' ? payload.email : '';
+    if (!email) return null;
+    const meta = payload?.user_metadata || {};
+    const fullName = meta.full_name || meta.name || email;
+    return { email, fullName };
+  } catch {
+    return null;
+  }
+}
+
+export function persistOAuthSession(cfg: { url: string; key: string }): void {
+  try {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const params = new URLSearchParams(hash.slice(1));
+    const accessToken = params.get('access_token');
+    if (!accessToken) return;
+    const ref = cfg.url.replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
+    const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const session = {
+      access_token: accessToken,
+      token_type: params.get('token_type') || 'bearer',
+      expires_in: parseInt(params.get('expires_in') || '3600', 10),
+      expires_at: parseInt(params.get('expires_at') || '0', 10),
+      refresh_token: params.get('refresh_token') || '',
+      user: {
+        id: typeof payload?.sub === 'string' ? payload.sub : '',
+        email: typeof payload?.email === 'string' ? payload.email : '',
+        user_metadata: payload?.user_metadata || {},
+      },
+    };
+    window.localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(session));
+  } catch {
+    // ignore
+  }
+}
+
 export async function getOAuthSessionUser(): Promise<{ email: string; fullName: string } | null> {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) return null;
@@ -221,7 +266,13 @@ export async function getOAuthSessionUser(): Promise<{ email: string; fullName: 
     console.log('[OAuth] session recovered from storage', direct.email);
     return direct;
   }
-  console.log('[OAuth] not in storage yet — polling client session');
+  const fromHash = parseOAuthUserFromHash();
+  if (fromHash) {
+    console.log('[OAuth] session parsed from URL hash', fromHash.email);
+    persistOAuthSession(cfg);
+    return fromHash;
+  }
+  console.log('[OAuth] not in storage or hash — polling client session');
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
     let user: any = null;
