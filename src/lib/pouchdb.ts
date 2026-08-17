@@ -423,19 +423,20 @@ async function applyRemoteRow(row: any): Promise<boolean> {
   } catch { return false; }
 }
 
-async function pullRemoteToLocal(): Promise<{ pulled: number }> {
-  if (!localDB || !supabase) return { pulled: 0 };
+async function pullRemoteToLocal(): Promise<{ pulled: number; total: number }> {
+  if (!localDB || !supabase) return { pulled: 0, total: 0 };
   let pulled = 0;
   try {
     const { data: rows, error } = await supabase.from(SYNC_TABLE).select('*').order('updated_at', { ascending: true });
-    if (error || !rows) return { pulled: 0 };
+    if (error || !rows) return { pulled: 0, total: 0 };
     for (const row of rows) {
       if (await applyRemoteRow(row)) pulled++;
     }
+    return { pulled, total: rows.length };
   } catch (e: any) {
     console.warn('[Sync] Pull failed:', e?.message || e);
   }
-  return { pulled };
+  return { pulled: 0, total: 0 };
 }
 
 export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number; pushErr?: string }> {
@@ -503,8 +504,7 @@ export async function removeDoc(entity: EntityType, id: string) {
 
 export async function pullAll(): Promise<any[]> {
   if (!localDB || !supabase) return [];
-  const { pulled } = await pullRemoteToLocal();
-  if (pulled === 0) return [];
+  await pullRemoteToLocal();
   try {
     const result = await localDB.allDocs({ include_docs: true });
     return result.rows
