@@ -6,7 +6,7 @@
 - `pouchdb.ts`: `signUpUser`, `connectRemote(url, key, email, password)`, user-scoped upserts (`onConflict user_id,id`), realtime subscription, 30s reconnect
 - Settings → Multi-Device Sync: URL + anon key auto-filled from build env; users only enter email + password; "Create account & sync" / "Connect"
 - Multi-user isolation verified E2E (two accounts, RLS blocks cross-account reads/writes)
-- New GitHub repo: `money-meva-online` (private). Old repo `money-meva` frozen at `dc965eb` (pure CouchDB).
+- New GitHub repo: `moneymeva-online` (private). Old repo `money-meva` frozen at `dc965eb` (pure CouchDB).
 - Docs: USER-GUIDE, Sync guide, Security (RLS), README, memory capsule updated
 
 ## v7.1.1.28

@@ -1,7 +1,7 @@
 # Money Meva — Memory Capsule
 
 **Version:** v7.1.1.34 (incremented on every build)
-**Repository:** github.com/kuldeep7ke/money-meva-online (private, Supabase sync)
+**Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/money-meva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
@@ -274,7 +274,7 @@ npm run android:apk          # build → version → gradle assembleDebug
 - **`pouchdb.ts`**: `signUpUser`, `connectRemote(url, key, email, password)`, `checkConnection`, `ensureConnected`, `disconnectRemote`, user-scoped `putDoc`/`removeDoc` (push upsert `onConflict user_id,id`), realtime subscription, `mm_sb_session`/`mm_sb_url`/`mm_sb_key` in localStorage, env fallback in `getConfig()`.
 - **Settings**: URL + anon key auto-filled from `.env.local`; email + password inputs; "Create account & sync" / "Connect" / "Sync Now" / "Disconnect".
 - **Verified E2E**: ping, push, pull, conflict-update, realtime event, delete, alice/bob isolation, RLS delete-block. All test users cleaned up.
-- **Repo split**: new private repo `money-meva-online`; origin retargeted; old `money-meva` untouched at `dc965eb`.
+- **Repo split**: new private repo `moneymeva-online`; origin retargeted; old `money-meva` untouched at `dc965eb`.
 - **Docs**: USER-GUIDE.md, CLOUD-SYNC-GUIDE.md, updated Sync/Security/Architecture/Data-Flow/File-Map, README, memory capsule.
 
 ### v7.1.1.33 (2026-08-03)
