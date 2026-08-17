@@ -25,9 +25,13 @@ async function ensurePouch() {
 }
 
 export function getConfig() {
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   try {
-    return { url: localStorage.getItem(LS_URL) || '', key: localStorage.getItem(LS_KEY) || '' };
-  } catch { return { url: '', key: '' }; }
+    const url = localStorage.getItem(LS_URL) || envUrl;
+    const key = localStorage.getItem(LS_KEY) || envKey;
+    return { url, key };
+  } catch { return { url: envUrl, key: envKey }; }
 }
 
 function saveConfig(url: string, key: string) {
