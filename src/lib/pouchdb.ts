@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SITE_URL } from '@/lib/env';
 
 const LS_URL = 'mm_pouch_url';
 const LS_KEY = 'mm_sync_key';
@@ -33,8 +34,8 @@ function isLegacyCouchDbUrl(url: string): boolean {
 }
 
 export function getConfig() {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const envUrl = SUPABASE_URL || '';
+  const envKey = SUPABASE_ANON_KEY || '';
   try {
     let url = localStorage.getItem(LS_URL) || '';
     if (isLegacyCouchDbUrl(url)) {
@@ -180,7 +181,7 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string;
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
     const isNative = Capacitor.isNativePlatform();
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, '');
+    const siteUrl = (SITE_URL || window.location.origin).replace(/\/$/, '');
     const redirectTo = isNative ? 'moneymeva://login' : `${siteUrl}/login`;
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
