@@ -194,22 +194,48 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string 
   }
 }
 
+function readStoredOAuthUser(cfg: { url: string; key: string }): { email: string; fullName: string } | null {
+  try {
+    const ref = cfg.url.replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
+    const raw = window.localStorage.getItem(`sb-${ref}-auth-token`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const token = typeof parsed?.access_token === 'string' ? parsed.access_token : '';
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const email = typeof payload?.email === 'string' ? payload.email : '';
+    if (!email) return null;
+    const meta = payload?.user_metadata || {};
+    const fullName = meta.full_name || meta.name || email;
+    return { email, fullName };
+  } catch {
+    return null;
+  }
+}
+
 export async function getOAuthSessionUser(): Promise<{ email: string; fullName: string } | null> {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) return null;
+  const direct = readStoredOAuthUser(cfg);
+  if (direct) {
+    console.log('[OAuth] session recovered from storage', direct.email);
+    return direct;
+  }
+  console.log('[OAuth] not in storage yet — polling client session');
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
     let user: any = null;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const { data } = await client.auth.getSession();
       if (data.session?.user) { user = data.session.user; break; }
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 250));
     }
     if (!user || !user.email) return null;
     const meta = user.user_metadata || {};
     const fullName = meta.full_name || meta.name || meta.email || '';
     return { email: user.email, fullName };
-  } catch {
+  } catch (e) {
+    console.error('[OAuth] session poll failed', e);
     return null;
   }
 }

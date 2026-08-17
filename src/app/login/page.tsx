@@ -78,6 +78,8 @@ function LoginForm() {
   const strength = mode === 'register' && password ? getPasswordStrength(password, '', email) : null;
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (/([#&])access_token=/.test(window.location.hash)) return;
     const session = getSession().user;
     if (session) {
       if (!session.onboarding_completed) {
@@ -108,35 +110,43 @@ function LoginForm() {
     const hash = window.location.hash;
     if (!/([#&])access_token=|([#&])error=/.test(hash)) return;
     (async () => {
-      const params = new URLSearchParams(hash.slice(1));
-      const oauthError = params.get('error') || params.get('error_description');
-      if (oauthError) {
-        setError('Google sign-in was cancelled or failed. Please try again.');
+      try {
+        console.log('[OAuth] processing return hash');
+        const params = new URLSearchParams(hash.slice(1));
+        const oauthError = params.get('error') || params.get('error_description');
+        if (oauthError) {
+          setError('Google sign-in was cancelled or failed. Please try again.');
+          window.history.replaceState(null, '', window.location.pathname);
+          setSubmitting(false);
+          return;
+        }
+        const sessionUser = await getOAuthSessionUser();
         window.history.replaceState(null, '', window.location.pathname);
+        if (!sessionUser) {
+          setError('Google sign-in did not return a session. Please try again.');
+          setSubmitting(false);
+          return;
+        }
+        console.log('[OAuth] session user', sessionUser.email);
+        const { user } = registerGoogleUser(sessionUser.email, sessionUser.fullName);
+        if (!user) {
+          setError('Could not create your profile. Please try again.');
+          setSubmitting(false);
+          return;
+        }
+        const cfg = getConfig();
+        if (cfg.url && cfg.key) {
+          const { ok } = await connectRemote(cfg.url, cfg.key);
+          if (ok) { try { await manualSync(); } catch {} }
+        }
         setSubmitting(false);
-        return;
-      }
-      const sessionUser = await getOAuthSessionUser();
-      window.history.replaceState(null, '', window.location.pathname);
-      if (!sessionUser) {
-        setError('Google sign-in did not return a session. Please try again.');
+        refreshAuth();
+        router.replace(user.onboarding_completed ? '/dashboard' : '/onboarding');
+      } catch (e) {
+        console.error('[OAuth] flow error', e);
+        setError('Google sign-in could not be completed. Please try again.');
         setSubmitting(false);
-        return;
       }
-      const { user } = registerGoogleUser(sessionUser.email, sessionUser.fullName);
-      if (!user) {
-        setError('Could not create your profile. Please try again.');
-        setSubmitting(false);
-        return;
-      }
-      const cfg = getConfig();
-      if (cfg.url && cfg.key) {
-        const { ok } = await connectRemote(cfg.url, cfg.key);
-        if (ok) { try { await manualSync(); } catch {} }
-      }
-      setSubmitting(false);
-      refreshAuth();
-      router.replace(user.onboarding_completed ? '/dashboard' : '/onboarding');
     })();
   }, [router, refreshAuth]);
 
