@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 
 const LS_URL = 'mm_pouch_url';
 const LS_KEY = 'mm_sync_key';
@@ -171,17 +172,22 @@ export async function signUpUser(url: string, key: string, email: string, passwo
 
 // ─── Google OAuth ──────────────────────────────────────────────
 
-export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string }> {
+export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string; url?: string }> {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) {
     return { ok: false, error: 'Cloud sync is not configured — set the Supabase URL and anon key first (Settings → Multi-Device Sync)' };
   }
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
+    const isNative = Capacitor.isNativePlatform();
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, '');
-    const { error } = await client.auth.signInWithOAuth({
+    const redirectTo = isNative ? 'moneymeva://login' : `${siteUrl}/login`;
+    const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${siteUrl}/login` },
+      options: {
+        redirectTo,
+        ...(isNative ? { skipBrowserRedirect: true } : {}),
+      },
     });
     if (error) {
       if (/provider is not enabled/i.test(error.message)) {
@@ -189,9 +195,22 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string 
       }
       return { ok: false, error: error.message };
     }
+    if (isNative && data.url) return { ok: true, url: data.url };
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || String(e || 'Google sign-in failed') };
+  }
+}
+
+function oauthParamsFromUrl(url: string): URLSearchParams | null {
+  try {
+    const fragment = url.split('#')[1] || '';
+    if (fragment) return new URLSearchParams(fragment);
+    const query = url.split('?')[1] || '';
+    if (query) return new URLSearchParams(query);
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -214,11 +233,8 @@ function readStoredOAuthUser(cfg: { url: string; key: string }): { email: string
   }
 }
 
-function parseOAuthUserFromHash(): { email: string; fullName: string } | null {
+function parseOAuthUserFromParams(params: URLSearchParams): { email: string; fullName: string } | null {
   try {
-    const hash = window.location.hash;
-    if (!hash) return null;
-    const params = new URLSearchParams(hash.slice(1));
     const token = params.get('access_token');
     if (!token) return null;
     const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
@@ -232,21 +248,20 @@ function parseOAuthUserFromHash(): { email: string; fullName: string } | null {
   }
 }
 
-export function persistOAuthSession(cfg: { url: string; key: string }): void {
+export function persistOAuthSession(cfg: { url: string; key: string }, params?: URLSearchParams): void {
   try {
-    const hash = window.location.hash;
-    if (!hash) return;
-    const params = new URLSearchParams(hash.slice(1));
-    const accessToken = params.get('access_token');
+    const source = params || oauthParamsFromUrl(window.location.href) || undefined;
+    if (!source) return;
+    const accessToken = source.get('access_token');
     if (!accessToken) return;
     const ref = cfg.url.replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
     const payload = JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
     const session = {
       access_token: accessToken,
-      token_type: params.get('token_type') || 'bearer',
-      expires_in: parseInt(params.get('expires_in') || '3600', 10),
-      expires_at: parseInt(params.get('expires_at') || '0', 10),
-      refresh_token: params.get('refresh_token') || '',
+      token_type: source.get('token_type') || 'bearer',
+      expires_in: parseInt(source.get('expires_in') || '3600', 10),
+      expires_at: parseInt(source.get('expires_at') || '0', 10),
+      refresh_token: source.get('refresh_token') || '',
       user: {
         id: typeof payload?.sub === 'string' ? payload.sub : '',
         email: typeof payload?.email === 'string' ? payload.email : '',
@@ -259,7 +274,7 @@ export function persistOAuthSession(cfg: { url: string; key: string }): void {
   }
 }
 
-export async function getOAuthSessionUser(): Promise<{ email: string; fullName: string } | null> {
+export async function getOAuthSessionUser(url?: string): Promise<{ email: string; fullName: string } | null> {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) return null;
   const direct = readStoredOAuthUser(cfg);
@@ -267,13 +282,14 @@ export async function getOAuthSessionUser(): Promise<{ email: string; fullName: 
     console.log('[OAuth] session recovered from storage', direct.email);
     return direct;
   }
-  const fromHash = parseOAuthUserFromHash();
-  if (fromHash) {
-    console.log('[OAuth] session parsed from URL hash', fromHash.email);
-    persistOAuthSession(cfg);
-    return fromHash;
+  const params = url ? oauthParamsFromUrl(url) : oauthParamsFromUrl(window.location.href);
+  const fromUrl = params ? parseOAuthUserFromParams(params) : null;
+  if (fromUrl) {
+    console.log('[OAuth] session parsed from URL', fromUrl.email);
+    persistOAuthSession(cfg, params || undefined);
+    return fromUrl;
   }
-  console.log('[OAuth] not in storage or hash — polling client session');
+  console.log('[OAuth] not in storage or URL — polling client session');
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
     let user: any = null;

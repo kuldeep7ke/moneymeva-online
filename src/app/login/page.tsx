@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { validatePin, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { useAuth } from '@/components/AuthProvider';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 
 function getPasswordStrength(password: string, name: string, email: string): { score: number; label: string; color: string; error?: string } {
   let error: string | undefined;
@@ -105,62 +106,83 @@ function LoginForm() {
     return () => { handler.then(h => h.remove()); };
   }, []);
 
+  const processOAuthUrl = useCallback(async (url: string) => {
+    try {
+      console.log('[OAuth] processing return URL', url.slice(0, 60));
+      const fragment = url.split('#')[1];
+      const params = new URLSearchParams(fragment || url.split('?')[1] || '');
+      const oauthError = params.get('error') || params.get('error_description');
+      if (oauthError) {
+        setError('Google sign-in was cancelled or failed. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      const sessionUser = await getOAuthSessionUser(url);
+      if (!Capacitor.isNativePlatform()) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      if (!sessionUser) {
+        setError('Google sign-in did not return a session. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      console.log('[OAuth] session user', sessionUser.email);
+      const { user } = registerGoogleUser(sessionUser.email, sessionUser.fullName);
+      if (!user) {
+        setError('Could not create your profile. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      const cfg = getConfig();
+      if (cfg.url && cfg.key) {
+        const { ok } = await connectRemote(cfg.url, cfg.key);
+        if (ok) { try { await manualSync(); } catch {} }
+      }
+      setSubmitting(false);
+      refreshAuth();
+      router.replace(user.onboarding_completed ? '/dashboard' : '/onboarding');
+    } catch (e) {
+      console.error('[OAuth] flow error', e);
+      setError('Google sign-in could not be completed. Please try again.');
+      setSubmitting(false);
+    }
+  }, [router, refreshAuth]);
+
   useEffect(() => {
     if (typeof window === 'undefined' || Capacitor.isNativePlatform()) return;
     const hash = window.location.hash;
     if (!/([#&])access_token=|([#&])error=/.test(hash)) return;
-    (async () => {
-      try {
-        console.log('[OAuth] processing return hash');
-        const params = new URLSearchParams(hash.slice(1));
-        const oauthError = params.get('error') || params.get('error_description');
-        if (oauthError) {
-          setError('Google sign-in was cancelled or failed. Please try again.');
-          window.history.replaceState(null, '', window.location.pathname);
-          setSubmitting(false);
-          return;
-        }
-        const sessionUser = await getOAuthSessionUser();
-        window.history.replaceState(null, '', window.location.pathname);
-        if (!sessionUser) {
-          setError('Google sign-in did not return a session. Please try again.');
-          setSubmitting(false);
-          return;
-        }
-        console.log('[OAuth] session user', sessionUser.email);
-        const { user } = registerGoogleUser(sessionUser.email, sessionUser.fullName);
-        if (!user) {
-          setError('Could not create your profile. Please try again.');
-          setSubmitting(false);
-          return;
-        }
-        const cfg = getConfig();
-        if (cfg.url && cfg.key) {
-          const { ok } = await connectRemote(cfg.url, cfg.key);
-          if (ok) { try { await manualSync(); } catch {} }
-        }
-        setSubmitting(false);
-        refreshAuth();
-        router.replace(user.onboarding_completed ? '/dashboard' : '/onboarding');
-      } catch (e) {
-        console.error('[OAuth] flow error', e);
-        setError('Google sign-in could not be completed. Please try again.');
-        setSubmitting(false);
-      }
-    })();
-  }, [router, refreshAuth]);
+    processOAuthUrl(window.location.href);
+  }, [processOAuthUrl]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handler = App.addListener('appUrlOpen', (event) => {
+      const u = event.url;
+      if (!/^moneymeva:\/\/login/.test(u)) return;
+      setError('');
+      setSubmitting(true);
+      processOAuthUrl(u);
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, [processOAuthUrl]);
 
   const handleGoogleLogin = async () => {
-    if (Capacitor.isNativePlatform()) {
-      setError('Google sign-in is available on web — use email & password in the app for now.');
-      return;
-    }
     setError('');
     setSubmitting(true);
-    const { ok, error } = await signInWithGoogle();
+    const { ok, error, url } = await signInWithGoogle();
     if (!ok) {
       setError(error || 'Google sign-in failed');
       setSubmitting(false);
+      return;
+    }
+    if (url) {
+      try {
+        await Browser.open({ url });
+      } catch (e) {
+        setError('Could not open the browser for Google sign-in.');
+        setSubmitting(false);
+      }
     }
   };
 
