@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { getSession } from '@/lib/localAuth';
 import { useTheme, getBrands } from '@/components/ThemeProvider';
 import { useToast } from '@/components/Toast';
+import { createProgressOverlay } from '@/lib/progressOverlay';
 
 export default function DeveloperPage() {
   const toast = useToast();
@@ -55,16 +56,19 @@ export default function DeveloperPage() {
     if (!confirm('Delete ALL data? This cannot be undone.')) return;
     if (!confirm('Are you absolutely sure? Everything will be erased.')) return;
     setClearing(true);
+    const overlay = createProgressOverlay('Clearing data…');
     try {
+      overlay.update('Clearing remote data…', 1, 3);
       await clearRemote();
+      overlay.update('Clearing local database…', 2, 3);
       const { clearAllDB } = await import('@/lib/store');
-      await clearAllDB();
+      await clearAllDB((label, done, total) => overlay.update(label, done, total));
       setClearing(false);
       setCleared(true);
-      setTimeout(() => window.location.reload(), 1500);
+      overlay.finish('All data cleared — reloading', () => window.location.reload());
     } catch {
       setClearing(false);
-      toast('Failed to clear data.', 'error');
+      overlay.error('Failed to clear data', () => window.location.reload());
     }
   };
 
@@ -83,20 +87,29 @@ export default function DeveloperPage() {
 
   const handleFileImport = async () => {
     if (!importData) { setStatus('No file loaded.'); return; }
+    const overlay = createProgressOverlay('Importing data…');
     try {
       const tableMap: Record<string, string> = {
         transactions: 'transactions', partners: 'partners', recurring: 'recurring',
         budgets: 'budgets', reminders: 'reminders', adjustments: 'adjustments',
         goals: 'goals', todos: 'todos', mutation_log: 'mutation_log',
       };
-      for (const [key, tableName] of Object.entries(tableMap)) {
+      const entries = Object.entries(tableMap).filter(([key]) => Array.isArray(importData[key]) && importData[key].length > 0);
+      const total = entries.reduce((n, [, table]) => n + importData[table].length, 0);
+      let done = 0;
+      for (const [key, tableName] of entries) {
         const items = importData[key];
-        if (!Array.isArray(items) || items.length === 0) continue;
+        done += items.length;
+        overlay.update(`Importing ${key}…`, done, Math.max(total, 1));
+        setStatus(`Importing ${key}… (${done.toLocaleString()} / ${total.toLocaleString()})`);
         await (db as any)[tableName].bulkPut(items);
       }
-      setStatus('Import complete. Redirecting...');
-      setTimeout(() => router.push('/dashboard'), 1500);
-    } catch { setStatus('Import failed.'); }
+      setStatus(`Import complete — ${total.toLocaleString()} items. Redirecting...`);
+      overlay.finish(`Import complete — ${total.toLocaleString()} items`, () => router.push('/dashboard'));
+    } catch {
+      setStatus('Import failed.');
+      overlay.error('Import failed', () => router.push('/dashboard'));
+    }
   };
 
   const loadDbStats = async () => {
@@ -133,11 +146,17 @@ export default function DeveloperPage() {
 
   const handleExportRaw = async () => {
     const tables = ['transactions','partners','recurring','budgets','reminders','adjustments','goals','todos','mutation_log'] as const;
+    const overlay = createProgressOverlay('Exporting raw data…');
     const data: Record<string, any> = {};
+    const total = tables.length;
+    let done = 0;
     for (const t of tables) {
+      done++;
+      overlay.update(`Exporting ${t}…`, done, total);
       try { data[t] = await (db[t] as any).toArray(); } catch { data[t] = []; }
     }
     downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `money-meva-raw-${new Date().toISOString().split('T')[0]}.json`);
+    overlay.finish('Raw export complete — check downloads', () => overlay.close());
   };
 
   const handleBrandCycle = () => {

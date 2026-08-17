@@ -11,6 +11,7 @@ import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
+import { createProgressOverlay } from '@/lib/progressOverlay';
 import Reveal from '@/components/Reveal';
 
 export default function ArchivePage() {
@@ -43,9 +44,15 @@ export default function ArchivePage() {
       permanentDeleteArchivedItem(item.type as ArchiveItemType, item.id);
       logActivity('entry_deleted', `${item.type} — ${item.label}`);
     } else if (actionType === 'clear') {
-      await permanentDeleteAllArchived();
-      logActivity('entry_deleted', 'Archive cleared — all items');
-      setConfirmClear(false);
+      const overlay = createProgressOverlay('Clearing archive…');
+      try {
+        await permanentDeleteAllArchived();
+        logActivity('entry_deleted', 'Archive cleared — all items');
+        setConfirmClear(false);
+        overlay.finish('Archive cleared — all items deleted', () => overlay.close());
+      } catch {
+        overlay.error('Failed to clear archive', () => overlay.close());
+      }
     }
     refresh();
   };

@@ -146,9 +146,20 @@ export async function initDB() {
   autoCleanupCompletedTodos();
   initialized = true;
   // Auto-process remote changes when live sync detects them
-  onRemoteChange(async () => {
-    const { ok } = await manualSync();
-    if (ok) await processRemoteChanges();
+  let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;
+  let remoteChangeRunning = false;
+  onRemoteChange(() => {
+    if (remoteChangeTimer) clearTimeout(remoteChangeTimer);
+    remoteChangeTimer = setTimeout(async () => {
+      if (remoteChangeRunning) return;
+      remoteChangeRunning = true;
+      try {
+        const { ok } = await manualSync();
+        if (ok) await processRemoteChanges();
+      } finally {
+        remoteChangeRunning = false;
+      }
+    }, 1500);
   });
   // Auto-sync every 12 hours if connected
   setInterval(async () => {
@@ -174,19 +185,28 @@ export async function initDB() {
 }
 
 // Re-init (used by Clear All Data)
-export async function clearAllDB() {
-  await Promise.all([
-    db.transactions.clear(),
-    db.partners.clear(),
-    db.recurring.clear(),
-    db.budgets.clear(),
-    db.reminders.clear(),
-    db.adjustments.clear(),
-    db.goals.clear(),
-    db.todos.clear(),
-    db.mutation_log.clear(),
-    clearPouch(),
-  ]);
+export async function clearAllDB(onProgress?: (label: string, done: number, total: number) => void) {
+  const tables: [string, { clear(): Promise<unknown> }][] = [
+    ['transactions', db.transactions],
+    ['partners', db.partners],
+    ['recurring', db.recurring],
+    ['budgets', db.budgets],
+    ['reminders', db.reminders],
+    ['adjustments', db.adjustments],
+    ['goals', db.goals],
+    ['todos', db.todos],
+    ['mutation log', db.mutation_log],
+  ];
+  const total = tables.length + 1;
+  let done = 0;
+  for (const [name, table] of tables) {
+    done++;
+    onProgress?.(`Clearing ${name}…`, done, total);
+    try { await table.clear(); } catch {}
+  }
+  done++;
+  onProgress?.('Clearing local sync database…', done, total);
+  try { await clearPouch(); } catch {}
   cache.transactions = [];
   cache.partners = [];
   cache.recurring = [];

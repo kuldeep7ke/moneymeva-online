@@ -37,22 +37,27 @@ export async function exportSummaryExcel(data: { month: string; income: number; 
   } catch (e) { console.error('Excel export failed:', e); }
 }
 
-export async function exportAllDataExcel() {
+export async function exportAllDataExcel(onProgress?: (label: string, pct: number) => void) {
   try {
+    onProgress?.('Reading transactions…', 15);
     const txs = getTransactions();
+    onProgress?.('Building spreadsheet…', 50);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(txs.map(t => ({
       Date: t.date, Type: t.type, Category: t.category, Description: t.description, Amount: t.amount,
       PartnerId: t.partnerAccountId || '', Recurring: t.isRecurring ? 'Yes' : 'No',
     })));
     XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+    onProgress?.('Generating file…', 85);
     const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    onProgress?.('Saving file…', 100);
     await downloadBlob(new Blob([wbOut], { type: 'application/octet-stream' }), 'money-meva-all-data.xlsx');
   } catch (e) { console.error('Excel export failed:', e); }
 }
 
-export async function exportAllDataPDF() {
+export async function exportAllDataPDF(onProgress?: (label: string, pct: number) => void) {
   try {
+    onProgress?.('Reading transactions…', 15);
     const txs = getTransactions();
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -61,11 +66,13 @@ export async function exportAllDataPDF() {
     doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 30);
     doc.text(`Total transactions: ${txs.length}`, 14, 36);
 
+    onProgress?.('Building PDF table…', 55);
     const headers = [['Date', 'Type', 'Category', 'Description', 'Amount']];
     const rows = txs.slice(0, 500).map(t => [
       t.date, t.type, t.category, t.description, `₹${t.amount.toLocaleString('en-IN')}`,
     ]);
     autoTable(doc, { head: headers, body: rows, startY: 42, theme: 'striped', headStyles: { fillColor: [79, 70, 229] } });
+    onProgress?.('Generating file…', 85);
     await downloadBlob(doc.output('blob'), 'money-meva-transactions.pdf');
   } catch (e) { console.error('PDF export failed:', e); }
 }

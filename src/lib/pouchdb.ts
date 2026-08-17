@@ -350,28 +350,35 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
   try {
     const result = await localDB.allDocs({ include_docs: true });
     const rows = result.rows || [];
+    const upserts: any[] = [];
+    const deletes: string[] = [];
     for (const row of rows) {
       const doc = row.doc;
       if (!doc || !doc._id || doc._id.startsWith('_design/')) continue;
       const entity = doc.entity || (doc._id.split(':')[0] in ENTITY_PREFIXES ? doc._id.split(':')[0] : null);
       if (!entity) continue;
       if (doc._deleted) {
-        try {
-          const { error } = await supabase.from(SYNC_TABLE).delete().eq('user_id', userId).eq('id', doc._id);
-          if (error) failures++;
-        } catch { failures++; }
+        deletes.push(doc._id);
         continue;
       }
       const data: any = { ...doc };
       delete data._id; delete data._rev; delete data._deleted;
       const updatedAt = data.updatedAt || new Date().toISOString();
+      upserts.push({ user_id: userId, id: doc._id, entity, data, updated_at: updatedAt });
+    }
+    const CHUNK = 200;
+    for (let i = 0; i < upserts.length; i += CHUNK) {
+      const chunk = upserts.slice(i, i + CHUNK);
       try {
-        const { error } = await supabase.from(SYNC_TABLE).upsert(
-          { user_id: userId, id: doc._id, entity, data, updated_at: updatedAt },
-          { onConflict: 'user_id,id' }
-        );
+        const { error } = await supabase.from(SYNC_TABLE).upsert(chunk, { onConflict: 'user_id,id' });
+        if (error) failures += chunk.length;
+        else pushed += chunk.length;
+      } catch { failures += chunk.length; }
+    }
+    for (const id of deletes) {
+      try {
+        const { error } = await supabase.from(SYNC_TABLE).delete().eq('user_id', userId).eq('id', id);
         if (error) failures++;
-        else pushed++;
       } catch { failures++; }
     }
   } catch (e: any) {

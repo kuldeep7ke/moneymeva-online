@@ -130,6 +130,8 @@ export default function OnboardingPage() {
   const [partnerForm, setPartnerForm] = useState<{ name: string; group: 'vendor' | 'customer' | 'contact'; type: string; description: string } | null>(null);
   const [importMessage, setImportMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number; label: string } | null>(null);
 
   const searchParams = useSearchParams();
   const isEditMode = searchParams?.get('edit') === 'true';
@@ -274,29 +276,46 @@ export default function OnboardingPage() {
         }
 
         const currentUserId = user?.id || 'local-user';
-        const imported = importBackupData(data, currentUserId);
         const profile = data.profile || {};
+        const total = (['transactions', 'budgets', 'goals', 'reminders', 'recurring', 'partners', 'adjustments'] as const)
+          .reduce((n, k) => n + (Array.isArray(data[k]) ? data[k].length : 0), 0);
 
-        if (user?.id) {
-          updateProfile(user.id, {
-            full_name: getString(profile.full_name, form.full_name),
-            phone: getString(profile.phone, form.phone),
-            currency: getString(profile.currency, form.currency),
-            monthly_income: getString(profile.monthly_income, form.monthly_income),
-            primary_goal: getString(profile.primary_goal, form.primary_goal),
-            occupation: getString(profile.occupation, form.occupation),
-            business_name: getString(profile.business_name, form.business_name),
-            business_type: getString(profile.business_type, form.business_type),
-            onboarding_completed: true,
-            onboarding_step: 99,
-            terms_accepted: true,
-          });
-        }
+        setImporting(true);
+        setImportProgress({ done: 0, total, label: 'Preparing import…' });
+        setTimeout(async () => {
+          try {
+            const imported = await importBackupData(data, currentUserId, (label, done) => {
+              setImportProgress({ done, total, label });
+            });
 
-        refreshAuth();
-        setImportMessage(`Imported ${imported} backup items. Opening your dashboard...`);
-        setLoading(true);
-        setTimeout(() => router.push('/dashboard'), 600);
+            if (user?.id) {
+              updateProfile(user.id, {
+                full_name: getString(profile.full_name, form.full_name),
+                phone: getString(profile.phone, form.phone),
+                currency: getString(profile.currency, form.currency),
+                monthly_income: getString(profile.monthly_income, form.monthly_income),
+                primary_goal: getString(profile.primary_goal, form.primary_goal),
+                occupation: getString(profile.occupation, form.occupation),
+                business_name: getString(profile.business_name, form.business_name),
+                business_type: getString(profile.business_type, form.business_type),
+                onboarding_completed: true,
+                onboarding_step: 99,
+                terms_accepted: true,
+              });
+            }
+
+            refreshAuth();
+            setImporting(false);
+            setImportProgress(null);
+            setImportMessage(`Imported ${imported} backup items. Opening your dashboard...`);
+            setLoading(true);
+            setTimeout(() => router.push('/dashboard'), 600);
+          } catch {
+            setImporting(false);
+            setImportProgress(null);
+            setImportMessage('Could not import backup. Make sure the file is valid JSON.');
+          }
+        }, 50);
       } catch {
         setImportMessage('Could not import backup. Make sure the file is valid JSON.');
       }
@@ -596,6 +615,27 @@ export default function OnboardingPage() {
           Step {step} of 6 · {STEPS[step - 1]?.label || 'Complete'}
         </p>
       </div>
+
+      {importing && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-slate-950">
+          <div className="relative flex items-center justify-center mb-6">
+            <img src="/favicon.jpg" alt="" className="h-16 w-16 rounded-2xl shadow-lg" />
+            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 animate-ping" />
+          </div>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4 px-6 text-center">{importProgress?.label || 'Importing…'}</p>
+          <div className="w-72 h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${importProgress && importProgress.total > 0 ? Math.min(100, Math.round((importProgress.done / importProgress.total) * 100)) : 0}%` }}
+            />
+          </div>
+          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-3 tabular-nums">
+            {importProgress && importProgress.total > 0
+              ? `${Math.min(100, Math.round((importProgress.done / importProgress.total) * 100))}% · ${Math.min(importProgress.done, importProgress.total).toLocaleString()} / ${importProgress.total.toLocaleString()}`
+              : ''}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -618,10 +658,17 @@ function getString(value: unknown, fallback: string) {
   return typeof value === 'string' ? value : fallback;
 }
 
-function importBackupData(data: BackupData, currentUserId: string) {
+async function importBackupData(
+  data: BackupData,
+  currentUserId: string,
+  onProgress?: (label: string, done: number) => void,
+) {
   let imported = 0;
-  const merge = (key: string, items?: BackupRecord[]) => {
+  let processed = 0;
+  const merge = async (key: string, items: BackupRecord[] | undefined, label: string) => {
     if (!Array.isArray(items) || items.length === 0) return;
+    processed += items.length;
+    onProgress?.(label, processed);
     const existing = parseStoredRecords(key);
     const existingIds = new Set(existing.map(item => item.id).filter(Boolean));
     const newItems = items
@@ -632,15 +679,16 @@ function importBackupData(data: BackupData, currentUserId: string) {
       localStorage.setItem(key, JSON.stringify([...existing, ...newItems]));
       imported += newItems.length;
     }
+    await new Promise(resolve => setTimeout(resolve, 0));
   };
 
-  merge('mm_transactions', data.transactions);
-  merge('mm_budgets', data.budgets);
-  merge('mm_goals', data.goals);
-  merge('mm_reminders', data.reminders);
-  merge('mm_recurring', data.recurring);
-  merge('mm_partners', data.partners);
-  merge('mm_adjustments', data.adjustments);
+  await merge('mm_transactions', data.transactions, 'Importing transactions…');
+  await merge('mm_budgets', data.budgets, 'Importing budgets…');
+  await merge('mm_goals', data.goals, 'Importing goals…');
+  await merge('mm_reminders', data.reminders, 'Importing reminders…');
+  await merge('mm_recurring', data.recurring, 'Importing recurring…');
+  await merge('mm_partners', data.partners, 'Importing partners…');
+  await merge('mm_adjustments', data.adjustments, 'Importing adjustments…');
 
   return imported;
 }

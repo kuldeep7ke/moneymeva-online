@@ -24,6 +24,7 @@ import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
 import { dispatchSyncEvent } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
+import { createProgressOverlay } from '@/lib/progressOverlay';
 import { useToast } from '@/components/Toast';
 export default function SettingsPage() {
   const toast = useToast();
@@ -125,21 +126,59 @@ export default function SettingsPage() {
     setClearStep('captcha');
   };
 
-  const doExportBackup = () => {
-    const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '4.0.1';
-    const session = JSON.parse(localStorage.getItem('money_meva_session') || '{}');
-    const exportData = {
-      _metadata: {
-        app: 'Money Meva', version,
-        exportDate: new Date().toISOString(),
-        exportedBy: session.full_name || session.email || 'unknown',
-      },
-      profile: session,
-      transactions: getTransactions(), budgets: getBudgets(), goals: getGoals(),
-      reminders: getReminders(), recurring: getRecurring(), partners: getPartners(), adjustments: getAdjustments(),
-    };
-    downloadFile(JSON.stringify(exportData, null, 2), `money-meva-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
-    logActivity('entry_exported', 'Full JSON backup');
+  const doExportBackup = async () => {
+    const overlay = createProgressOverlay('Preparing export…');
+    try {
+      const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '4.0.1';
+      const session = JSON.parse(localStorage.getItem('money_meva_session') || '{}');
+      const tables: [string, any[]][] = [
+        ['transactions', getTransactions()], ['budgets', getBudgets()], ['goals', getGoals()],
+        ['reminders', getReminders()], ['recurring', getRecurring()], ['partners', getPartners()], ['adjustments', getAdjustments()],
+      ];
+      const total = Math.max(tables.reduce((n, [, items]) => n + items.length, 0), 1);
+      let done = 0;
+      const exportData: Record<string, any> = {
+        _metadata: {
+          app: 'Money Meva', version,
+          exportDate: new Date().toISOString(),
+          exportedBy: session.full_name || session.email || 'unknown',
+        },
+        profile: session,
+      };
+      for (const [name, items] of tables) {
+        done += items.length;
+        exportData[name] = items;
+        overlay.update(`Exporting ${name}…`, Math.min(done, total), total);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      overlay.update('Creating backup file…', total, total);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      downloadFile(JSON.stringify(exportData, null, 2), `money-meva-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+      logActivity('entry_exported', 'Full JSON backup');
+      overlay.finish(`Export complete — ${done.toLocaleString()} items saved`, () => overlay.close());
+    } catch {
+      overlay.error('Export failed. Try again.', () => overlay.close());
+    }
+  };
+
+  const handlePdfExport = async () => {
+    const overlay = createProgressOverlay('Exporting PDF…');
+    try {
+      await exportAllDataPDF((label, pct) => overlay.update(label, pct, 100));
+      overlay.finish('PDF export complete — check downloads', () => overlay.close());
+    } catch {
+      overlay.error('PDF export failed', () => overlay.close());
+    }
+  };
+
+  const handleExcelExport = async () => {
+    const overlay = createProgressOverlay('Exporting Excel…');
+    try {
+      await exportAllDataExcel((label, pct) => overlay.update(label, pct, 100));
+      overlay.finish('Excel export complete — check downloads', () => overlay.close());
+    } catch {
+      overlay.error('Excel export failed', () => overlay.close());
+    }
   };
 
   const processImportFile = (file: File) => {
@@ -182,42 +221,53 @@ export default function SettingsPage() {
 
   const handleFinalClear = async () => {
     setClearing(true);
-    setLoading('Clearing data…');
+    const overlay = createProgressOverlay('Clearing data…');
     logActivity('data_cleared', clearMode === 'user-data' ? 'User data only' : 'All data');
 
     const userDataKeys = ['mm_transactions', 'mm_partners', 'mm_recurring', 'mm_budgets', 'mm_reminders', 'mm_adjustments', 'mm_goals'];
+    const finish = () => {
+      overlay.finish('Data cleared — signing out', () => {
+        setClearing(false);
+        setClearStep('idle');
+        setCaptchaAnswer('');
+        refreshAuth();
+        router.replace('/login');
+      });
+    };
 
-    if (clearMode === 'user-data') {
-      userDataKeys.forEach(k => localStorage.removeItem(k));
-      await Promise.all([
-        db.transactions.clear(),
-        db.partners.clear(),
-        db.recurring.clear(),
-        db.budgets.clear(),
-        db.reminders.clear(),
-        db.adjustments.clear(),
-        db.goals.clear(),
-      ]);
-      const session = getSession().user;
-      if (session) {
-        updateProfile(session.id, { onboarding_completed: false, onboarding_step: 1 });
+    try {
+      if (clearMode === 'user-data') {
+        const tables: [string, { clear(): Promise<unknown> }][] = [
+          ['transactions', db.transactions], ['partners', db.partners], ['recurring', db.recurring],
+          ['budgets', db.budgets], ['reminders', db.reminders], ['adjustments', db.adjustments], ['goals', db.goals],
+        ];
+        const total = tables.length + userDataKeys.length;
+        let done = 0;
+        for (const [name, table] of tables) {
+          done++;
+          overlay.update(`Clearing ${name}…`, done, total);
+          await table.clear();
+        }
+        userDataKeys.forEach(k => {
+          done++;
+          overlay.update('Clearing browser storage…', done, total);
+          localStorage.removeItem(k);
+        });
+        const session = getSession().user;
+        if (session) {
+          updateProfile(session.id, { onboarding_completed: false, onboarding_step: 1 });
+        }
+        finish();
+      } else {
+        await clearAllDB((label, d, t) => overlay.update(label, d, t));
+        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('mm_') || k.startsWith('money_meva_'));
+        allKeys.forEach(k => localStorage.removeItem(k));
+        overlay.update('Clearing browser storage…', 1, 1);
+        finish();
       }
+    } catch {
       setClearing(false);
-      setClearStep('idle');
-      setCaptchaAnswer('');
-      setLoading(null);
-      refreshAuth();
-      router.replace('/login');
-    } else {
-      await clearAllDB();
-      const allKeys = Object.keys(localStorage).filter(k => k.startsWith('mm_') || k.startsWith('money_meva_'));
-      allKeys.forEach(k => localStorage.removeItem(k));
-      setClearing(false);
-      setClearStep('idle');
-      setCaptchaAnswer('');
-      setLoading(null);
-      refreshAuth();
-      router.replace('/login');
+      overlay.error('Failed to clear data', () => overlay.close());
     }
   };
 
@@ -595,20 +645,30 @@ export default function SettingsPage() {
                   const descIdx = headers.findIndex(h => h === 'description' || h === 'desc' || h === 'note' || h === 'notes');
                   const typeIdx = headers.findIndex(h => h === 'type');
                   let imported = 0;
-                  for (let i = 1; i < lines.length; i++) {
-                    const cols = lines[i].split(',').map(c => c.trim());
-                    const date = dateIdx >= 0 ? cols[dateIdx] : new Date().toISOString().split('T')[0];
-                    const amount = parseFloat(amountIdx >= 0 ? cols[amountIdx] : '0');
-                    const category = catIdx >= 0 ? cols[catIdx] : 'Other';
-                    const description = descIdx >= 0 ? cols[descIdx] : '';
-                    let type = typeIdx >= 0 ? cols[typeIdx].toLowerCase() : 'expense';
-                    type = ['income', 'expense', 'investment'].includes(type) ? type : 'expense';
-                    if (!amount || isNaN(amount)) continue;
-                    addTransaction({ amount, type: type as any, category, description, date, partnerAccountId: undefined, isRecurring: false });
-                    imported++;
-                  }
-                  toast(`Imported ${imported} transaction(s) from CSV.`, 'success');
-                  e.target.value = '';
+                  const overlay = createProgressOverlay('Importing CSV…');
+                  setTimeout(async () => {
+                    try {
+                      const total = Math.max(lines.length - 1, 1);
+                      for (let i = 1; i < lines.length; i++) {
+                        const cols = lines[i].split(',').map(c => c.trim());
+                        const date = dateIdx >= 0 ? cols[dateIdx] : new Date().toISOString().split('T')[0];
+                        const amount = parseFloat(amountIdx >= 0 ? cols[amountIdx] : '0');
+                        const category = catIdx >= 0 ? cols[catIdx] : 'Other';
+                        const description = descIdx >= 0 ? cols[descIdx] : '';
+                        let type = typeIdx >= 0 ? cols[typeIdx].toLowerCase() : 'expense';
+                        type = ['income', 'expense', 'investment'].includes(type) ? type : 'expense';
+                        if (!amount || isNaN(amount)) continue;
+                        addTransaction({ amount, type: type as any, category, description, date, partnerAccountId: undefined, isRecurring: false });
+                        imported++;
+                        if (i % 25 === 0) overlay.update(`Importing transactions… ${imported} added`, i, total);
+                      }
+                      overlay.finish(`CSV import complete — ${imported.toLocaleString()} transactions added`, () => overlay.close());
+                      toast(`Imported ${imported} transaction(s) from CSV.`, 'success');
+                    } catch {
+                      overlay.error('CSV import failed', () => overlay.close());
+                    }
+                    e.target.value = '';
+                  }, 50);
                 };
                 reader.readAsText(file);
               }} />
@@ -632,10 +692,10 @@ export default function SettingsPage() {
               }}>
                 <Download className="h-4 w-4" /> CSV
               </Button>
-              <Button variant="primary" size="sm" className="gap-2" onClick={exportAllDataPDF}>
+              <Button variant="primary" size="sm" className="gap-2" onClick={handlePdfExport}>
                 <Download className="h-4 w-4" /> PDF
               </Button>
-              <Button variant="primary" size="sm" className="gap-2" onClick={exportAllDataExcel}>
+              <Button variant="primary" size="sm" className="gap-2" onClick={handleExcelExport}>
                 <Download className="h-4 w-4" /> Excel
               </Button>
             </div>
@@ -1031,11 +1091,11 @@ export default function SettingsPage() {
 
       <PinPrompt
         open={pinAction !== null}
-        onClose={() => { setPinAction(null); setPinClearMode(null); setPendingImportFile(null); setPendingAutoLockVal(0); }}
+        onClose={() => { setPinAction(null); setPinClearMode(null); setPendingImportFile(null); setPendingAutoLockVal(0); setLoading(null); }}
         onSuccess={() => {
           if (pinAction === 'danger' && pinClearMode) { doClearData(pinClearMode); }
           else if (pinAction === 'export') { setLoading('Exporting…'); setTimeout(() => { doExportBackup(); setLoading(null); }, 300); }
-          else if (pinAction === 'import' && pendingImportFile) { setLoading('Importing…'); setTimeout(() => { processImportFile(pendingImportFile); }, 300); }
+          else if (pinAction === 'import' && pendingImportFile) { setTimeout(() => { processImportFile(pendingImportFile); }, 300); }
           else if (pinAction === 'autolock') { setAutoLock(pendingAutoLockVal); setAutoLockMinutes(pendingAutoLockVal); logActivity('auto_lock_off', 'turned off in settings'); }
           setPinAction(null);
           setPinClearMode(null);
@@ -1154,43 +1214,64 @@ export default function SettingsPage() {
   );
 }
 
-function doImport(data: any, currentUserId: string) {
+async function doImport(data: any, currentUserId: string) {
+  const overlay = createProgressOverlay('Preparing import…');
   let imported = 0;
-  const remap = (items: any[]) => {
-    if (!items || !Array.isArray(items)) return [];
-    return items.map(item => {
-      if (item.userId && item.userId !== currentUserId) {
-        return { ...item, userId: currentUserId };
-      }
-      return item;
-    });
-  };
-  const merge = (key: string, items: any[], idKey = 'id', entityType: string) => {
-    const remapped = remap(items);
-    if (!remapped.length) return;
-    const existing = JSON.parse(localStorage.getItem(key) || '[]');
-    const existingIds = new Set(existing.map((x: any) => x[idKey]));
-    const newItems = remapped.filter((x: any) => !existingIds.has(x[idKey]));
-    if (newItems.length > 0) {
-      localStorage.setItem(key, JSON.stringify([...existing, ...newItems]));
-      imported += newItems.length;
-      for (const item of newItems) {
-        if (item.transitionId) {
-          logMutation(entityType, item[idKey], item.transitionId, 'created', item.name || item.title || item.description || 'Unknown');
+  try {
+    const tables: { key: string; table: string; entityType: string; label: string }[] = [
+      { key: 'transactions', table: 'mm_transactions', entityType: 'transaction', label: 'Importing transactions…' },
+      { key: 'budgets', table: 'mm_budgets', entityType: 'budget', label: 'Importing budgets…' },
+      { key: 'goals', table: 'mm_goals', entityType: 'goal', label: 'Importing goals…' },
+      { key: 'reminders', table: 'mm_reminders', entityType: 'reminder', label: 'Importing reminders…' },
+      { key: 'recurring', table: 'mm_recurring', entityType: 'recurring', label: 'Importing recurring…' },
+      { key: 'partners', table: 'mm_partners', entityType: 'partner', label: 'Importing partners…' },
+      { key: 'adjustments', table: 'mm_adjustments', entityType: 'adjustment', label: 'Importing adjustments…' },
+    ];
+    const total = tables.reduce((n, t) => n + (Array.isArray(data[t.key]) ? data[t.key].length : 0), 0);
+    let processed = 0;
+
+    const remap = (items: any[]) => {
+      if (!items || !Array.isArray(items)) return [];
+      return items.map(item => {
+        if (item.userId && item.userId !== currentUserId) {
+          return { ...item, userId: currentUserId };
+        }
+        return item;
+      });
+    };
+
+    const merge = async (table: string, items: any[], entityType: string, label: string) => {
+      const remapped = remap(items);
+      if (!remapped.length) return;
+      processed += remapped.length;
+      overlay.update(label, processed, total);
+      const existing = JSON.parse(localStorage.getItem(table) || '[]');
+      const existingIds = new Set(existing.map((x: any) => x.id));
+      const newItems = remapped.filter((x: any) => !existingIds.has(x.id));
+      if (newItems.length > 0) {
+        try {
+          localStorage.setItem(table, JSON.stringify([...existing, ...newItems]));
+        } catch {
+          throw new Error(`Browser storage is full — couldn't save ${newItems.length} ${entityType}(s). Free space (Developer Zone → Clear Data) and try again.`);
+        }
+        imported += newItems.length;
+        const withTid = newItems.filter((x: any) => x.transitionId);
+        for (let i = 0; i < withTid.length; i++) {
+          const item = withTid[i];
+          await logMutation(entityType, item.id, item.transitionId, 'created', item.name || item.title || item.description || 'Unknown');
+          if (i % 50 === 0) overlay.update(label, processed, total);
         }
       }
+    };
+
+    for (const t of tables) {
+      await merge(t.table, data[t.key], t.entityType, t.label);
     }
-  };
-  merge('mm_transactions', data.transactions, 'id', 'transaction');
-  merge('mm_budgets', data.budgets, 'id', 'budget');
-  merge('mm_goals', data.goals, 'id', 'goal');
-  merge('mm_reminders', data.reminders, 'id', 'reminder');
-  merge('mm_recurring', data.recurring, 'id', 'recurring');
-  merge('mm_partners', data.partners, 'id', 'partner');
-  merge('mm_adjustments', data.adjustments, 'id', 'adjustment');
-  logActivity('entry_imported', `Full JSON backup — ${imported} items`);
-  const loadingEl = document.createElement('div');
-  loadingEl.innerHTML = '<div style="position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#F8F6F3"><div style="margin-bottom:24px;position:relative"><img src="/favicon.jpg" alt="" style="width:64px;height:64px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.15)" /><span style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#10b981;animation:ping 1s cubic-bezier(0,0,0.2,1)infinite"></span></div><div style="display:flex;gap:6px;margin-bottom:16px"><div style="width:10px;height:10px;border-radius:50%;background:#1e293b;animation:bounce 0.8s ease-in-out 0s infinite"></div><div style="width:10px;height:10px;border-radius:50%;background:#1e293b;animation:bounce 0.8s ease-in-out 0.15s infinite"></div><div style="width:10px;height:10px;border-radius:50%;background:#1e293b;animation:bounce 0.8s ease-in-out 0.3s infinite"></div></div><p style="font-size:14px;font-weight:500;color:#94a3b8;animation:pulse 2s cubic-bezier(0.4,0,0.6,1)infinite">Importing…</p></div><style>@keyframes ping{75%,to{transform:scale(2);opacity:0}}@keyframes bounce{0%,to{transform:translateY(0)}50%{transform:translateY(-10px)}}@keyframes pulse{50%{opacity:0.5}}</style>';
-  document.body.appendChild(loadingEl);
-  setTimeout(() => window.location.reload(), 500);
+
+    logActivity('entry_imported', `Full JSON backup — ${imported} items`);
+    overlay.finish(`Import complete — ${imported.toLocaleString()} items restored`, () => window.location.reload());
+  } catch (err: any) {
+    const msg = err?.message || 'Import failed';
+    overlay.error(msg.length > 90 ? msg.slice(0, 90) + '…' : msg, () => window.location.reload());
+  }
 }
