@@ -53,6 +53,7 @@ export default function SettingsPage() {
   const [syncPassword, setSyncPassword] = useState('');
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [syncFailCount, setSyncFailCount] = useState(0);
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
@@ -309,7 +310,7 @@ export default function SettingsPage() {
   };
 
   const handleSyncNow = async () => {
-    setSyncStatus('connecting');
+    setSyncing(true);
     setSyncError('');
     dispatchSyncEvent({ status: 'started', message: 'Manual sync started…' });
     try {
@@ -334,6 +335,8 @@ export default function SettingsPage() {
     } catch {
       dispatchSyncEvent({ status: 'error', message: 'Sync failed', error: 'Unknown error' });
       failSync('Sync failed.');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -434,9 +437,9 @@ export default function SettingsPage() {
                   <p className="text-sm text-slate-600 dark:text-slate-400">Supabase cloud sync</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className={cn("w-2 h-2 rounded-full", syncStatus === 'connected' ? 'bg-green-500' : syncStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-300')} />
-                  <span className={cn("text-xs font-medium", syncStatus === 'connected' ? 'text-green-600' : syncStatus === 'connecting' ? 'text-amber-600' : syncStatus === 'error' ? 'text-red-600' : 'text-slate-400')}>
-                    {syncStatus === 'connected' ? 'Connected' : syncStatus === 'connecting' ? 'Connecting...' : syncStatus === 'error' ? 'Offline' : 'Offline'}
+                  <div className={cn("w-2 h-2 rounded-full", syncing ? 'bg-amber-500 animate-pulse' : syncStatus === 'connected' ? 'bg-green-500' : syncStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-300')} />
+                  <span className={cn("text-xs font-medium", syncing ? 'text-amber-600' : syncStatus === 'connected' ? 'text-green-600' : syncStatus === 'connecting' ? 'text-amber-600' : syncStatus === 'error' ? 'text-red-600' : 'text-slate-400')}>
+                    {syncing ? 'Syncing…' : syncStatus === 'connected' ? 'Connected' : syncStatus === 'connecting' ? 'Connecting...' : syncStatus === 'error' ? 'Offline' : 'Offline'}
                   </span>
                 </div>
               </div>
@@ -445,7 +448,7 @@ export default function SettingsPage() {
                 {/* URL row */}
                 <div className="flex items-center gap-2">
                   <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
-                    {syncStatus === 'connected' ? (
+                    {syncConnected ? (
                       <span className="text-slate-600 dark:text-slate-300 truncate flex-1">{syncUrl}</span>
                     ) : (
                       <input
@@ -462,7 +465,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Anon key row */}
-                {syncStatus !== 'connected' && (
+                {!syncConnected && (
                   <div className="flex items-center gap-2">
                     <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
                       <input
@@ -477,7 +480,7 @@ export default function SettingsPage() {
                 )}
 
                 {/* Email + password rows */}
-                {syncStatus !== 'connected' && (
+                {!syncConnected && (
                   <>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">

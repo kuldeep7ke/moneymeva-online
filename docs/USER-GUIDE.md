@@ -97,6 +97,8 @@ The app has **three different passwords** — don't mix them up:
 
 The sync email + password are **your cloud account credentials** — a fresh account you create for Money Meva. You are not asked for (and never need) a Supabase dashboard password or your Google password. If you signed in with Google, tap **Create account & sync** with the same Google email to create the cloud account (you pick any password).
 
+> **Signed in with Google?** Then you don't need the email/password fields at all — the app connects to the cloud **automatically** after Google sign-in. Settings → Multi-Device Sync will just show **Connected** (the fields stay hidden). If you ever see the fields again, you're not connected — sign in with Google or use your cloud email + password.
+
 ### 5.1 Create your cloud account (first device)
 
 1. Open **Settings → Multi-Device Sync**.

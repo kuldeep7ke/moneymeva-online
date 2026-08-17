@@ -55,7 +55,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **PouchDB + Supabase** — a local PouchDB buffer (`mm_pouch`) syncs to a shared Supabase `sync_docs` table. Manual + live (realtime) sync. Data is stored on the cloud — it doubles as a backup.
 - **Per-user isolation** — every row carries `user_id`; Row-Level Security guarantees no account can read or write another account's data.
 - **Email + password login** — Supabase Auth. URL + anon key are pre-configured from the build; users just enter their email + password.
-- **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device.
+- **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device. **Google sign-in connects automatically** — no email/password needed.
 - **Live sync** — realtime subscription pushes remote changes into the local buffer within seconds; a 30-second reconnect timer handles drops.
 - **Manual sync** — `manualSync()` returns `{ ok, pushed, pulled }` with actual doc counts. No infinite recursion.
 - **Bring your own Supabase** — advanced users can paste a different URL + anon key in Settings to use their own project (see `CLOUD-SYNC-GUIDE.md`).
