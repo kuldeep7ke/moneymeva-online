@@ -5,7 +5,7 @@ Thanks for your interest! This is a local-first personal finance app built with 
 ## Getting Started
 
 ```bash
-git clone https://github.com/kuldeep7ke/money-meva.git
+git clone https://github.com/kuldeep7ke/moneymeva.git
 cd money-meva
 npm install
 npm run dev

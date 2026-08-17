@@ -33,7 +33,7 @@
   - Settings: URL + anon key auto-filled from env, email/password inputs, "Create account & sync" / "Connect"
   - Multi-user isolation verified E2E (alice/bob): no cross-account reads, writes blocked by RLS
   - Old CouchDB/Railway URL decommissioned (Railway instance dead)
-  - New GitHub repo `moneymeva-online` (private), old `money-meva` untouched at `dc965eb`
+  - New GitHub repo `moneymeva-online` (private), old `moneymeva` untouched at `dc965eb`
 - [x] Global toast system (v7.1.1.28)
 - [x] Skeleton component library
 - [x] Ledger skeleton loading

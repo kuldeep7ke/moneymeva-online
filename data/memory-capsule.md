@@ -2,7 +2,7 @@
 
 **Version:** v7.1.1.34 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
-**Legacy repository:** github.com/kuldeep7ke/money-meva (frozen at `dc965eb`, pure CouchDB — do not build from it)
+**Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
@@ -274,7 +274,7 @@ npm run android:apk          # build → version → gradle assembleDebug
 - **`pouchdb.ts`**: `signUpUser`, `connectRemote(url, key, email, password)`, `checkConnection`, `ensureConnected`, `disconnectRemote`, user-scoped `putDoc`/`removeDoc` (push upsert `onConflict user_id,id`), realtime subscription, `mm_sb_session`/`mm_sb_url`/`mm_sb_key` in localStorage, env fallback in `getConfig()`.
 - **Settings**: URL + anon key auto-filled from `.env.local`; email + password inputs; "Create account & sync" / "Connect" / "Sync Now" / "Disconnect".
 - **Verified E2E**: ping, push, pull, conflict-update, realtime event, delete, alice/bob isolation, RLS delete-block. All test users cleaned up.
-- **Repo split**: new private repo `moneymeva-online`; origin retargeted; old `money-meva` untouched at `dc965eb`.
+- **Repo split**: new private repo `moneymeva-online`; origin retargeted; old `moneymeva` untouched at `dc965eb`.
 - **Docs**: USER-GUIDE.md, CLOUD-SYNC-GUIDE.md, updated Sync/Security/Architecture/Data-Flow/File-Map, README, memory capsule.
 
 ### v7.1.1.33 (2026-08-03)
@@ -302,7 +302,7 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ### v7.1.1.26 (2026-07-27)
 - Party field defaults to “None”; no backdrop click-to-close on **all** modals.
-- Categories page; category dropdown fixes; repo renamed `money-meva`.
+- Categories page; category dropdown fixes; repo renamed `moneymeva`.
 
 ---
 
