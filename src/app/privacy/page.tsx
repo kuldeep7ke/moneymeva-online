@@ -86,14 +86,14 @@ export default function PrivacyPage() {
             </h2>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-2">
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                When you use the optional multi-device sync feature, your encrypted data is transmitted to and stored on a remote CouchDB server that you specify. This means:
+                When you use the optional multi-device sync feature, your encrypted data is transmitted to and stored on a remote Supabase (PostgreSQL) server that you specify. This means:
               </p>
               <ul className="list-disc list-inside text-slate-600 dark:text-slate-400 space-y-2 ml-4 text-sm">
                 <li>Your data is <strong>no longer local only</strong> — it resides on the remote server you provide.</li>
                 <li>The sync URL you provide is the <strong>only authentication mechanism</strong> protecting your data on that server.</li>
                 <li>Anyone who obtains this URL can <strong>access your complete financial data</strong> stored on the remote server.</li>
                 <li>The security of your data on the remote server depends entirely on that server&apos;s security measures, which are beyond our control.</li>
-                <li>You should only use CouchDB servers that you <strong>trust and manage</strong> yourself.</li>
+                <li>You should only use Supabase projects that you <strong>trust and manage</strong> yourself.</li>
                 <li>Neither your data nor the sync URL is <strong>ever collected, stored, or known</strong> by Money Meva or its developers.</li>
               </ul>
             </div>

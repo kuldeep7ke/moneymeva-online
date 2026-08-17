@@ -281,29 +281,21 @@ docs/
 
 ## Cloud Sync Setup
 
-1. **Get a CouchDB URL** — e.g., `https://admin:pass@your-host.up.railway.app/money_meva`
-2. **Settings → Cloud Sync** — paste your URL into the input field
-3. **Tap Connect** — data pushes to cloud, then pulls from cloud
-4. **Repeat on each device** — same URL on every device
+Cloud sync uses **Supabase** (Postgres + Auth) — every user gets their own private data space with email + password login.
 
-The app works fully offline without sync. Sync is optional.
+1. **Create a Supabase project** at https://supabase.com (free tier is enough)
+2. **Create the sync table** — open SQL Editor, run the contents of [`supabase/schema.sql`](supabase/schema.sql)
+3. **Get your keys** — Project Settings → API:
+   - Project URL: `https://<project-ref>.supabase.co`
+   - anon public key (starts with `eyJ…`)
+4. **Settings → Cloud Sync** — paste the Project URL + anon key, then:
+   - **New user:** enter email + password → tap **Create account & sync** (confirm the email if prompted)
+   - **Existing user:** enter email + password → tap **Connect**
+5. **Repeat on each device** — same URL, key, email & password on every device
 
-### CORS Configuration (if self-hosting)
-If you host your own CouchDB, enable CORS:
-```bash
-curl -X PUT https://admin:pass@your-host/_node/_config/couchdb/httpd/enable_cors \
-  -H "Content-Type: application/json" -d '"true"'
-curl -X PUT https://admin:pass@your-host/_node/_config/chttpd/enable_cors \
-  -H "Content-Type: application/json" -d '"true"'
-curl -X PUT https://admin:pass@your-host/_node/_config/chttpd/cors/origins \
-  -H "Content-Type: application/json" -d '"*"'
-curl -X PUT https://admin:pass@your-host/_node/_config/chttpd/cors/credentials \
-  -H "Content-Type: application/json" -d '"true"'
-curl -X PUT https://admin:pass@your-host/_node/_config/chttpd/cors/headers \
-  -H "Content-Type: application/json" -d '"accept, authorization, content-type, origin, referer, x-requested-with"'
-curl -X PUT https://admin:pass@your-host/_node/_config/chttpd/cors/methods \
-  -H "Content-Type: application/json" -d '"GET, PUT, POST, HEAD, DELETE"'
-```
+Each account's data is isolated in the cloud (row-level security) — no user can see another user's data. The app works fully offline without sync; sync is optional.
+
+> **Tip:** to let new users sign up without email confirmation, turn off **Authentication → Sign In / Providers → Email → "Confirm email"** in the Supabase dashboard (or run the one-liner at the bottom of `supabase/schema.sql`).
 
 ---
 

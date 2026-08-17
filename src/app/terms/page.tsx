@@ -90,7 +90,7 @@ export default function TermsPage() {
             </h2>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-2">
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
-                Money Meva offers an optional multi-device sync feature via CouchDB. By using this feature, you acknowledge and agree that:
+                Money Meva offers an optional multi-device sync feature via Supabase. By using this feature, you acknowledge and agree that:
               </p>
               <ul className="list-disc list-inside text-slate-600 dark:text-slate-400 space-y-2 ml-4 text-sm">
                 <li>The sync URL/link you provide acts as a <strong>key to your personal financial data</strong> stored on the remote server.</li>

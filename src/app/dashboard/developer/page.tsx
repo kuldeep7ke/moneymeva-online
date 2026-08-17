@@ -256,7 +256,7 @@ export default function DeveloperPage() {
                 <Button variant="outline" onClick={testSync} disabled={syncing} className="w-full text-xs">
                   {syncing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Connection'}
                 </Button>
-                <Button variant="outline" onClick={async () => { if (!confirm('Delete ALL remote CouchDB data? Local data stays untouched.')) return; setStatus('Clearing remote...'); await clearRemote(); setStatus('Remote cleared'); }} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Button variant="outline" onClick={async () => { if (!confirm('Delete ALL remote Supabase data? Local data stays untouched.')) return; setStatus('Clearing remote...'); await clearRemote(); setStatus('Remote cleared'); }} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
                   Clear Remote Data
                 </Button>
               </>

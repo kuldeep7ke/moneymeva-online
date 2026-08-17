@@ -21,7 +21,7 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
 import { dispatchSyncEvent } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
 import { useToast } from '@/components/Toast';
@@ -48,6 +48,9 @@ export default function SettingsPage() {
   const [pendingAutoLockVal, setPendingAutoLockVal] = useState<number>(0);
   const [loading, setLoading] = useState<string | null>(null);
   const [syncUrl, setSyncUrl] = useState('');
+  const [syncKey, setSyncKey] = useState('');
+  const [syncEmail, setSyncEmail] = useState('');
+  const [syncPassword, setSyncPassword] = useState('');
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [syncError, setSyncError] = useState('');
@@ -79,6 +82,7 @@ export default function SettingsPage() {
     const cfg = getConfig();
     if (cfg.url) {
       setSyncUrl(cfg.url);
+      setSyncKey(cfg.key);
       checkConnection().then(ok => {
         setSyncConnected(ok);
         setSyncStatus(ok ? 'connected' : 'idle');
@@ -217,12 +221,13 @@ export default function SettingsPage() {
   };
 
   const handleConnect = async () => {
-    if (!syncUrl.trim()) return;
+    if (!syncUrl.trim() || !syncKey.trim()) { setSyncError('Supabase URL and anon key are required'); return; }
+    if (!syncEmail.trim() || !syncPassword.trim()) { setSyncError('Enter your sync email and password'); return; }
     setSyncStatus('connecting');
     setSyncError('');
-    dispatchSyncEvent({ status: 'started', message: 'Connecting to remote…' });
+    dispatchSyncEvent({ status: 'started', message: 'Connecting to Supabase…' });
     try {
-      const { ok, error: connErr } = await connectRemote(syncUrl.trim());
+      const { ok, error: connErr } = await connectRemote(syncUrl.trim(), syncKey.trim(), syncEmail.trim(), syncPassword);
       if (ok) {
         saveSyncUrlHistory(syncUrl.trim());
         setSyncUrlHistory(getSyncUrlHistory());
@@ -255,9 +260,49 @@ export default function SettingsPage() {
     }
   };
 
+  const handleCreateAccount = async () => {
+    if (!syncUrl.trim() || !syncKey.trim()) { setSyncError('Supabase URL and anon key are required'); return; }
+    if (!syncEmail.trim() || syncPassword.length < 6) { setSyncError('Enter your email and a password (min 6 characters)'); return; }
+    setSyncStatus('connecting');
+    setSyncError('');
+    dispatchSyncEvent({ status: 'started', message: 'Creating account…' });
+    try {
+      const { ok, needsConfirmation, error: signUpErr } = await signUpUser(syncUrl.trim(), syncKey.trim(), syncEmail.trim(), syncPassword);
+      if (!ok) {
+        failSync(signUpErr || 'Account creation failed');
+        return;
+      }
+      if (needsConfirmation) {
+        setSyncStatus('idle');
+        setSyncError('Account created! Check your email to confirm, then tap Connect.');
+        return;
+      }
+      const { ok: connectedOk, error: connErr } = await connectRemote(syncUrl.trim(), syncKey.trim(), syncEmail.trim(), syncPassword);
+      if (connectedOk) {
+        saveSyncUrlHistory(syncUrl.trim());
+        setSyncUrlHistory(getSyncUrlHistory());
+        setSyncStatus('connected');
+        setSyncConnected(true);
+        setSyncFailCount(0);
+        dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
+        await pushAllToPouch();
+        const { ok: synced, pushed, pulled } = await manualSync();
+        if (synced) {
+          await processRemoteChanges();
+          setSyncError(pushed > 0 || pulled > 0 ? `Pushed ${pushed} item(s) · Pulled ${pulled} change(s)` : '');
+        }
+      } else {
+        failSync(connErr || 'Connection failed after sign-up');
+      }
+    } catch {
+      failSync('Account creation failed.');
+    }
+  };
+
   const handleDisconnect = () => {
     disconnectRemote();
     localStorage.removeItem('mm_pouch_url');
+    localStorage.removeItem('mm_sync_key');
     setSyncStatus('idle');
     setSyncConnected(false);
     setSyncFailCount(0);
@@ -386,7 +431,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Multi-Device Sync</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">CouchDB real-time sync</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Supabase cloud sync</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className={cn("w-2 h-2 rounded-full", syncStatus === 'connected' ? 'bg-green-500' : syncStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-300')} />
@@ -406,7 +451,7 @@ export default function SettingsPage() {
                       <input
                         value={syncUrl}
                         onChange={e => { setSyncUrl(e.target.value); setSyncError(''); }}
-                        placeholder="Paste your sync URL here"
+                        placeholder="Supabase URL (https://xxx.supabase.co)"
                         className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
                       />
                     )}
@@ -415,6 +460,49 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Anon key row */}
+                {syncStatus !== 'connected' && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
+                      <input
+                        type="password"
+                        value={syncKey}
+                        onChange={e => { setSyncKey(e.target.value); setSyncError(''); }}
+                        placeholder="Anon key (eyJ…)"
+                        className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Email + password rows */}
+                {syncStatus !== 'connected' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
+                        <input
+                          type="email"
+                          value={syncEmail}
+                          onChange={e => { setSyncEmail(e.target.value); setSyncError(''); }}
+                          placeholder="Your sync email"
+                          className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
+                        <input
+                          type="password"
+                          value={syncPassword}
+                          onChange={e => { setSyncPassword(e.target.value); setSyncError(''); }}
+                          placeholder="Password (min 6 characters)"
+                          className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Saved URLs */}
                 {syncUrlHistory.length > 0 && (
@@ -447,9 +535,14 @@ export default function SettingsPage() {
                       </Button>
                     </>
                   ) : (
-                    <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim()}>
-                      <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Connect
-                    </Button>
+                    <>
+                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim() || !syncKey.trim() || !syncEmail.trim() || !syncPassword.trim()}>
+                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Connect
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleCreateAccount} disabled={syncStatus === 'connecting'}>
+                        Create account &amp; sync
+                      </Button>
+                    </>
                   )}
                 </div>
 
@@ -464,7 +557,7 @@ export default function SettingsPage() {
         <Reveal delay={300}>
           <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-4 space-y-2">
             <p className="text-xs text-sky-700 dark:text-sky-400 leading-relaxed">
-              Enter the same URL on each device to sync all your data across devices. The URL includes authentication — share it with trusted devices only. Data syncs in real-time once connected.
+              Enter the same Supabase project URL, anon key, and your email + password on each device to sync all your data across devices. Each account gets its own private data space. First time here? Tap <strong>Create account &amp; sync</strong>. Run <code className="font-mono">supabase/schema.sql</code> in your project&apos;s SQL Editor once before connecting. Data syncs in real-time once connected.
             </p>
           </div>
         </Reveal>
