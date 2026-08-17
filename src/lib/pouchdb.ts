@@ -182,7 +182,12 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string 
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/login` },
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (/provider is not enabled/i.test(error.message)) {
+        return { ok: false, error: 'Google sign-in is not enabled on this cloud project yet. Ask the app owner to enable it (Supabase → Authentication → Providers → Google).' };
+      }
+      return { ok: false, error: error.message };
+    }
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || String(e || 'Google sign-in failed') };
