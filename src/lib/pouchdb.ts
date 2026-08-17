@@ -178,9 +178,10 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string 
   }
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, '');
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/login` },
+      options: { redirectTo: `${siteUrl}/login` },
     });
     if (error) {
       if (/provider is not enabled/i.test(error.message)) {
