@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
-import { formatCurrency, cn, getSortedCategories, useSortedCategories } from '@/lib/utils';
+import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, Pencil, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
+import { formatCurrency, cn, getSortedCategories, todayStr } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, addPartner, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
 import InvestmentCalculator from '@/components/InvestmentCalculator';
@@ -15,8 +15,6 @@ import { getSession } from '@/lib/localAuth';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
-
-const todayStr = () => new Date().toISOString().split('T')[0];
 
 interface TransactionPageProps {
   type: TransactionType;
@@ -40,11 +38,7 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split('T')[0];
-  });
+  const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterMinAmount, setFilterMinAmount] = useState('');
   const [filterMaxAmount, setFilterMaxAmount] = useState('');
@@ -117,7 +111,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     }
   }, [editingTransaction]);
 
-  const [form, setForm] = useState({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'bank', account: 'cash' as 'cash' | 'bank' | 'upi', party: '' });
+  const [form, setForm] = useState({ amount: '', category: '', description: '', date: todayStr(), partnerAccountId: '', investSource: 'bank', account: 'cash' as 'cash' | 'bank' | 'upi', party: '' });
 
   const openEdit = (tx: Transaction) => {
     setEditingTransaction(tx);
@@ -220,8 +214,9 @@ export default function TransactionPage({ type, title, description }: Transactio
 
   const handleEdit = () => {
     if (!editingTransaction) return;
-    const today = new Date().toISOString().split('T')[0];
-    const createdToday = editingTransaction.createdAt?.split('T')[0] === today;
+    const amount = Number(editForm.amount);
+    if (!(amount > 0)) { toast('Amount must be greater than zero.', 'warning'); return; }
+    const createdToday = editingTransaction.createdAt?.split('T')[0] === todayStr();
     if (createdToday) {
       doEdit(editingTransaction.id);
     } else if (hasPins()) {
@@ -330,12 +325,13 @@ export default function TransactionPage({ type, title, description }: Transactio
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(form.amount);
+    if (!(amount > 0)) { toast('Amount must be greater than zero.', 'warning'); return; }
     const desc = buildDescription();
     const tx = { amount, type, category: form.category, description: desc, date: form.date, partnerAccountId: form.partnerAccountId || undefined };
     if (form.date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
     const dup = checkDuplicateTransaction(tx);
     if (dup) {
-      setDupWarning({ ...tx, existing: dup, investSource: form.investSource });
+      setDupWarning({ ...tx, existing: dup, investSource: form.investSource, account: form.account });
       return;
     }
     let account: Transaction['account'];
@@ -348,19 +344,14 @@ export default function TransactionPage({ type, title, description }: Transactio
     saveCategoryToLocalStorage(form.category);
     logActivity('entry_created', `${type} — ${form.category}`);
 
-    if (type === 'investment' && form.investSource !== 'cash') {
-      if (form.investSource === 'savings') {
-        addTransaction({ amount, type: 'expense', category: 'Savings Withdrawal', description: `Fund source for ${form.description || form.category}`, date: form.date, partnerAccountId: undefined, isRecurring: false });
-      } else if (form.investSource === 'adjustment') {
-        addAdjustment({ amount: -amount, accountType: 'personal', notes: `Fund source for ${form.description || form.category}`, date: form.date });
-      } else if (form.investSource.startsWith('partner_')) {
-        const pid = form.investSource.replace('partner_', '');
-        addTransaction({ amount, type: 'expense', category: 'Partner Investment', description: `Fund source for ${form.description || form.category}`, date: form.date, partnerAccountId: pid, isRecurring: false });
-      }
+    if (type === 'investment' && form.investSource === 'bank') {
+      addTransaction({ amount, type: 'expense', category: 'Investment Outflow', description: `Fund source for ${form.description || form.category}`, date: form.date, partnerAccountId: undefined, isRecurring: false, account: 'bank' });
+    } else if (type === 'investment' && form.investSource === 'adjustment') {
+      addAdjustment({ amount: -amount, accountType: 'personal', notes: `Fund source for ${form.description || form.category}`, date: form.date });
     }
 
     setShowAddModal(false);
-    setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash', party: '' });
+    setForm({ amount: '', category: '', description: '', date: todayStr(), partnerAccountId: '', investSource: 'bank', account: 'cash', party: '' });
     setInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' });
     setPartySearch('');
     setShowPartyDropdown(false);
@@ -371,22 +362,19 @@ export default function TransactionPage({ type, title, description }: Transactio
   const handleDupConfirm = () => {
     if (!dupWarning) return;
     const amount = dupWarning.amount;
-    addTransaction({ amount, type: dupWarning.type, category: dupWarning.category, description: dupWarning.description, date: dupWarning.date, partnerAccountId: dupWarning.partnerAccountId, isRecurring: false });
+    if (!(amount > 0)) return;
+    const account = dupWarning.type === 'investment' ? (dupWarning.investSource === 'cash' ? dupWarning.account : 'invest') : dupWarning.account;
+    addTransaction({ amount, type: dupWarning.type, category: dupWarning.category, description: dupWarning.description, date: dupWarning.date, partnerAccountId: dupWarning.partnerAccountId, isRecurring: false, account });
 
-    if (type === 'investment' && dupWarning.investSource && dupWarning.investSource !== 'cash') {
-      if (dupWarning.investSource === 'savings') {
-        addTransaction({ amount, type: 'expense', category: 'Savings Withdrawal', description: `Fund source for ${dupWarning.description || dupWarning.category}`, date: dupWarning.date, partnerAccountId: undefined, isRecurring: false });
-      } else if (dupWarning.investSource === 'adjustment') {
-        addAdjustment({ amount: -amount, accountType: 'personal', notes: `Fund source for ${dupWarning.description || dupWarning.category}`, date: dupWarning.date });
-      } else if (dupWarning.investSource.startsWith('partner_')) {
-        const pid = dupWarning.investSource.replace('partner_', '');
-        addTransaction({ amount, type: 'expense', category: 'Partner Investment', description: `Fund source for ${dupWarning.description || dupWarning.category}`, date: dupWarning.date, partnerAccountId: pid, isRecurring: false });
-      }
+    if (type === 'investment' && dupWarning.investSource === 'bank') {
+      addTransaction({ amount, type: 'expense', category: 'Investment Outflow', description: `Fund source for ${dupWarning.description || dupWarning.category}`, date: dupWarning.date, partnerAccountId: undefined, isRecurring: false, account: 'bank' });
+    } else if (type === 'investment' && dupWarning.investSource === 'adjustment') {
+      addAdjustment({ amount: -amount, accountType: 'personal', notes: `Fund source for ${dupWarning.description || dupWarning.category}`, date: dupWarning.date });
     }
 
     setDupWarning(null);
     setShowAddModal(false);
-    setForm({ amount: '', category: '', description: '', date: new Date().toISOString().split('T')[0], partnerAccountId: '', investSource: 'cash', account: 'cash', party: '' });
+    setForm({ amount: '', category: '', description: '', date: todayStr(), partnerAccountId: '', investSource: 'bank', account: 'cash', party: '' });
     setInvestMeta({ fundName: '', nav: '', units: '', mode: 'lumpsum', institution: '', fdNumber: '', interestRate: '', tenure: '', maturityDate: '', payout: 'cumulative', fdType: 'cumulative', company: '', quantity: '', buyPrice: '', exchange: 'NSE', stockMode: 'delivery' });
     setPartySearch('');
     setShowPartyDropdown(false);
@@ -396,8 +384,7 @@ export default function TransactionPage({ type, title, description }: Transactio
 
   const handleDelete = (id: string) => {
     const tx = transactions.find(t => t.id === id);
-    const today = new Date().toISOString().split('T')[0];
-    const createdToday = tx && tx.createdAt?.split('T')[0] === today;
+    const createdToday = tx && tx.createdAt?.split('T')[0] === todayStr();
     if (createdToday) {
       doDelete(id);
     } else if (hasPins()) {
@@ -516,6 +503,14 @@ export default function TransactionPage({ type, title, description }: Transactio
     const baseMatches = baseCategories.filter(c => c.toLowerCase().includes(search) && !matched.includes(c));
     return [...matched, ...baseMatches].slice(0, 10);
   }, [categorySearch, recentCategories]);
+
+  const filteredEditCategories = useMemo(() => {
+    if (!editCategorySearch) return recentCategories.slice(0, 3);
+    const search = editCategorySearch.toLowerCase();
+    const matched = recentCategories.filter(c => c.toLowerCase().includes(search));
+    const baseMatches = baseCategories.filter(c => c.toLowerCase().includes(search) && !matched.includes(c));
+    return [...matched, ...baseMatches].slice(0, 10);
+  }, [editCategorySearch, recentCategories]);
 
   const recentParties = useMemo(() => {
     const txPartners = transactions
@@ -649,17 +644,24 @@ export default function TransactionPage({ type, title, description }: Transactio
                   { label: 'This Quarter', days: 90 },
                 ].map(p => (
                   <button key={p.label} type="button" onClick={() => {
-                    const to = new Date();
-                    const from = new Date();
-                    if (p.days === 60) {
-                      from.setMonth(from.getMonth() - 1);
-                      from.setDate(1);
+                    const now = new Date();
+                    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    let from: Date;
+                    if (p.label === 'This Week') {
+                      const dow = (to.getDay() + 6) % 7;
+                      from = new Date(to);
+                      from.setDate(to.getDate() - dow);
+                    } else if (p.label === 'This Month') {
+                      from = new Date(to.getFullYear(), to.getMonth(), 1);
+                    } else if (p.label === 'Last Month') {
+                      from = new Date(to.getFullYear(), to.getMonth() - 1, 1);
                       to.setDate(0);
                     } else {
-                      from.setDate(from.getDate() - p.days);
+                      from = new Date(to.getFullYear(), Math.floor(to.getMonth() / 3) * 3, 1);
                     }
-                    setFilterDateFrom(from.toISOString().split('T')[0]);
-                    setFilterDateTo(to.toISOString().split('T')[0]);
+                    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    setFilterDateFrom(fmt(from));
+                    setFilterDateTo(fmt(to));
                   }}
                     className="w-full text-xs py-1 sm:py-1.5 rounded-md border border-slate-200 dark:border-brand-muted hover:bg-slate-100 dark:hover:bg-brand-muted/50 text-slate-600 dark:text-slate-400 transition-colors">
                     {p.label}
@@ -857,11 +859,11 @@ export default function TransactionPage({ type, title, description }: Transactio
                     </div>
                     <p className="text-sm font-bold text-amber-700 dark:text-amber-400 shrink-0 mr-3">{formatCurrency(t.amount)}</p>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-green-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'restore' }); else setShowPinSetup('restore an item from archive'); }}>
+                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-green-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'restore' }); else handleRestore(t.id); }}>
                         <Undo2 className="h-3.5 w-3.5" />
                         <span className="hidden md:inline text-xs">Restore</span>
                       </button>
-                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-red-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'delete' }); else if (confirm('Permanently delete this item?')) setShowPinSetup('permanently delete an item'); }}>
+                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-red-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'delete' }); else handlePermanentDelete(t.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
                         <span className="hidden md:inline text-xs">Delete</span>
                       </button>
@@ -878,7 +880,7 @@ export default function TransactionPage({ type, title, description }: Transactio
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add {title.slice(0, -1)}</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Add {title === 'Income' ? 'Income' : title.replace(/s$/, '')}</h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Amount (₹)</label>
@@ -1175,7 +1177,7 @@ export default function TransactionPage({ type, title, description }: Transactio
       {editingTransaction && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-lg w-full p-8 shadow-2xl my-4" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Edit {title.slice(0, -1)}</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Edit {title === 'Income' ? 'Income' : title.replace(/s$/, '')}</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleEdit(); }} className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Amount (₹)</label>
@@ -1191,10 +1193,10 @@ export default function TransactionPage({ type, title, description }: Transactio
                     onChange={e => { setEditForm({ ...editForm, category: e.target.value }); setEditCategorySearch(e.target.value); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(-1); }}
                     onFocus={() => setShowEditCategoryDropdown(true)}
                     onKeyDown={e => {
-                      const totalItems = filteredCategories.length + (editCategorySearch && !filteredCategories.includes(editCategorySearch) ? 1 : 0);
+                      const totalItems = filteredEditCategories.length + (editCategorySearch && !filteredEditCategories.includes(editCategorySearch) ? 1 : 0);
                       if (e.key === 'ArrowDown') { e.preventDefault(); setShowEditCategoryDropdown(true); setEditCatHighlightIndex(i => Math.min(i + 1, totalItems - 1)); }
                       else if (e.key === 'ArrowUp') { e.preventDefault(); setEditCatHighlightIndex(i => Math.max(i - 1, 0)); }
-                      else if (e.key === 'Enter' && showEditCategoryDropdown && editCatHighlightIndex >= 0) { e.preventDefault(); if (editCatHighlightIndex < filteredCategories.length) { setEditForm({ ...editForm, category: filteredCategories[editCatHighlightIndex] }); } else { setEditForm({ ...editForm, category: editCategorySearch }); } setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }
+                      else if (e.key === 'Enter' && showEditCategoryDropdown && editCatHighlightIndex >= 0) { e.preventDefault(); if (editCatHighlightIndex < filteredEditCategories.length) { setEditForm({ ...editForm, category: filteredEditCategories[editCatHighlightIndex] }); } else { setEditForm({ ...editForm, category: editCategorySearch }); } setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }
                       else if (e.key === 'Escape') { setShowEditCategoryDropdown(false); setEditCatHighlightIndex(-1); }
                     }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand"
@@ -1202,7 +1204,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                   />
                   {showEditCategoryDropdown && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCategories.map((c, i) => (
+                      {filteredEditCategories.map((c, i) => (
                         <button
                           key={c}
                           type="button"
@@ -1213,12 +1215,12 @@ export default function TransactionPage({ type, title, description }: Transactio
                           {c}
                         </button>
                       ))}
-                      {editCategorySearch && !filteredCategories.includes(editCategorySearch) && (
+                      {editCategorySearch && !filteredEditCategories.includes(editCategorySearch) && (
                         <button
                           type="button"
                           onClick={() => { setEditForm({ ...editForm, category: editCategorySearch }); setShowEditCategoryDropdown(false); setEditCategorySearch(''); setEditCatHighlightIndex(-1); }}
-                          onMouseEnter={() => setEditCatHighlightIndex(filteredCategories.length)}
-                          className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", editCatHighlightIndex === filteredCategories.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}
+                          onMouseEnter={() => setEditCatHighlightIndex(filteredEditCategories.length)}
+                          className={cn("w-full px-4 py-2 text-left text-sm text-brand font-medium transition-colors", editCatHighlightIndex === filteredEditCategories.length ? "bg-brand-secondary dark:bg-brand-muted/30" : "hover:bg-brand-secondary dark:hover:bg-brand-muted/30")}
                         >
                           + Create "{editCategorySearch}"
                         </button>
@@ -1550,12 +1552,6 @@ export default function TransactionPage({ type, title, description }: Transactio
                 <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">Source Account</p>
                   <p className="font-medium text-slate-900 dark:text-slate-100 capitalize">{(showDetail as any).account}</p>
-                </div>
-              )}
-              {showDetail.type === 'investment' && 'investSource' in showDetail && (showDetail as any).investSource && (
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-brand-muted/20">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Investment Source</p>
-                  <p className="font-medium text-slate-900 dark:text-slate-100 capitalize">{(showDetail as any).investSource}</p>
                 </div>
               )}
             </div>

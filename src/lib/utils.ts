@@ -39,6 +39,11 @@ export const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+export function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function getSortedCategories(baseCategories: string[], type?: string): string[] {
   try {
     const txs = getTransactions(type);

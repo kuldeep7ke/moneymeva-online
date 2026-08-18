@@ -220,7 +220,10 @@ export function updateProfile(userId: string, updates: Partial<Omit<LocalUser, '
   saveUsers(users);
   const { password: removedPassword, ...safeUser } = users[idx];
   void removedPassword;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+  const current = getSession().user;
+  if (current && current.id === userId) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+  }
   return safeUser;
 }
 

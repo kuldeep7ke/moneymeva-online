@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Plus, Wallet, TrendingUp, TrendingDown, MoreVertical, Trash2, X, Undo2, AlertTriangle, Pencil } from 'lucide-react';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
@@ -12,8 +12,6 @@ import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
-
-const todayStr = () => new Date().toISOString().split('T')[0];
 
 const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> = {
   vendor: [
@@ -73,7 +71,7 @@ export default function PartnersPage() {
   const [dupWarning, setDupWarning] = useState<any | null>(null);
 
   const [form, setForm] = useState({ name: '', type: 'supplier', group: 'vendor' as 'customer' | 'vendor' | 'contact', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
-  const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: new Date().toISOString().split('T')[0] });
+  const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: todayStr() });
 
   const filteredPartners = activeGroup === 'all' ? partners : partners.filter(p => p.group === activeGroup);
 
@@ -133,6 +131,7 @@ export default function PartnersPage() {
     e.preventDefault();
     if (!showTxModal) return;
     const amount = Number(txForm.amount);
+    if (!(amount > 0)) { toast('Amount must be greater than zero.', 'warning'); return; }
     const date = txForm.date;
     if (date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
     const tx = { amount, type: txForm.type, category: txForm.category, description: txForm.description, date, partnerAccountId: showTxModal };
@@ -144,25 +143,25 @@ export default function PartnersPage() {
     addTransaction({ ...tx, isRecurring: false });
 
     setShowTxModal(null);
-    setTxForm({ amount: '', type: 'income', category: '', description: '', date: new Date().toISOString().split('T')[0] });
+    setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr() });
     refresh();
   };
 
   const handleDupConfirm = () => {
     if (!dupWarning) return;
     const amount = dupWarning.amount;
+    if (!(amount > 0)) return;
     addTransaction({ amount, type: dupWarning.type, category: dupWarning.category, description: dupWarning.description, date: dupWarning.date, partnerAccountId: dupWarning.partnerAccountId, isRecurring: false });
 
     setDupWarning(null);
     setShowTxModal(null);
-    setTxForm({ amount: '', type: 'income', category: '', description: '', date: new Date().toISOString().split('T')[0] });
+    setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr() });
     refresh();
   };
 
   const handleDelete = (id: string) => {
     const partner = partners.find(p => p.id === id);
-    const today = new Date().toISOString().split('T')[0];
-    const createdToday = partner && partner.createdAt?.split('T')[0] === today;
+    const createdToday = partner && partner.createdAt?.split('T')[0] === todayStr();
     if (createdToday) {
       doDelete(id);
     } else if (hasPins()) {
@@ -174,7 +173,9 @@ export default function PartnersPage() {
 
   const doDelete = (id: string) => {
     const partner = partners.find(p => p.id === id);
+    const linkedCount = getTransactions().filter(t => t.partnerAccountId === id && !t.deletedAt).length;
     deletePartner(id);
+    if (linkedCount > 0) toast(`${linkedCount} linked transaction(s) will remain but this party will be removed.`, 'warning');
     setConfirmDelete(null);
     refresh();
   };

@@ -20,9 +20,9 @@ npm run android:apk         # Full build → version → gradle assembleDebug
 ## Architecture
 
 - Next.js 16.2.9 App Router (static export, `'use client'` everywhere)
-- Dexie.js (IndexedDB) for local storage, PouchDB for optional CouchDB sync
+- Dexie.js (IndexedDB) for local storage, PouchDB → Supabase `sync_docs` for optional cloud sync
 - Tailwind CSS v4 + CSS variables for 3-brand theme
-- All writes: cache → Dexie → mutation_log → PouchDB → (optional) CouchDB (fire-and-forget)
+- All writes: cache → Dexie → mutation_log → PouchDB → (optional) Supabase `sync_docs` (fire-and-forget)
 - Soft-delete with `deletedAt` on all entities
 - `transitionId` links entity lifecycle mutations
 

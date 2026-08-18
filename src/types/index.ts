@@ -53,6 +53,7 @@ export interface RecurringTx {
   reminderDays: number;
   deletedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Budget {
@@ -64,6 +65,7 @@ export interface Budget {
   period: 'monthly' | 'yearly';
   deletedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export type ReminderFrequency = 'once' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'half-yearly' | 'yearly';
@@ -81,6 +83,7 @@ export interface Reminder {
   status: 'pending' | 'completed';
   deletedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Adjustment {
@@ -94,6 +97,7 @@ export interface Adjustment {
   date: string;
   deletedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Goal {
@@ -105,6 +109,7 @@ export interface Goal {
   saved: number;
   deletedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export type TodoPriority = 'low' | 'medium' | 'high';
@@ -123,6 +128,7 @@ export interface Todo {
   status: 'pending' | 'completed';
   completedAt?: string;
   createdAt: string;
+  updatedAt: string;
   deletedAt?: string;
 }
 

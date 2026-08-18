@@ -252,7 +252,7 @@ export default function InvestmentCalculator({ onClose, onApply }: Props) {
               )}
 
               {onApply && (
-                <Button size="sm" variant="outline" className="w-full mt-1 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 active:scale-[0.98] transition-all" onClick={() => onApply(result.maturity)}>
+                <Button size="sm" variant="outline" className="w-full mt-1 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 active:scale-[0.98] transition-all" onClick={() => onApply(result.invested)}>
                   Use this amount
                 </Button>
               )}

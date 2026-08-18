@@ -129,9 +129,15 @@ function stopReconnectTimer() {
 function startReconnectTimer(url: string, key: string) {
   stopReconnectTimer();
   reconnectTimer = setInterval(async () => {
-    if (connected()) return;
+    if (supabase) {
+      const uid = await getCurrentUserId().catch(() => null);
+      if (uid) return;
+      supabase = null;
+    }
     try {
       const client = createClient(cleanSupabaseUrl(url), key);
+      const { data } = await client.auth.getSession();
+      if (!data.session) return;
       const { ok } = await pingRemote(client);
       if (ok) {
         supabase = client;
@@ -280,17 +286,17 @@ export async function getOAuthSessionUser(url?: string): Promise<{ email: string
   if (!cfg.url || !cfg.key) return null;
   const direct = readStoredOAuthUser(cfg);
   if (direct) {
-    console.log('[OAuth] session recovered from storage', direct.email);
+    console.debug('[OAuth] session recovered from storage', direct.email);
     return direct;
   }
   const params = url ? oauthParamsFromUrl(url) : oauthParamsFromUrl(window.location.href);
   const fromUrl = params ? parseOAuthUserFromParams(params) : null;
   if (fromUrl) {
-    console.log('[OAuth] session parsed from URL', fromUrl.email);
+    console.debug('[OAuth] session parsed from URL', fromUrl.email);
     persistOAuthSession(cfg, params || undefined);
     return fromUrl;
   }
-  console.log('[OAuth] not in storage or URL — polling client session');
+  console.debug('[OAuth] not in storage or URL — polling client session');
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
     let user: any = null;
@@ -352,14 +358,13 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
     const result = await localDB.allDocs({ include_docs: true });
     const rows = result.rows || [];
     const upserts: any[] = [];
-    const deletes: string[] = [];
     for (const row of rows) {
       const doc = row.doc;
       if (!doc || !doc._id || doc._id.startsWith('_design/')) continue;
       const entity = doc.entity || (doc._id.split(':')[0] in ENTITY_PREFIXES ? doc._id.split(':')[0] : null);
       if (!entity) continue;
       if (doc._deleted) {
-        deletes.push(doc._id);
+        upserts.push({ user_id: userId, id: doc._id, entity, data: { id: doc._id.split(':')[1], deletedAt: new Date().toISOString() }, deleted_at: new Date().toISOString() });
         continue;
       }
       const data: any = { ...doc };
@@ -375,12 +380,6 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
         if (error) failures += chunk.length;
         else pushed += chunk.length;
       } catch { failures += chunk.length; }
-    }
-    for (const id of deletes) {
-      try {
-        const { error } = await supabase.from(SYNC_TABLE).delete().eq('user_id', userId).eq('id', id);
-        if (error) failures++;
-      } catch { failures++; }
     }
   } catch (e: any) {
     console.warn('[Sync] Push failed:', e?.message || e);

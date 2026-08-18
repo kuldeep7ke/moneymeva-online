@@ -1,12 +1,12 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.34 (incremented on every build)
+**Version:** v7.1.1.60 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
-**Last Updated:** 2026-08-17
+**Last Updated:** 2026-08-18
 
 ---
 
@@ -267,6 +267,25 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.60 (2026-08-18) — Full Audit & Bug-Fix Pass
+Five parallel audits (store/sync, dashboard/summary/savings, TransactionPage ×2, partners/accounts/categories, settings/login/onboarding/i18n) — every finding verified against source, all fixed, build green.
+- **Local-date helper**: `todayStr()` (local timezone, not UTC) added to `src/lib/utils.ts`; replaces all `new Date().toISOString().split('T')[0]` uses (TransactionPage, dashboard, partners, adjustments, savings, recurring, accounts, onboarding, settings CSV). UTC dates made "today" = yesterday in IST (00:00–05:30), blocking same-day entries + wrong PIN prompts.
+- **store.ts**: `advanceRecurring` now accepts overrides `{amount, date, account, description}` and parses nextDate in UTC (was local-parse → date −1 in IST); dashboard's advance modal no longer double-creates the transaction. `updatedAt` added to every entity type + set/bumped on all add/update/delete/restore/complete/advance paths. `permanentDeleteAllArchived` now `bulkDelete`s removed rows from Dexie (were rehydrating on reload) + writes tombstones. `deleteFromCacheAndWrite` writes a tombstone doc instead of `removeDoc` so permanent deletes propagate to remote. `clearAllDB` LS_KEYS pin keys fixed (`mm_pins_used_idx`, `mm_auto_lock_minutes`, `mm_locked`). Removed dead `getSavings`/`counterKey`, awaited `autoCleanupCompletedTodos()`, removed stray console.log, `getCarryForward` clamps both bounds.
+- **pouchdb.ts**: `pushLocalToRemote` upserts tombstones for `_deleted` docs instead of hard-deleting rows (other devices kept stale copies). `startReconnectTimer` detects expired sessions (supabase set but no user) → recreates client + `getSession()` auto-refresh (was a sync deadlock). OAuth logs → `console.debug`.
+- **TransactionPage**: amount>0 guards in add/edit/dup-confirm; investSource default/reset `'bank'`; `bank` source now creates the promised "Investment Outflow" expense (was silently recording account:'cash' investments, dead `savings`/`partner_` branches removed); dupWarning carries account; quick filters use real calendar weeks/months/quarters + local dates; `filterDateFrom` defaults to '' (all); headings "Add/Edit {title}" fixed ("Incom" bug); edit-modal category dropdown uses its own `filteredEditCategories` memo (was keyed to add-modal search); removed dead imports + dead investSource detail block.
+- **dashboard**: recurring advance = single call with overrides; `handleDone` guards amount>0; Sync Now wrapped in try/finally + error toast; `periodRef` fixes stale-period refresh; goal contribute refreshes aggregates for the active period; `getPeriodSince` normalized to local midnight; investments render violet in Recent Transactions (were red expenses).
+- **summary**: goal % guarded against target=0 (NaN bar); stat grid `lg:grid-cols-3` (was 4 for 3 cards).
+- **partners**: amount>0 guard; delete warns with linked-transaction count; local todayStr.
+- **settings**: backup now reads `getSession().user` (was dead `money_meva_session` key → empty profile) + includes `todos`; import handles `todos`; user-data clear = `clearAllDB()` + `logoutUser()` (was clearing only 7 Dexie tables → data resurrected via live sync; no longer flips `onboarding_completed` → login guard was deleting the account the copy promised would stay); CSV export escapes fields + import maps partnerId column + help text 'saving'→'investment'; Supabase URL format validation on Connect/Create.
+- **categories**: listens for `store-ready` (was reading empty data on first mount).
+- **InvestmentCalculator**: "Use this amount" fills `result.invested` (was `result.maturity` → FD ₹72,243 recorded as a ₹50,000 investment).
+- **onboarding**: seeds `mm_investment_categories` per profession (was income+expense only); local today for partner dates.
+- **localAuth**: `updateProfile` only rewrites the session when updating the logged-in user (was overwriting session with any edited user).
+- **account page**: "Logout & Clear Data" actually calls `clearAllDB()` (Dexie data was surviving logout).
+- **i18n**: footer copyright `© 2026-27 Money Meva | All Right Reserved` → `© 2026 Money Meva.` (all 3 languages); Marathi hero → `पैसे कुठे जातात? शोधूया.`
+- **Types**: `updatedAt: string` added to RecurringTx/Budget/Reminder/Adjustment/Goal/Todo; `add*` signatures `Omit<…, 'updatedAt'>`.
+- Known-deferred (documented, not implemented): store getters have no userId filtering (multi-user local profiles share one dataset by design; cloud isolation handled by Supabase RLS); plaintext passwords in `mm_users`; partner delete leaves orphaned `partnerAccountId`s (soft-delete is safe); duplicate toast systems (global + local) left as-is.
 
 ### v7.1.1.34 (2026-08-17) — Cloud Sync 2.0 (Supabase)
 - **Migrated cloud sync CouchDB → Supabase** after the Railway CouchDB instance died (404 "Application not found").

@@ -8,8 +8,9 @@ const LS_KEYS = {
   onboarded: 'mm_onboarded',
   pins: 'mm_pins',
   pinsShown: 'mm_pins_shown',
-  pinIndex: 'mm_pin_index',
-  lockMinutes: 'mm_lock_minutes',
+  pinIndex: 'mm_pins_used_idx',
+  lockMinutes: 'mm_auto_lock_minutes',
+  locked: 'mm_locked',
   lastActivity: 'mm_last_activity',
   version: 'mm_version',
 };
@@ -143,7 +144,7 @@ export async function initDB() {
     await db.partners.bulkPut(deduped);
   }
   await autoDeleteExpiredArchived();
-  autoCleanupCompletedTodos();
+  await autoCleanupCompletedTodos();
   initialized = true;
   // Auto-process remote changes when live sync detects them
   let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -285,10 +286,6 @@ export function getTransactions(type?: string): Transaction[] {
   return type ? all.filter(t => t.type === type) : all;
 }
 
-export function getSavings(): Transaction[] {
-  return cache.transactions.filter(t => !t.deletedAt && t.type === 'expense' && t.savingTag);
-}
-
 export function getArchivedTransactions(): Transaction[] {
   return cache.transactions.filter(t => t.deletedAt);
 }
@@ -358,6 +355,14 @@ export function permanentDeleteArchivedItem(type: ArchiveItemType, id: string) {
 }
 
 export async function permanentDeleteAllArchived() {
+  const removedTx = cache.transactions.filter(t => t.deletedAt).map(t => t.id);
+  const removedPartners = cache.partners.filter(p => p.deletedAt).map(p => p.id);
+  const removedRecurring = cache.recurring.filter(r => r.deletedAt).map(r => r.id);
+  const removedReminders = cache.reminders.filter(r => r.deletedAt).map(r => r.id);
+  const removedBudgets = cache.budgets.filter(b => b.deletedAt).map(b => b.id);
+  const removedAdjustments = cache.adjustments.filter(a => a.deletedAt).map(a => a.id);
+  const removedGoals = cache.goals.filter(g => g.deletedAt).map(g => g.id);
+  const removedTodos = cache.todos.filter(t => t.deletedAt).map(t => t.id);
   const keepTx = cache.transactions.filter(t => !t.deletedAt);
   const keepPartners = cache.partners.filter(p => !p.deletedAt);
   const keepRecurring = cache.recurring.filter(r => !r.deletedAt);
@@ -384,6 +389,26 @@ export async function permanentDeleteAllArchived() {
     db.goals.bulkPut(keepGoals),
     db.todos.bulkPut(keepTodos),
   ]);
+  await Promise.all([
+    removedTx.length ? db.transactions.bulkDelete(removedTx) : Promise.resolve(),
+    removedPartners.length ? db.partners.bulkDelete(removedPartners) : Promise.resolve(),
+    removedRecurring.length ? db.recurring.bulkDelete(removedRecurring) : Promise.resolve(),
+    removedReminders.length ? db.reminders.bulkDelete(removedReminders) : Promise.resolve(),
+    removedBudgets.length ? db.budgets.bulkDelete(removedBudgets) : Promise.resolve(),
+    removedAdjustments.length ? db.adjustments.bulkDelete(removedAdjustments) : Promise.resolve(),
+    removedGoals.length ? db.goals.bulkDelete(removedGoals) : Promise.resolve(),
+    removedTodos.length ? db.todos.bulkDelete(removedTodos) : Promise.resolve(),
+  ]);
+  await Promise.all([
+    ...removedTx.map(id => syncWriteDoc('transactions', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedPartners.map(id => syncWriteDoc('partners', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedRecurring.map(id => syncWriteDoc('recurring', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedReminders.map(id => syncWriteDoc('reminders', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedBudgets.map(id => syncWriteDoc('budgets', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedAdjustments.map(id => syncWriteDoc('adjustments', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedGoals.map(id => syncWriteDoc('goals', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedTodos.map(id => syncWriteDoc('todos', { id, deletedAt: now(), updatedAt: now() })),
+  ]);
 }
 
 function upsertCacheAndWrite<T extends { id: string }>(table: string, list: T[], item: T) {
@@ -402,7 +427,11 @@ function deleteFromCacheAndWrite<T extends { id: string }>(table: string, list: 
     list.splice(idx, 1);
   }
   (db as any)[table].delete(id).catch(() => {});
-  syncRemoveDoc(table, id).catch(() => {});
+  const entity = entityMap[table];
+  if (entity) {
+    triggerSync();
+    putDoc(entity, { id, deletedAt: now(), updatedAt: now() }).catch(() => {});
+  }
 }
 
 const logEntityType = (table: string): string => table === 'partners' ? 'party' : entityMap[table] || table.slice(0, -1);
@@ -471,7 +500,6 @@ export async function processRemoteChanges() {
     updated++;
   }
   if (updated > 0) {
-    console.log(`Sync: ${updated} remote change(s) applied`);
     window.dispatchEvent(new CustomEvent('store-ready'));
   }
 }
@@ -608,8 +636,8 @@ export function getRecurring(): RecurringTx[] {
   return cache.recurring.filter(r => !r.deletedAt);
 }
 
-export function addRecurring(r: Omit<RecurringTx, 'id' | 'transitionId' | 'userId' | 'createdAt'>): RecurringTx {
-  const rec: RecurringTx = { ...r, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now() };
+export function addRecurring(r: Omit<RecurringTx, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): RecurringTx {
+  const rec: RecurringTx = { ...r, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.recurring.push(rec);
   db.recurring.put(rec).catch(() => {});
   syncWriteDoc('recurring', rec);
@@ -622,7 +650,7 @@ export function updateRecurring(id: string, updates: Partial<RecurringTx>) {
   if (idx === -1) return null;
   const prev = cache.recurring[idx];
   const tId = prev.transitionId;
-  cache.recurring[idx] = { ...prev, ...updates };
+  cache.recurring[idx] = { ...prev, ...updates, updatedAt: now() };
   db.recurring.put(cache.recurring[idx]).catch(() => {});
   syncWriteDoc('recurring', cache.recurring[idx]);
   const action: MutationAction = updates.deletedAt ? 'deleted' : updates.deletedAt === undefined && prev.deletedAt ? 'restored' : 'updated';
@@ -634,30 +662,31 @@ export function deleteRecurring(id: string) {
   const idx = cache.recurring.findIndex(r => r.id === id);
   if (idx === -1) return;
   const tId = cache.recurring[idx].transitionId;
-  cache.recurring[idx] = { ...cache.recurring[idx], deletedAt: now() };
+  cache.recurring[idx] = { ...cache.recurring[idx], deletedAt: now(), updatedAt: now() };
   db.recurring.put(cache.recurring[idx]).catch(() => {});
   syncWriteDoc('recurring', cache.recurring[idx]);
   logMutation('recurring', id, tId, 'deleted', cache.recurring[idx].title);
 }
 
-export function advanceRecurring(id: string): Transaction | null {
+export function advanceRecurring(id: string, overrides?: { amount?: number; date?: string; account?: Transaction['account']; description?: string }): Transaction | null {
   const idx = cache.recurring.findIndex(r => r.id === id);
   if (idx === -1) return null;
   const rec = cache.recurring[idx];
   const tId = rec.transitionId;
   const nextDate = rec.nextDate;
   const tx = addTransaction({
-    amount: rec.amount,
+    amount: overrides?.amount ?? rec.amount,
     type: rec.txType === 'income' ? 'income' : 'expense',
     category: rec.category,
-    description: rec.title,
-    date: nextDate,
+    description: overrides?.description ?? rec.title,
+    date: overrides?.date ?? nextDate,
+    account: overrides?.account,
     isRecurring: true,
     recurringId: rec.id,
     partnerAccountId: undefined,
   });
-  // Advance nextDate
-  const dt = new Date(nextDate + 'T00:00:00');
+  // Advance nextDate (parse/serialize consistently in UTC, same as computeNextDate)
+  const dt = new Date(nextDate);
   switch (rec.frequency) {
     case 'daily': dt.setDate(dt.getDate() + 1); break;
     case 'weekly': dt.setDate(dt.getDate() + 7); break;
@@ -666,7 +695,7 @@ export function advanceRecurring(id: string): Transaction | null {
     case 'custom': dt.setDate(dt.getDate() + (rec.customIntervalDays || 30)); break;
   }
   const newNextDate = dt.toISOString().split('T')[0];
-  cache.recurring[idx] = { ...cache.recurring[idx], nextDate: newNextDate };
+  cache.recurring[idx] = { ...cache.recurring[idx], nextDate: newNextDate, updatedAt: now() };
   db.recurring.put(cache.recurring[idx]).catch(() => {});
   syncWriteDoc('recurring', cache.recurring[idx]);
   logMutation('recurring', id, tId, 'advanced', `${rec.title} → next: ${newNextDate}`);
@@ -677,7 +706,7 @@ export function restoreRecurring(id: string) {
   const idx = cache.recurring.findIndex(r => r.id === id);
   if (idx === -1) return;
   const tId = cache.recurring[idx].transitionId;
-  cache.recurring[idx] = { ...cache.recurring[idx], deletedAt: undefined };
+  cache.recurring[idx] = { ...cache.recurring[idx], deletedAt: undefined, updatedAt: now() };
   db.recurring.put(cache.recurring[idx]).catch(() => {});
   syncWriteDoc('recurring', cache.recurring[idx]);
   logMutation('recurring', id, tId, 'restored', cache.recurring[idx].title);
@@ -693,7 +722,7 @@ export function getBudgets(): Budget[] {
 }
 
 export async function setBudgets(budgets: Budget[]) {
-  cache.budgets = budgets.map(b => ({ ...b, transitionId: b.transitionId || transitionId(), userId: uid() }));
+  cache.budgets = budgets.map(b => ({ ...b, transitionId: b.transitionId || transitionId(), userId: uid(), updatedAt: now() }));
   try { await db.budgets.clear(); } catch {}
   try { await db.budgets.bulkPut(cache.budgets); } catch {}
   cache.budgets.forEach(b => syncWriteDoc('budgets', b));
@@ -704,7 +733,7 @@ export function deleteBudget(id: string) {
   const idx = cache.budgets.findIndex(b => b.id === id);
   if (idx === -1) return;
   const tId = cache.budgets[idx].transitionId;
-  cache.budgets[idx] = { ...cache.budgets[idx], deletedAt: now() };
+  cache.budgets[idx] = { ...cache.budgets[idx], deletedAt: now(), updatedAt: now() };
   db.budgets.put(cache.budgets[idx]).catch(() => {});
   syncWriteDoc('budgets', cache.budgets[idx]);
   logMutation('budget', id, tId, 'deleted', cache.budgets[idx].category);
@@ -714,7 +743,7 @@ export function restoreBudget(id: string) {
   const idx = cache.budgets.findIndex(b => b.id === id);
   if (idx === -1) return;
   const tId = cache.budgets[idx].transitionId;
-  cache.budgets[idx] = { ...cache.budgets[idx], deletedAt: undefined };
+  cache.budgets[idx] = { ...cache.budgets[idx], deletedAt: undefined, updatedAt: now() };
   db.budgets.put(cache.budgets[idx]).catch(() => {});
   syncWriteDoc('budgets', cache.budgets[idx]);
   logMutation('budget', id, tId, 'restored', cache.budgets[idx].category);
@@ -729,14 +758,14 @@ export function upsertBudget(b: { category: string; limit: number; period: 'mont
     const idx = cache.budgets.findIndex(x => x.id === b.id);
     if (idx >= 0) {
       const tId = cache.budgets[idx].transitionId;
-      cache.budgets[idx] = { ...cache.budgets[idx], ...b };
+      cache.budgets[idx] = { ...cache.budgets[idx], ...b, updatedAt: now() };
       db.budgets.put(cache.budgets[idx]).catch(() => {});
       syncWriteDoc('budgets', cache.budgets[idx]);
       logMutation('budget', b.id, tId, 'updated', b.category);
       return cache.budgets[idx];
     }
   }
-  const nb: Budget = { ...b, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now() };
+  const nb: Budget = { ...b, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.budgets.push(nb);
   db.budgets.put(nb).catch(() => {});
   syncWriteDoc('budgets', nb);
@@ -749,8 +778,8 @@ export function getReminders(): Reminder[] {
   return cache.reminders.filter(r => !r.deletedAt);
 }
 
-export function addReminder(r: Omit<Reminder, 'id' | 'transitionId' | 'userId' | 'createdAt'>): Reminder {
-  const rem: Reminder = { ...r, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now() };
+export function addReminder(r: Omit<Reminder, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Reminder {
+  const rem: Reminder = { ...r, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.reminders.push(rem);
   db.reminders.put(rem).catch(() => {});
   syncWriteDoc('reminders', rem);
@@ -788,6 +817,7 @@ export function completeAndRescheduleReminder(id: string) {
       cache.reminders[idx].status = 'completed';
     }
   }
+  cache.reminders[idx].updatedAt = now();
   db.reminders.put(cache.reminders[idx]).catch(() => {});
   syncWriteDoc('reminders', cache.reminders[idx]);
   logMutation('reminder', id, tId, 'completed', rem.title);
@@ -797,7 +827,7 @@ export function deleteReminder(id: string) {
   const idx = cache.reminders.findIndex(r => r.id === id);
   if (idx === -1) return;
   const tId = cache.reminders[idx].transitionId;
-  cache.reminders[idx] = { ...cache.reminders[idx], deletedAt: now() };
+  cache.reminders[idx] = { ...cache.reminders[idx], deletedAt: now(), updatedAt: now() };
   db.reminders.put(cache.reminders[idx]).catch(() => {});
   syncWriteDoc('reminders', cache.reminders[idx]);
   logMutation('reminder', id, tId, 'deleted', cache.reminders[idx].title);
@@ -807,7 +837,7 @@ export function restoreReminder(id: string) {
   const idx = cache.reminders.findIndex(r => r.id === id);
   if (idx === -1) return;
   const tId = cache.reminders[idx].transitionId;
-  cache.reminders[idx] = { ...cache.reminders[idx], deletedAt: undefined };
+  cache.reminders[idx] = { ...cache.reminders[idx], deletedAt: undefined, updatedAt: now() };
   db.reminders.put(cache.reminders[idx]).catch(() => {});
   syncWriteDoc('reminders', cache.reminders[idx]);
   logMutation('reminder', id, tId, 'restored', cache.reminders[idx].title);
@@ -822,8 +852,8 @@ export function getAdjustments(): Adjustment[] {
   return cache.adjustments.filter(a => !a.deletedAt);
 }
 
-export function addAdjustment(a: Omit<Adjustment, 'id' | 'transitionId' | 'userId' | 'createdAt'>): Adjustment {
-  const adj: Adjustment = { ...a, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now() };
+export function addAdjustment(a: Omit<Adjustment, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Adjustment {
+  const adj: Adjustment = { ...a, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.adjustments.push(adj);
   db.adjustments.put(adj).catch(() => {});
   syncWriteDoc('adjustments', adj);
@@ -835,7 +865,7 @@ export function deleteAdjustment(id: string) {
   const idx = cache.adjustments.findIndex(a => a.id === id);
   if (idx === -1) return;
   const tId = cache.adjustments[idx].transitionId;
-  cache.adjustments[idx] = { ...cache.adjustments[idx], deletedAt: now() };
+  cache.adjustments[idx] = { ...cache.adjustments[idx], deletedAt: now(), updatedAt: now() };
   db.adjustments.put(cache.adjustments[idx]).catch(() => {});
   syncWriteDoc('adjustments', cache.adjustments[idx]);
   logMutation('adjustment', id, tId, 'deleted', cache.adjustments[idx].notes || 'adjustment');
@@ -845,7 +875,7 @@ export function restoreAdjustment(id: string) {
   const idx = cache.adjustments.findIndex(a => a.id === id);
   if (idx === -1) return;
   const tId = cache.adjustments[idx].transitionId;
-  cache.adjustments[idx] = { ...cache.adjustments[idx], deletedAt: undefined };
+  cache.adjustments[idx] = { ...cache.adjustments[idx], deletedAt: undefined, updatedAt: now() };
   db.adjustments.put(cache.adjustments[idx]).catch(() => {});
   syncWriteDoc('adjustments', cache.adjustments[idx]);
   logMutation('adjustment', id, tId, 'restored', cache.adjustments[idx].notes || 'adjustment');
@@ -860,8 +890,8 @@ export function getGoals(): Goal[] {
   return cache.goals.filter(g => !g.deletedAt);
 }
 
-export function addGoal(g: Omit<Goal, 'id' | 'transitionId' | 'userId' | 'createdAt'>): Goal {
-  const goal: Goal = { ...g, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now() };
+export function addGoal(g: Omit<Goal, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Goal {
+  const goal: Goal = { ...g, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.goals.push(goal);
   db.goals.put(goal).catch(() => {});
   syncWriteDoc('goals', goal);
@@ -874,7 +904,7 @@ export function updateGoal(id: string, updates: Partial<Goal>) {
   if (idx === -1) return null;
   const prev = cache.goals[idx];
   const tId = prev.transitionId;
-  cache.goals[idx] = { ...prev, ...updates };
+  cache.goals[idx] = { ...prev, ...updates, updatedAt: now() };
   db.goals.put(cache.goals[idx]).catch(() => {});
   syncWriteDoc('goals', cache.goals[idx]);
   const action: MutationAction = updates.deletedAt ? 'deleted' : updates.deletedAt === undefined && prev.deletedAt ? 'restored' : 'updated';
@@ -886,7 +916,7 @@ export function deleteGoal(id: string) {
   const idx = cache.goals.findIndex(g => g.id === id);
   if (idx === -1) return;
   const tId = cache.goals[idx].transitionId;
-  cache.goals[idx] = { ...cache.goals[idx], deletedAt: now() };
+  cache.goals[idx] = { ...cache.goals[idx], deletedAt: now(), updatedAt: now() };
   db.goals.put(cache.goals[idx]).catch(() => {});
   syncWriteDoc('goals', cache.goals[idx]);
   logMutation('goal', id, tId, 'deleted', cache.goals[idx].name);
@@ -896,7 +926,7 @@ export function restoreGoal(id: string) {
   const idx = cache.goals.findIndex(g => g.id === id);
   if (idx === -1) return;
   const tId = cache.goals[idx].transitionId;
-  cache.goals[idx] = { ...cache.goals[idx], deletedAt: undefined };
+  cache.goals[idx] = { ...cache.goals[idx], deletedAt: undefined, updatedAt: now() };
   db.goals.put(cache.goals[idx]).catch(() => {});
   syncWriteDoc('goals', cache.goals[idx]);
   logMutation('goal', id, tId, 'restored', cache.goals[idx].name);
@@ -911,8 +941,8 @@ export function getTodos(): Todo[] {
   return cache.todos.filter(t => !t.deletedAt);
 }
 
-export function addTodo(t: Omit<Todo, 'id' | 'transitionId' | 'userId' | 'createdAt'>): Todo {
-  const todo: Todo = { ...t, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now() };
+export function addTodo(t: Omit<Todo, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Todo {
+  const todo: Todo = { ...t, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
   cache.todos.push(todo);
   db.todos.put(todo).catch(() => {});
   syncWriteDoc('todos', todo);
@@ -925,7 +955,7 @@ export function updateTodo(id: string, updates: Partial<Todo>) {
   if (idx === -1) return null;
   const prev = cache.todos[idx];
   const tId = prev.transitionId;
-  cache.todos[idx] = { ...prev, ...updates };
+  cache.todos[idx] = { ...prev, ...updates, updatedAt: now() };
   db.todos.put(cache.todos[idx]).catch(() => {});
   syncWriteDoc('todos', cache.todos[idx]);
   const action: MutationAction = updates.deletedAt ? 'deleted' : updates.deletedAt === undefined && prev.deletedAt ? 'restored' : 'updated';
@@ -937,7 +967,7 @@ export function deleteTodo(id: string) {
   const idx = cache.todos.findIndex(t => t.id === id);
   if (idx === -1) return;
   const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], deletedAt: now() };
+  cache.todos[idx] = { ...cache.todos[idx], deletedAt: now(), updatedAt: now() };
   db.todos.put(cache.todos[idx]).catch(() => {});
   syncWriteDoc('todos', cache.todos[idx]);
   logMutation('todo', id, tId, 'deleted', cache.todos[idx].title);
@@ -947,7 +977,7 @@ export function restoreTodo(id: string) {
   const idx = cache.todos.findIndex(t => t.id === id);
   if (idx === -1) return;
   const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], deletedAt: undefined };
+  cache.todos[idx] = { ...cache.todos[idx], deletedAt: undefined, updatedAt: now() };
   db.todos.put(cache.todos[idx]).catch(() => {});
   syncWriteDoc('todos', cache.todos[idx]);
   logMutation('todo', id, tId, 'restored', cache.todos[idx].title);
@@ -961,7 +991,7 @@ export function toggleTodoImportant(id: string) {
   const idx = cache.todos.findIndex(t => t.id === id);
   if (idx === -1) return null;
   const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], important: !cache.todos[idx].important };
+  cache.todos[idx] = { ...cache.todos[idx], important: !cache.todos[idx].important, updatedAt: now() };
   db.todos.put(cache.todos[idx]).catch(() => {});
   syncWriteDoc('todos', cache.todos[idx]);
   logMutation('todo', id, tId, 'toggled', `${cache.todos[idx].title} → important: ${cache.todos[idx].important}`);
@@ -972,7 +1002,7 @@ export function completeTodo(id: string) {
   const idx = cache.todos.findIndex(t => t.id === id);
   if (idx === -1) return null;
   const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], status: 'completed', completedAt: now() };
+  cache.todos[idx] = { ...cache.todos[idx], status: 'completed', completedAt: now(), updatedAt: now() };
   db.todos.put(cache.todos[idx]).catch(() => {});
   syncWriteDoc('todos', cache.todos[idx]);
   logMutation('todo', id, tId, 'completed', cache.todos[idx].title);
@@ -1125,7 +1155,6 @@ export function getAllNotifications(): AppNotification[] {
   const syncNotifs: AppNotification[] = [];
   const lastSync = getLastSyncEvent();
   if (lastSync && lastSync.status === 'complete') {
-    const counterKey = 'mm_sync_notif_counter';
     const counter = (lastSync.pushed || 0) + '_' + (lastSync.pulled || 0) + '_' + (lastSync.error || '');
     const lastShown = localStorage.getItem('mm_sync_notif_last') || '';
     if (counter !== lastShown) {
@@ -1194,7 +1223,8 @@ export function getCarryForward() {
   });
   const lastMonthBal = lastMonth.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
   const currentBal = currentMonth.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
-  return { lastMonthCarry: Math.max(0, lastMonthBal), currentStart: lastMonthBal, currentBalance: currentBal };
+  const carry = Math.max(0, lastMonthBal);
+  return { lastMonthCarry: carry, currentStart: carry, currentBalance: currentBal };
 }
 
 // ─── Mutation Log Query ───────────────────────────────────────

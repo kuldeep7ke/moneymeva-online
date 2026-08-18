@@ -7,14 +7,13 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, logMutation } from '@/lib/store';
+import { cn, todayStr } from '@/lib/utils';
+import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getTodos, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
-import { switchUser, getAllUsers, getSession, updateProfile } from '@/lib/localAuth';
+import { switchUser, getAllUsers, getSession, logoutUser } from '@/lib/localAuth';
 import { useAuth } from '@/components/AuthProvider';
 import { useTheme, getBrands } from '@/components/ThemeProvider';
 import { clearAllDB, processRemoteChanges, pushAllToPouch } from '@/lib/store';
-import { db } from '@/lib/db';
 import { generatePins, getPins, arePinsShown, markPinsShown, hasPins, getRemainingPins, getAutoLockMinutes, setAutoLockMinutes } from '@/lib/pinStore';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
@@ -130,10 +129,12 @@ export default function SettingsPage() {
     const overlay = createProgressOverlay('Preparing export…');
     try {
       const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '4.0.1';
-      const session = JSON.parse(localStorage.getItem('money_meva_session') || '{}');
+      const session = getSession().user;
+      const profile: any = session ? { ...session, password: undefined } : {};
       const tables: [string, any[]][] = [
         ['transactions', getTransactions()], ['budgets', getBudgets()], ['goals', getGoals()],
         ['reminders', getReminders()], ['recurring', getRecurring()], ['partners', getPartners()], ['adjustments', getAdjustments()],
+        ['todos', getTodos()],
       ];
       const total = Math.max(tables.reduce((n, [, items]) => n + items.length, 0), 1);
       let done = 0;
@@ -141,9 +142,9 @@ export default function SettingsPage() {
         _metadata: {
           app: 'Money Meva', version,
           exportDate: new Date().toISOString(),
-          exportedBy: session.full_name || session.email || 'unknown',
+          exportedBy: session?.full_name || session?.email || 'unknown',
         },
-        profile: session,
+        profile,
       };
       for (const [name, items] of tables) {
         done += items.length;
@@ -187,13 +188,13 @@ export default function SettingsPage() {
       try {
         const data = JSON.parse(reader.result as string);
         if (!data._metadata || !data._metadata.app) { toast('Invalid backup file', 'error'); return; }
-        const session = JSON.parse(localStorage.getItem('money_meva_session') || '{}');
-        const currentId = session.id || 'local-user';
-        const currentName = session.full_name || session.email || 'Current User';
+        const session = getSession().user;
+        const currentId = session?.id || 'local-user';
+        const currentName = session?.full_name || session?.email || 'Current User';
         const backupId = data.profile?.id || 'unknown';
         const backupUser = data.profile?.full_name || data._metadata.exportedBy || 'Unknown';
         let itemCount = 0;
-        ['transactions', 'budgets', 'goals', 'reminders', 'recurring', 'partners', 'adjustments'].forEach(k => {
+        ['transactions', 'budgets', 'goals', 'reminders', 'recurring', 'partners', 'adjustments', 'todos'].forEach(k => {
           if (data[k]?.length) itemCount += data[k].length;
         });
         const isFresh = !localStorage.getItem('mm_transactions') ||
@@ -224,7 +225,6 @@ export default function SettingsPage() {
     const overlay = createProgressOverlay('Clearing data…');
     logActivity('data_cleared', clearMode === 'user-data' ? 'User data only' : 'All data');
 
-    const userDataKeys = ['mm_transactions', 'mm_partners', 'mm_recurring', 'mm_budgets', 'mm_reminders', 'mm_adjustments', 'mm_goals'];
     const finish = () => {
       overlay.finish('Data cleared — signing out', () => {
         setClearing(false);
@@ -237,26 +237,8 @@ export default function SettingsPage() {
 
     try {
       if (clearMode === 'user-data') {
-        const tables: [string, { clear(): Promise<unknown> }][] = [
-          ['transactions', db.transactions], ['partners', db.partners], ['recurring', db.recurring],
-          ['budgets', db.budgets], ['reminders', db.reminders], ['adjustments', db.adjustments], ['goals', db.goals],
-        ];
-        const total = tables.length + userDataKeys.length;
-        let done = 0;
-        for (const [name, table] of tables) {
-          done++;
-          overlay.update(`Clearing ${name}…`, done, total);
-          await table.clear();
-        }
-        userDataKeys.forEach(k => {
-          done++;
-          overlay.update('Clearing browser storage…', done, total);
-          localStorage.removeItem(k);
-        });
-        const session = getSession().user;
-        if (session) {
-          updateProfile(session.id, { onboarding_completed: false, onboarding_step: 1 });
-        }
+        await clearAllDB((label, d, t) => overlay.update(label, d, t));
+        logoutUser();
         finish();
       } else {
         await clearAllDB((label, d, t) => overlay.update(label, d, t));
@@ -272,15 +254,16 @@ export default function SettingsPage() {
   };
 
   const handleConnect = async () => {
-    if (!syncUrl.trim() || !syncKey.trim()) { setSyncError('Supabase URL and anon key are required'); return; }
-    if (!syncEmail.trim() || !syncPassword.trim()) { setSyncError('Enter your sync email and password'); return; }
+    const url = syncUrl.trim().replace(/\/+$/, '');
+    if (!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url)) { setSyncError('Enter a valid Supabase project URL (e.g. https://xxxx.supabase.co)'); return; }
+    if (!syncKey.trim() || !syncEmail.trim() || !syncPassword.trim()) { setSyncError('Enter your anon key, sync email, and password'); return; }
     setSyncStatus('connecting');
     setSyncError('');
     dispatchSyncEvent({ status: 'started', message: 'Connecting to Supabase…' });
     try {
-      const { ok, error: connErr } = await connectRemote(syncUrl.trim(), syncKey.trim(), syncEmail.trim(), syncPassword);
+      const { ok, error: connErr } = await connectRemote(url, syncKey.trim(), syncEmail.trim(), syncPassword);
       if (ok) {
-        saveSyncUrlHistory(syncUrl.trim());
+        saveSyncUrlHistory(url);
         setSyncUrlHistory(getSyncUrlHistory());
         setSyncStatus('connected');
         setSyncConnected(true);
@@ -312,13 +295,14 @@ export default function SettingsPage() {
   };
 
   const handleCreateAccount = async () => {
-    if (!syncUrl.trim() || !syncKey.trim()) { setSyncError('Supabase URL and anon key are required'); return; }
-    if (!syncEmail.trim() || syncPassword.length < 6) { setSyncError('Enter your email and a password (min 6 characters)'); return; }
+    const url = syncUrl.trim().replace(/\/+$/, '');
+    if (!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url)) { setSyncError('Enter a valid Supabase project URL (e.g. https://xxxx.supabase.co)'); return; }
+    if (!syncKey.trim() || !syncEmail.trim() || syncPassword.length < 6) { setSyncError('Enter your anon key, email, and a password (min 6 characters)'); return; }
     setSyncStatus('connecting');
     setSyncError('');
     dispatchSyncEvent({ status: 'started', message: 'Creating account…' });
     try {
-      const { ok, needsConfirmation, error: signUpErr } = await signUpUser(syncUrl.trim(), syncKey.trim(), syncEmail.trim(), syncPassword);
+      const { ok, needsConfirmation, error: signUpErr } = await signUpUser(url, syncKey.trim(), syncEmail.trim(), syncPassword);
       if (!ok) {
         failSync(signUpErr || 'Account creation failed');
         return;
@@ -328,9 +312,9 @@ export default function SettingsPage() {
         setSyncError('Account created! Check your email to confirm, then tap Connect.');
         return;
       }
-      const { ok: connectedOk, error: connErr } = await connectRemote(syncUrl.trim(), syncKey.trim(), syncEmail.trim(), syncPassword);
+      const { ok: connectedOk, error: connErr } = await connectRemote(url, syncKey.trim(), syncEmail.trim(), syncPassword);
       if (connectedOk) {
-        saveSyncUrlHistory(syncUrl.trim());
+        saveSyncUrlHistory(url);
         setSyncUrlHistory(getSyncUrlHistory());
         setSyncStatus('connected');
         setSyncConnected(true);
@@ -644,21 +628,25 @@ export default function SettingsPage() {
                   const catIdx = headers.findIndex(h => h === 'category');
                   const descIdx = headers.findIndex(h => h === 'description' || h === 'desc' || h === 'note' || h === 'notes');
                   const typeIdx = headers.findIndex(h => h === 'type');
+                  const partnerIdx = headers.findIndex(h => h === 'partnerid' || h === 'partner');
+                  const csvUnesc = (v: string) => { const t = v.trim(); if (t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/""/g, '"'); return t; };
                   let imported = 0;
                   const overlay = createProgressOverlay('Importing CSV…');
                   setTimeout(async () => {
                     try {
                       const total = Math.max(lines.length - 1, 1);
+                      const partners = getPartners();
                       for (let i = 1; i < lines.length; i++) {
-                        const cols = lines[i].split(',').map(c => c.trim());
-                        const date = dateIdx >= 0 ? cols[dateIdx] : new Date().toISOString().split('T')[0];
+                        const cols = lines[i].split(',').map(c => csvUnesc(c));
+                        const date = dateIdx >= 0 ? cols[dateIdx] : todayStr();
                         const amount = parseFloat(amountIdx >= 0 ? cols[amountIdx] : '0');
                         const category = catIdx >= 0 ? cols[catIdx] : 'Other';
                         const description = descIdx >= 0 ? cols[descIdx] : '';
                         let type = typeIdx >= 0 ? cols[typeIdx].toLowerCase() : 'expense';
                         type = ['income', 'expense', 'investment'].includes(type) ? type : 'expense';
                         if (!amount || isNaN(amount)) continue;
-                        addTransaction({ amount, type: type as any, category, description, date, partnerAccountId: undefined, isRecurring: false });
+                        const partnerAccountId = partnerIdx >= 0 && cols[partnerIdx] ? partners.find((p: any) => p.id === cols[partnerIdx])?.id : undefined;
+                        addTransaction({ amount, type: type as any, category, description, date, partnerAccountId, isRecurring: false });
                         imported++;
                         if (i % 25 === 0) overlay.update(`Importing transactions… ${imported} added`, i, total);
                       }
@@ -673,7 +661,7 @@ export default function SettingsPage() {
                 reader.readAsText(file);
               }} />
             </label>
-            <p className="text-xs text-slate-400 dark:text-slate-500 pt-2">Headers: date, amount, category, description, type (income/expense/saving/investment)</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 pt-2">Headers: date, amount, category, description, type (income/expense/investment)</p>
               <Button variant="ghost" size="sm" className="text-xs text-brand dark:text-brand-secondary" onClick={() => {
                 const csv = 'date,amount,category,description,type\n2024-01-15,5000,Salary,January salary,income\n2024-01-16,200,Groceries,Weekly groceries,expense';
                 downloadFile(csv, 'money-meva-template.csv', 'text/csv');
@@ -686,8 +674,9 @@ export default function SettingsPage() {
             <div className="flex flex-wrap gap-2 justify-center">
               <Button variant="primary" size="sm" className="gap-2" onClick={() => {
                 const txs = getTransactions();
+                const csvEsc = (v: any) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
                 const csv = ['date,type,category,description,amount,partnerId'];
-                txs.forEach(t => csv.push(`${t.date},${t.type},${t.category},${t.description},${t.amount},${t.partnerAccountId || ''}`));
+                txs.forEach(t => csv.push([csvEsc(t.date), csvEsc(t.type), csvEsc(t.category), csvEsc(t.description), csvEsc(t.amount), csvEsc(t.partnerAccountId || '')].join(',')));
                 downloadFile(csv.join('\n'), 'money-meva-export.csv', 'text/csv');
               }}>
                 <Download className="h-4 w-4" /> CSV
@@ -1226,6 +1215,7 @@ async function doImport(data: any, currentUserId: string) {
       { key: 'recurring', table: 'mm_recurring', entityType: 'recurring', label: 'Importing recurring…' },
       { key: 'partners', table: 'mm_partners', entityType: 'partner', label: 'Importing partners…' },
       { key: 'adjustments', table: 'mm_adjustments', entityType: 'adjustment', label: 'Importing adjustments…' },
+      { key: 'todos', table: 'mm_todos', entityType: 'todo', label: 'Importing todos…' },
     ];
     const total = tables.reduce((n, t) => n + (Array.isArray(data[t.key]) ? data[t.key].length : 0), 0);
     let processed = 0;

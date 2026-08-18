@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Target, Plus, Trash2, ListTodo, Star, StarOff, Bell, CheckCircle2, AlertCircle, Clock, X, Minus, ArrowDown, ArrowUpDown } from 'lucide-react';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getGoals, addGoal, deleteGoal, getTodos, addTodo, updateTodo, deleteTodo, toggleTodoImportant, completeTodo, isStoreReady, getTransactions, addTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners } from '@/lib/store';
 import type { TodoPriority } from '@/types';
 import Reveal from '@/components/Reveal';
@@ -27,7 +27,8 @@ export default function GoalsPage() {
   const [goalForm, setGoalForm] = useState({ name: '', target: '', saved: '' });
   const [confirmDel, setConfirmDel] = useState<{ type: string; id: string } | null>(null);
   const [showTodoModal, setShowTodoModal] = useState(false);
-  const [todoForm, setTodoForm] = useState({ title: '', description: '', dueDate: new Date().toISOString().split('T')[0], category: '', amount: '', priority: 'medium' as TodoPriority, important: false });
+  const today = todayStr();
+  const [todoForm, setTodoForm] = useState({ title: '', description: '', dueDate: today, category: '', amount: '', priority: 'medium' as TodoPriority, important: false });
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [catHighlightIndex, setCatHighlightIndex] = useState(-1);
   const [todoFilter, setTodoFilter] = useState<'all' | 'pending' | 'completed' | 'overdue'>('pending');
@@ -62,8 +63,6 @@ export default function GoalsPage() {
     const baseMatches = DEFAULT_CATEGORIES.filter(c => c.toLowerCase().includes(q) && !matched.includes(c));
     return [...matched, ...baseMatches].slice(0, 10);
   }, [recentCategories, todoForm.category]);
-
-  const todayStr = new Date().toISOString().split('T')[0];
 
   const categoryRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -140,7 +139,7 @@ export default function GoalsPage() {
       status: 'pending',
     });
     setShowTodoModal(false);
-    setTodoForm({ title: '', description: '', dueDate: new Date().toISOString().split('T')[0], category: '', amount: '', priority: 'medium', important: false });
+    setTodoForm({ title: '', description: '', dueDate: today, category: '', amount: '', priority: 'medium', important: false });
     refreshTodos();
   };
 

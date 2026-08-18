@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Wallet, Landmark, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getTransactions, isStoreReady, addTransaction } from '@/lib/store';
 import Reveal from '@/components/Reveal';
 
@@ -42,7 +42,7 @@ export default function AccountsPage() {
     const amount = Number(transferForm.amount);
     if (!amount || amount <= 0) return;
     if (transferForm.from === transferForm.to) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStr();
     const transferId = Date.now().toString(36);
     addTransaction({ amount, type: 'expense', category: 'Transfer', description: `Transfer to ${transferForm.to === 'cash' ? 'Cash' : 'Bank'}`, date: today, account: transferForm.from as 'cash' | 'bank', transferId, partnerAccountId: undefined, isRecurring: false });
     addTransaction({ amount, type: 'income', category: 'Transfer', description: `Transfer from ${transferForm.from === 'cash' ? 'Cash' : 'Bank'}`, date: today, account: transferForm.to as 'cash' | 'bank', transferId, partnerAccountId: undefined, isRecurring: false });

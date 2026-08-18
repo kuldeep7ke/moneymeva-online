@@ -12,7 +12,7 @@ npx create-next-app@latest money-meva --typescript --tailwind --eslint --app
 
 # Install core dependencies
 npm install dexie pouchdb-browser pouchdb-find \
-  # @supabase/supabase-js (removed, fully local-first)
+  @supabase/supabase-js \
   clsx tailwind-merge \
   date-fns \
   lucide-react \
@@ -795,7 +795,7 @@ money-meva/
 │   ├── lib/                    # Business logic
 │   │   ├── db.ts               # Dexie schema
 │   │   ├── store.ts            # State management + CRUD
-│   │   ├── pouchdb.ts          # CouchDB sync engine
+│   │   ├── pouchdb.ts          # Supabase sync engine (sync_docs hub, realtime)
 │   │   ├── localAuth.ts        # Local auth system
 │   │   ├── pinStore.ts         # PIN security
 │   │   ├── export.ts           # PDF/Excel export

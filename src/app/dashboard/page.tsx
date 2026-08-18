@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, Undo2, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingDown, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { formatCurrency, cn, useSortedCategories, getSortedCategories } from '@/lib/utils';
+import { formatCurrency, cn, useSortedCategories, getSortedCategories, todayStr } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,6 @@ import { useTranslation } from '@/lib/i18n';
 import { logActivity } from '@/lib/activityLog';
 import InvestmentCalculator from '@/components/InvestmentCalculator';
 import { useToast } from '@/components/Toast';
-
-const todayStr = () => new Date().toISOString().split('T')[0];
 
 function CardSkeleton({ className = "" }: { className?: string }) {
   return (
@@ -60,7 +58,7 @@ export default function DashboardPage() {
   const [partnerInvest, setPartnerInvest] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [showTaskForm, setShowTaskForm] = useState<any>(null);
-  const [taskForm, setTaskForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: new Date().toISOString().split('T')[0], description: '' });
+  const [taskForm, setTaskForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: todayStr(), description: '' });
   const [showRecurringForm, setShowRecurringForm] = useState<any>(null);
   const [recurringForm, setRecurringForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: '', description: '', category: 'Other' });
   const [lastDeleted, setLastDeleted] = useState<any>(null);
@@ -88,7 +86,7 @@ export default function DashboardPage() {
 
   // Inline add modals
   const [showAddTx, setShowAddTx] = useState<'income' | 'expense' | 'investment' | null>(null);
-  const [txForm, setTxForm] = useState({ amount: '', category: '', date: new Date().toISOString().split('T')[0], description: '', account: 'cash' as 'cash' | 'bank' | 'upi' });
+  const [txForm, setTxForm] = useState({ amount: '', category: '', date: todayStr(), description: '', account: 'cash' as 'cash' | 'bank' | 'upi' });
   const [txCatSearch, setTxCatSearch] = useState('');
   const [txShowCatDropdown, setTxShowCatDropdown] = useState(false);
   const [txCatHighlight, setTxCatHighlight] = useState(-1);
@@ -122,6 +120,7 @@ export default function DashboardPage() {
   const getPeriodSince = (p: string) => {
     if (p === 'ALL') return undefined;
     const d = new Date();
+    d.setHours(0, 0, 0, 0);
     const map: Record<string, number> = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
     d.setDate(d.getDate() - (map[p] || 30));
     return d;
@@ -131,7 +130,7 @@ export default function DashboardPage() {
     if (!isStoreReady()) return;
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 100));
-    const since = getPeriodSince(period);
+    const since = getPeriodSince(periodRef.current);
     setAggregates(getAggregates(since));
     setCarryFwd(getCarryForward());
     loadReminders();
@@ -157,6 +156,9 @@ export default function DashboardPage() {
     
     setTimeout(() => setIsLoading(false), 200);
   };
+
+  const periodRef = useRef(period);
+  periodRef.current = period;
 
   useEffect(() => {
     refreshDashboard();
@@ -199,12 +201,14 @@ export default function DashboardPage() {
   const handleDone = (id: string) => {
     const rem = allReminders.find(r => r.id === id);
     if (!rem) return;
+    const amount = rem.amount || 0;
+    if (!(amount > 0)) return;
     addTransaction({
-      amount: rem.amount || 0,
+      amount,
       type: 'expense',
       category: rem.category || 'Other',
       description: `Paid: ${rem.title}`,
-      date: new Date().toISOString().split('T')[0],
+      date: todayStr(),
       partnerAccountId: undefined,
       isRecurring: false,
     });
@@ -262,7 +266,7 @@ export default function DashboardPage() {
     logActivity('entry_created', `${showAddTx} — ${txForm.category}`);
     showConfirmTx({ type: showAddTx, amount, category: txForm.category, date: txForm.date, account, description: txForm.description });
     setShowAddTx(null);
-    setTxForm({ amount: '', category: '', date: new Date().toISOString().split('T')[0], description: '', account: 'cash' });
+    setTxForm({ amount: '', category: '', date: todayStr(), description: '', account: 'cash' });
     setTxCatSearch('');
     refreshDashboard();
   };
@@ -530,15 +534,20 @@ export default function DashboardPage() {
             <Button variant="outline" size="sm" className="text-xs gap-1.5 border-sky-200 text-sky-700 dark:border-sky-800 dark:text-sky-400" onClick={async () => {
               if (syncing) return;
               setSyncing(true);
-              const cfg = getConfig();
-              if (cfg.url) {
-                await pushAllToPouch();
-                const { ok } = await manualSync();
-                setSyncConnected(ok);
-                if (ok) await processRemoteChanges();
-                refreshDashboard();
+              try {
+                const cfg = getConfig();
+                if (cfg.url) {
+                  await pushAllToPouch();
+                  const { ok } = await manualSync();
+                  setSyncConnected(ok);
+                  if (ok) await processRemoteChanges();
+                  refreshDashboard();
+                }
+              } catch (e: any) {
+                showToast(e?.message || 'Sync failed', 'error');
+              } finally {
+                setSyncing(false);
               }
-              setSyncing(false);
             }} disabled={syncing}>
               <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> {syncing ? 'Syncing' : 'Sync Now'}
             </Button>
@@ -667,14 +676,14 @@ export default function DashboardPage() {
             <div className="space-y-2">
               {recentTransactions.map((t: any) => (
                 <div key={t.id} className="flex items-center p-3 gap-3 rounded-xl hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                  <div className={cn("p-1.5 rounded-full shrink-0", t.type === 'income' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
-                    {t.type === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
+                  <div className={cn("p-1.5 rounded-full shrink-0", t.type === 'income' ? 'bg-green-50 dark:bg-green-900/30' : t.type === 'investment' ? 'bg-violet-50 dark:bg-violet-900/30' : 'bg-red-50 dark:bg-red-900/30')}>
+                    {t.type === 'income' ? <ArrowUpCircle className="h-4 w-4 text-green-500" /> : t.type === 'investment' ? <TrendingUp className="h-4 w-4 text-violet-500" /> : <ArrowDownCircle className="h-4 w-4 text-red-500" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{(() => { const d = t.description || t.category; return d.length > 21 ? d.slice(0, 21) + '...' : d; })()}</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500">{t.date} {t.category !== 'Other' && `· ${t.category}`}</p>
                   </div>
-                  <p className={cn("text-sm font-bold shrink-0 whitespace-nowrap ml-auto", t.type === 'income' ? 'text-green-600' : 'text-red-600')}>
+                  <p className={cn("text-sm font-bold shrink-0 whitespace-nowrap ml-auto", t.type === 'income' ? 'text-green-600' : t.type === 'investment' ? 'text-violet-600' : 'text-red-600')}>
                     {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                   </p>
                 </div>
@@ -712,7 +721,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     {t.important && <span className="text-[10px] font-bold text-amber-500">★</span>}
                     {t.amount ? <span className="text-sm font-bold text-slate-700 dark:text-slate-300 mr-1">{formatCurrency(t.amount)}</span> : null}
-                    <button onClick={() => { setTaskForm({ type: 'expense', amount: String(t.amount || ''), account: 'cash', date: new Date().toISOString().split('T')[0], description: t.title }); setShowTaskForm(t); }} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark complete">
+                    <button onClick={() => { setTaskForm({ type: 'expense', amount: String(t.amount || ''), account: 'cash', date: todayStr(), description: t.title }); setShowTaskForm(t); }} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark complete">
                       <CheckCircle2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -885,7 +894,7 @@ export default function DashboardPage() {
               e.preventDefault();
               const amount = Number(addMoneyAmount);
               if (!amount || amount <= 0) return;
-              const today = new Date().toISOString().split('T')[0];
+              const today = todayStr();
 
               if (addMoneyMode === 'transfer') {
                 const from = addMoneySource as 'cash' | 'bank' | 'upi';
@@ -1018,10 +1027,10 @@ export default function DashboardPage() {
               if (!amt || amt <= 0) return;
               if (showGoalTx.type === 'withdraw' && amt > g.saved) { setToast(`Amount exceeds saved balance`); setTimeout(() => setToast(null), 3000); return; }
               const isContribute = showGoalTx.type === 'contribute';
-              addTransaction({ amount: amt, type: isContribute ? 'expense' : 'income', category: isContribute ? g.name : 'Savings Withdrawal', description: isContribute ? `Contribute to ${g.name}` : `Withdraw from ${g.name}`, date: new Date().toISOString().split('T')[0], partnerAccountId: undefined, account: goalTxForm.account, isRecurring: false });
+              addTransaction({ amount: amt, type: isContribute ? 'expense' : 'income', category: isContribute ? g.name : 'Savings Withdrawal', description: isContribute ? `Contribute to ${g.name}` : `Withdraw from ${g.name}`, date: todayStr(), partnerAccountId: undefined, account: goalTxForm.account, isRecurring: false });
               updateGoal(g.id, { saved: g.saved + (isContribute ? amt : -amt) });
               refreshGoals();
-              setAggregates(getAggregates());
+              setAggregates(getAggregates(getPeriodSince(periodRef.current)));
               setShowGoalTx(null);
               setToast(`₹${amt.toLocaleString()} ${isContribute ? 'contributed to' : 'withdrawn from'} "${g.name}"`);
               setTimeout(() => setToast(null), 3000);
@@ -1121,9 +1130,8 @@ export default function DashboardPage() {
               e.preventDefault();
               const amount = Number(recurringForm.amount);
               if (!amount) return;
-              addTransaction({ amount, type: recurringForm.type as 'income' | 'expense', category: recurringForm.category, description: recurringForm.description, date: recurringForm.date, partnerAccountId: undefined, account: recurringForm.account, isRecurring: true, recurringId: showRecurringForm.id });
-              advanceRecurring(showRecurringForm.id);
-              showConfirmTx({ type: recurringForm.type, amount, category: recurringForm.category, date: recurringForm.date, account: recurringForm.account, description: recurringForm.description });
+              const tx = advanceRecurring(showRecurringForm.id, { amount, date: recurringForm.date, account: recurringForm.account, description: recurringForm.description });
+              if (tx) showConfirmTx({ type: tx.type, amount, category: recurringForm.category, date: recurringForm.date, account: recurringForm.account, description: recurringForm.description });
               refreshDashboard();
               setShowRecurringForm(null);
               setToast(`"${showRecurringForm.title}" advanced`);

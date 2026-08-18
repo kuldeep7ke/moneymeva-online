@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Plus, Repeat, Calendar, Play, Pause, Trash2 } from 'lucide-react';
-import { formatCurrency, cn, getSortedCategories, useSortedCategories } from '@/lib/utils';
+import { formatCurrency, cn, getSortedCategories, useSortedCategories, todayStr } from '@/lib/utils';
 import { getRecurring, addRecurring, updateRecurring, deleteRecurring } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
@@ -36,7 +36,7 @@ export default function RecurringPage() {
 
   const [form, setForm] = useState({
     title: '', amount: '', category: '', txType: 'expense' as const, frequency: 'monthly' as const,
-    startDate: new Date().toISOString().split('T')[0], endDate: '', reminderDays: '3 days',
+    startDate: todayStr(), endDate: '', reminderDays: '3 days',
   });
 
   const handleAdd = (e: React.FormEvent) => {
@@ -65,7 +65,7 @@ export default function RecurringPage() {
 
   const handleDelete = (id: string) => {
     const item = items.find(i => i.id === id);
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStr();
     const createdToday = item && item.createdAt?.split('T')[0] === today;
     if (createdToday) {
       doDelete(id);

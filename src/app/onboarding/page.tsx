@@ -43,38 +43,46 @@ const PROFESSION_OPTIONS = [
   { value: 'other', label: 'Other', icon: '👤' },
 ];
 
-const PROFESSION_CATEGORIES: Record<string, { income: string[]; expense: string[] }> = {
+const PROFESSION_CATEGORIES: Record<string, { income: string[]; expense: string[]; investment: string[] }> = {
   salaried: {
     income: ['Salary', 'Bonus', 'Reimbursement', 'Incentive', 'Other'],
     expense: ['Rent', 'Groceries', 'Utilities', 'Transport', 'Healthcare', 'Entertainment', 'Dining', 'Shopping', 'Bills', 'Insurance', 'Education', 'EMI', 'Other'],
+    investment: ['Mutual Funds', 'Stocks', 'Fixed Deposit', 'PPF', 'NPS', 'Gold', 'Real Estate', 'Other'],
   },
   freelancer: {
     income: ['Project Income', 'Client Payment', 'Consulting', 'Retainer', 'Other'],
     expense: ['Business Expense', 'Equipment', 'Software', 'Marketing', 'Internet', 'Travel', 'Office Supplies', 'Other'],
+    investment: ['Mutual Funds', 'Stocks', 'Fixed Deposit', 'Gold', 'Real Estate', 'Other'],
   },
   business: {
     income: ['Sales', 'Revenue', 'Services', 'Other'],
     expense: ['Inventory', 'Payroll', 'Rent (Business)', 'Utilities (Business)', 'Marketing', 'GST/Tax', 'Transport', 'Other'],
+    investment: ['Mutual Funds', 'Stocks', 'Fixed Deposit', 'Gold', 'Real Estate', 'Business Expansion', 'Other'],
   },
   student: {
     income: ['Pocket Money', 'Scholarship', 'Stipend', 'Part-time Job', 'Other'],
     expense: ['Education', 'Books', 'Stationery', 'Food', 'Transport', 'Entertainment', 'Mobile Recharge', 'Other'],
+    investment: ['Mutual Funds', 'Stocks', 'Fixed Deposit', 'Gold', 'Other'],
   },
   homemaker: {
     income: ['Household', 'Other'],
     expense: ['Household', 'Groceries', 'Utilities', 'Kids', 'Healthcare', 'Entertainment', 'Dining', 'Other'],
+    investment: ['Fixed Deposit', 'Gold', 'Mutual Funds', 'Other'],
   },
   investor: {
     income: ['Dividends', 'Capital Gains', 'Interest', 'Rental Income', 'Other'],
     expense: ['Brokerage', 'Investment', 'Mutual Funds', 'Stocks', 'Other'],
+    investment: ['Stocks', 'Mutual Funds', 'Fixed Deposit', 'Real Estate', 'Gold', 'Bonds', 'Crypto', 'Other'],
   },
   retired: {
     income: ['Pension', 'Interest', 'Dividends', 'Rental', 'Other'],
     expense: ['Healthcare', 'Medicine', 'Utilities', 'Household', 'Entertainment', 'Other'],
+    investment: ['Fixed Deposit', 'Mutual Funds', 'Bonds', 'Gold', 'Other'],
   },
   other: {
     income: ['Income', 'Other'],
     expense: ['Expense', 'Other'],
+    investment: ['Mutual Funds', 'Stocks', 'Fixed Deposit', 'Other'],
   },
 };
 
@@ -244,12 +252,14 @@ export default function OnboardingPage() {
       if (form.profession && PROFESSION_CATEGORIES[form.profession]) {
         localStorage.setItem('mm_income_categories', JSON.stringify(PROFESSION_CATEGORIES[form.profession].income));
         localStorage.setItem('mm_expense_categories', JSON.stringify(PROFESSION_CATEGORIES[form.profession].expense));
+        localStorage.setItem('mm_investment_categories', JSON.stringify(PROFESSION_CATEGORIES[form.profession].investment));
       }
       if (goalName && Number(goalTarget) > 0) {
         addGoal({ name: goalName, target: Number(goalTarget), saved: 0 });
       }
       if (partnerForm?.name.trim()) {
-        const today = new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         addPartner({
           name: partnerForm.name.trim(),
           type: partnerForm.type,

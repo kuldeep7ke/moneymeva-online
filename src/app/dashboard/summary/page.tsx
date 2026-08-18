@@ -114,7 +114,7 @@ export default function SummaryPage() {
         </Reveal>
 
         <Reveal delay={100}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             { label: 'Total Income', value: totals.income, icon: ArrowUpCircle, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30' },
             { label: 'Total Expenses', value: totals.expense, icon: ArrowDownCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/30' },
@@ -162,7 +162,7 @@ export default function SummaryPage() {
           ) : (
             <div className="space-y-6">
               {goals.map(g => {
-                const pct = Math.min(Math.round((g.saved / g.target) * 100), 100);
+                const pct = g.target > 0 ? Math.min(Math.round((g.saved / g.target) * 100), 100) : 0;
                 return (
                   <div key={g.id}>
                     <div className="flex items-center justify-between mb-2">

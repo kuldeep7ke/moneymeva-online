@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { SlidersHorizontal, Plus, Trash2 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, todayStr } from '@/lib/utils';
 import { getAdjustments, addAdjustment, deleteAdjustment, addTransaction } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
@@ -24,7 +24,7 @@ export default function AdjustmentsPage() {
   useEffect(() => { setAdjustments(getAdjustments()); }, []);
   const refreshAdj = () => { setAdjustments(getAdjustments()); };
 
-  const [adjForm, setAdjForm] = useState({ amount: '', accountType: 'personal' as const, notes: '', date: new Date().toISOString().split('T')[0], reflectPersonal: false });
+  const [adjForm, setAdjForm] = useState({ amount: '', accountType: 'personal' as const, notes: '', date: todayStr(), reflectPersonal: false });
 
   const handleAddAdjustment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +50,7 @@ export default function AdjustmentsPage() {
     }
 
     setShowAdjustmentModal(false);
-    setAdjForm({ amount: '', accountType: 'personal', notes: '', date: new Date().toISOString().split('T')[0], reflectPersonal: false });
+    setAdjForm({ amount: '', accountType: 'personal', notes: '', date: todayStr(), reflectPersonal: false });
     refreshAdj();
   };
 

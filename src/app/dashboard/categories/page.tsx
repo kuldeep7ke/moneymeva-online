@@ -74,7 +74,12 @@ export default function CategoriesPage() {
     setSavedCats({ income: [...loaded.income], expense: [...loaded.expense], investment: [...loaded.investment] });
   };
 
-  useEffect(() => { refreshTxCats(); }, []);
+  useEffect(() => {
+    refreshTxCats();
+    const onReady = () => refreshTxCats();
+    window.addEventListener('store-ready', onReady);
+    return () => window.removeEventListener('store-ready', onReady);
+  }, []);
 
   const currentCats = useMemo(() => {
     switch (tab) {
