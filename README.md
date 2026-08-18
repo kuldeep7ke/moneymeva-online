@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.60** — A minimalistic, local-first personal finance companion.
+**v7.1.1.65** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India.
 
@@ -30,7 +30,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 ## Features
 
 ### Core
-- **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal. Transaction types are exactly three: `income`, `expense`, `investment` (no savings type). Categories stay separate per type (income/expense/investment lists). Future-dated entries are blocked — date pickers cap at today and submit validates with a warning toast.
+- **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal. **Account badges** (Cash/Bank/UPI/Invest) next to the description on desktop and beside the date in the mobile list — including in the Android APK. Transaction types are exactly three: `income`, `expense`, `investment` (no savings type). Categories stay separate per type (income/expense/investment lists). Future-dated entries are blocked — date pickers cap at today and submit validates with a warning toast.
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
 - **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), DB stats viewer, localStorage inspector, sync diagnostics, raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
@@ -43,7 +43,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected).
 - **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable lifecycle chain, copy transition ID, CSV export, entity/action filters, search.
 - **Categories Page** — Dedicated management page with Income/Expense/Investment tabs; inline edit, delete, add; PIN-protected batch save to localStorage.
-- **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup/restore with cross-user detection and reassignment. Import from JSON file via Developer Zone to restore data across devices.
+- **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup/restore with cross-user detection and reassignment. Import from JSON file via Developer Zone to restore data across devices. On Android, exports open the **native share sheet** (file written to app Cache, then shared — blob downloads don't work inside the WebView).
 
 ### Security & Privacy
 - **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data). Session auto-lock (1h–24h).
@@ -91,7 +91,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 | Excel | SheetJS (xlsx) |
 | Dates | date-fns 4 |
 | Auth | Local (email/password) + optional Supabase Auth for cloud sync |
-| Mobile | Capacitor 8 (Android) |
+| Mobile | Capacitor 8 (Android) — app, browser, filesystem, share, local-notifications, status-bar |
 | Linting | ESLint 9 |
 
 ---
@@ -173,8 +173,16 @@ manualSync():
   returns { ok, pushed, pulled }
 
 checkConnection():
-  session valid + lightweight ping
+  session valid → lightweight ping → true
+  session dead (expired token / stale client):
+    → recreate client → getSession() (auto-refreshes token)
+    → ping → re-subscribe realtime → true; else false
+  → self-healing, no false negatives
 ensureConnected():  ← re-subscribe if session exists but subscription dropped
+
+Reconnect timer (30s):  detects dead sessions, recreates client, refreshes session,
+  re-subscribes, dispatches sync event "Sync reconnected" → Settings UI updates live
+  (listenSyncEvents) — no stale "create account" form on flaky Android networks.
 ```
 
 ---
@@ -246,6 +254,7 @@ src/
 │   ├── sync-notify.ts           # CustomEvent-based sync status dispatch
 │   ├── activityLog.ts           # Security + CRUD event history
 │   ├── export.ts                # PDF + Excel + CSV export
+│   ├── download.ts              # downloadBlob (native share sheet on Android), copyText, printHtml
 │   ├── defaultCategories.ts     # Default category seed data
 │   ├── capacitor-notifications.ts # Local notification scheduling
 │   ├── utils.ts                 # cn(), useInView, date helpers
@@ -332,7 +341,7 @@ cd android
 ```
 
 The APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.
-Requires Android 7+ (API 24). Features back button navigation, status bar handling, and local notifications.
+Requires Android 7+ (API 24). Features back button navigation, status bar handling, local notifications, and native share-sheet exports (PDF/Excel/CSV write to app Cache then open the share sheet).
 
 A GitHub Actions workflow also builds the APK automatically on every push to master:
 [Build Android APK](https://github.com/kuldeep7ke/moneymeva-online/actions/workflows/build-apk.yml)

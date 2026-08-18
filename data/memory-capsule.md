@@ -1,12 +1,12 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.60 (incremented on every build)
+**Version:** v7.1.1.65 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
-**Last Updated:** 2026-08-18
+**Last Updated:** 2026-08-19
 
 ---
 
@@ -19,14 +19,15 @@
 | Styling | Tailwind CSS v4 + CSS variables | Rapid prototyping; 3-brand theme via CSS custom properties |
 | i18n | Custom hook + translations.ts | 3 languages (mr/hi/en), no external lib needed |
 | Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 9 tables with compound indexes |
-| Sync | PouchDB ↔ Supabase `sync_docs` (realtime) | Local PouchDB buffer (`mm_pouch`); cloud hub = Supabase table; live realtime + manual "Sync Now"; 30s reconnect |
+| Sync | PouchDB ↔ Supabase `sync_docs` (realtime) | Local PouchDB buffer (`mm_pouch`); cloud hub = Supabase table; live realtime + manual "Sync Now"; 30s reconnect; self-healing `checkConnection` |
 | State | In-memory cache + Dexie + PouchDB | Cache for instant reads, Dexie for persistence, PouchDB for sync |
 | Auth | Local (localStorage) + optional Supabase Auth | Local multi-user profiles; cloud login (email+password, JWT in `mm_sb_session`) only when Multi-Device Sync enabled |
 | Security | One-time 4-digit PINs + Supabase RLS | PINs for app access; cloud rows isolated per `auth.uid()` via Row-Level Security; no PII stored remotely |
-| Mobile | Capacitor v8 (Android) | Wraps static Next.js output as native APK |
+| Mobile | Capacitor v8 (Android) | Wraps static Next.js output as native APK; plugins: app, browser, filesystem, share, local-notifications, status-bar |
 | Charts | Recharts | Lightweight, React-native charting |
 | PDF Export | jsPDF + jsPDF-autotable | Client-side PDF generation |
 | Excel Export | SheetJS (xlsx) | Client-side Excel generation |
+| File I/O (Android) | @capacitor/filesystem + @capacitor/share | Exports write to Cache → native share sheet (blob-URL downloads don't work in WebView) |
 | Toasts | Custom context (Toast.tsx) | Global success/error/warning/info — replaces `alert()` |
 
 ### Why Not...
@@ -59,6 +60,7 @@ Local PouchDB buffer (`mm_pouch`) + Supabase `sync_docs` table as the cloud hub 
 - **Push**: upsert with `onConflict: 'user_id,id'` (composite PK — every row owned by the signed-in user)
 - **Pull**: `select` scoped by RLS (`auth.uid() = user_id`)
 - **Live updates**: realtime channel on `sync_docs_realtime` (replica identity full); 30s reconnect interval; `onRemoteChange` for UI refresh
+- **Self-healing checks**: `checkConnection()` — if session looks dead (getUser fails on expired token), recreates the client, `getSession()` auto-refreshes, re-pings, and re-subscribes instead of reporting `false`. Successful reconnects dispatch a sync event (`'complete', 'Sync reconnected'`) so Settings updates its UI live (listens via `listenSyncEvents`) — no more flicker between "Sync Now" and the create-account form on slow/flaky Android networks
 - **URL/key overrides**: Settings can paste a different URL + anon key (bring-your-own-Supabase); defaults baked from `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.local`, gitignored)
 - **Multi-user isolation**: verified E2E — account B sees 0 rows of account A, RLS blocks cross-account writes, realtime events never cross accounts
 
@@ -190,8 +192,10 @@ All list/table/chart empty views show **icon + bold heading + grey hint** (not b
 - Shared `TransactionPage` component
 - Desktop: table with Date, Category, Description, Amount, Partner, Actions
 - Mobile: minimal list with tap-to-view detail modal
+- **Account badges** (Cash/Bank/UPI/Invest) shown next to the description on desktop and beside the date in the mobile list (both views share one `ACCOUNT_BADGE` map in `TransactionPage.tsx`) — works in the Android APK too
 - Add/Edit modals with searchable category + party dropdowns
 - Search, filters (category/date/amount), sort, group by day/week/month
+- 30-day default date filter (`filterDateFrom` init = local-tz date −30d; "Clear Filters" shows all)
 - Archive tab for soft-deleted items
 - Future dates blocked (date picker `max` + submit toast)
 
@@ -215,7 +219,7 @@ All list/table/chart empty views show **icon + bold heading + grey hint** (not b
 ### Settings (`/dashboard/settings`)
 - Profile, PIN Security, Brand picker, Theme toggle
 - Multi-Device Sync (Supabase: URL+key auto-filled, email/password, Connect / Create account & sync / Sync Now / Disconnect)
-- Export/Import (PDF, Excel, JSON) — summary exports have no Savings column
+- Export/Import (PDF, Excel, JSON) — summary exports have no Savings column; on Android exports open the native share sheet (Filesystem Cache → Share)
 - Language selector with portal dropdown
 - Danger Zone
 
@@ -267,6 +271,17 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.65 (2026-08-19) — Sync Status Stability + Native Exports + Mobile Badges
+- **Sync flicker fixed** (Android APK: Settings alternated between "Sync Now" and the create-link form with blank email/password). Root cause: `checkConnection()` returned `false` on a dead session (expired Supabase access token) and nothing re-checked after the 30s reconnect timer recovered — the UI only re-evaluated on page remount. Fixes: (1) `checkConnection()` now self-heals — recreates the client, `getSession()` auto-refreshes the token, re-pings, re-subscribes, returns the real result; (2) `startReconnectTimer` dispatches a sync event (`'complete'`, "Sync reconnected") after successful reconnect; (3) Settings subscribes via `listenSyncEvents` and re-runs `checkConnection()` — status follows reality instead of going stale.
+- **Android exports fixed** (CSV/PDF/Excel did nothing on the APK — blob-URL anchor clicks don't work in the Capacitor WebView, no download manager). Added `@capacitor/filesystem` + `@capacitor/share` (v8, cap-synced). `downloadBlob()` on native: blob → base64 → write to `Cache/exports/` → `Filesystem.getUri` → native share sheet (user saves to Drive/Files/etc.), file auto-deleted after 60s. Web path unchanged (share API → anchor download).
+- **Account badges on mobile**: `ACCOUNT_BADGE` map (cash=emerald, bank=blue, upi=purple, invest=violet) extracted to module scope in `TransactionPage.tsx`; badges now render beside the date in the mobile list view (previously desktop table only) — covers the Android APK since it uses the mobile layout.
+
+### v7.1.1.64 (2026-08-19) — Account Badges (Desktop)
+- Desktop transaction table Description cell shows a colored badge (Cash/Bank/UPI/Invest) when `t.account` is set (`t.account?: 'cash'|'bank'|'upi'|'invest'`).
+
+### v7.1.1.63 (2026-08-19) — Default 30-Day Filter Restored
+- `filterDateFrom` init is `useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return local `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}` })` (local timezone, not UTC). "Clear Filters" still sets `''` (show all). Restores the pre-audit behavior the user wanted after v7.1.1.60 changed the default to ''.
 
 ### v7.1.1.62 (2026-08-18) — Visibility & Boot Hardening
 - **`Reveal.tsx` rebuilt** — content could stay invisible forever when IntersectionObserver never reported `isIntersecting` (blank lists on Income/Expenses/Ledger + below-fold sections on every page, incl. dashboard cards; top blocks were visible so it looked page-specific). Fix: reveal immediately if already in viewport at mount, forgiving threshold (0.01) + rootMargin, safety timer reveals unconditionally after `delay + 1500ms`, fallback without IntersectionObserver. Same class risk on landing page `useInView` hooks — they are declared but never applied in JSX (dead code, no impact).
