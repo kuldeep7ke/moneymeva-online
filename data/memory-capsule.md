@@ -268,6 +268,11 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ## Recent Changes
 
+### v7.1.1.62 (2026-08-18) — Visibility & Boot Hardening
+- **`Reveal.tsx` rebuilt** — content could stay invisible forever when IntersectionObserver never reported `isIntersecting` (blank lists on Income/Expenses/Ledger + below-fold sections on every page, incl. dashboard cards; top blocks were visible so it looked page-specific). Fix: reveal immediately if already in viewport at mount, forgiving threshold (0.01) + rootMargin, safety timer reveals unconditionally after `delay + 1500ms`, fallback without IntersectionObserver. Same class risk on landing page `useInView` hooks — they are declared but never applied in JSX (dead code, no impact).
+- **`initDB()` hardened** — any hydration step throwing left the whole app stuck on the LoadingOverlay forever (`ready` never set, no store-ready). Now try/catch around init so `initialized = true` + store-ready ALWAYS fire; DashboardLayout also catches rejections.
+- Verified ledger/developer/onboarding data loads all have try/catch (getMutationLog, import flows, dumps) — no skeleton-forever paths remain.
+
 ### v7.1.1.60 (2026-08-18) — Full Audit & Bug-Fix Pass
 Five parallel audits (store/sync, dashboard/summary/savings, TransactionPage ×2, partners/accounts/categories, settings/login/onboarding/i18n) — every finding verified against source, all fixed, build green.
 - **Local-date helper**: `todayStr()` (local timezone, not UTC) added to `src/lib/utils.ts`; replaces all `new Date().toISOString().split('T')[0]` uses (TransactionPage, dashboard, partners, adjustments, savings, recurring, accounts, onboarding, settings CSV). UTC dates made "today" = yesterday in IST (00:00–05:30), blocking same-day entries + wrong PIN prompts.

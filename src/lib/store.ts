@@ -124,27 +124,31 @@ function deduplicatePartners(partners: PartnerAccount[]): PartnerAccount[] {
 
 export async function initDB() {
   if (initialized) return;
-  await initPouchDB();
-  // Migrate any remaining localStorage data
-  await migrateFromLocalStorage();
-  // Hydrate cache from Dexie
-  cache.transactions = await db.transactions.toArray();
-  cache.partners = await db.partners.toArray();
-  cache.recurring = await db.recurring.toArray();
-  cache.budgets = await db.budgets.toArray();
-  cache.reminders = await db.reminders.toArray();
-  cache.adjustments = await db.adjustments.toArray();
-  cache.goals = await db.goals.toArray();
-  cache.todos = await db.todos.toArray();
-  // Deduplicate partners by name
-  const deduped = deduplicatePartners(cache.partners);
-  if (deduped.length < cache.partners.length) {
-    cache.partners = deduped;
-    await db.partners.clear();
-    await db.partners.bulkPut(deduped);
+  try {
+    await initPouchDB();
+    // Migrate any remaining localStorage data
+    await migrateFromLocalStorage();
+    // Hydrate cache from Dexie
+    cache.transactions = await db.transactions.toArray();
+    cache.partners = await db.partners.toArray();
+    cache.recurring = await db.recurring.toArray();
+    cache.budgets = await db.budgets.toArray();
+    cache.reminders = await db.reminders.toArray();
+    cache.adjustments = await db.adjustments.toArray();
+    cache.goals = await db.goals.toArray();
+    cache.todos = await db.todos.toArray();
+    // Deduplicate partners by name
+    const deduped = deduplicatePartners(cache.partners);
+    if (deduped.length < cache.partners.length) {
+      cache.partners = deduped;
+      await db.partners.clear();
+      await db.partners.bulkPut(deduped);
+    }
+    await autoDeleteExpiredArchived();
+    await autoCleanupCompletedTodos();
+  } catch (e) {
+    console.warn('[Store] initDB failed — continuing with empty cache:', e);
   }
-  await autoDeleteExpiredArchived();
-  await autoCleanupCompletedTodos();
   initialized = true;
   // Auto-process remote changes when live sync detects them
   let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;

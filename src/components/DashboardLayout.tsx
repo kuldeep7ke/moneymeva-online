@@ -95,10 +95,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    initDB().then(() => {
-      setReady(true);
-      setTimeout(() => window.dispatchEvent(new CustomEvent('store-ready')), 0);
-    });
+    initDB()
+      .catch(() => {})
+      .then(() => {
+        setReady(true);
+        setTimeout(() => window.dispatchEvent(new CustomEvent('store-ready')), 0);
+      });
   }, []);
 
   useEffect(() => {
