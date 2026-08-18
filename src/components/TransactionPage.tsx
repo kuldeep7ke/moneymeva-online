@@ -38,7 +38,11 @@ export default function TransactionPage({ type, title, description }: Transactio
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterMinAmount, setFilterMinAmount] = useState('');
   const [filterMaxAmount, setFilterMaxAmount] = useState('');
