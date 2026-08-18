@@ -21,7 +21,7 @@ import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
-import { dispatchSyncEvent } from '@/lib/sync-notify';
+import { dispatchSyncEvent, listenSyncEvents } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
 import { createProgressOverlay } from '@/lib/progressOverlay';
 import { useToast } from '@/components/Toast';
@@ -90,6 +90,15 @@ export default function SettingsPage() {
       });
     }
     setSyncUrlHistory(getSyncUrlHistory());
+  }, []);
+
+  useEffect(() => {
+    return listenSyncEvents(() => {
+      checkConnection().then(ok => {
+        setSyncConnected(ok);
+        setSyncStatus(ok ? 'connected' : 'idle');
+      });
+    });
   }, []);
 
   const [captchaA, setCaptchaA] = useState(0);

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SITE_URL } from '@/lib/env';
+import { dispatchSyncEvent } from './sync-notify';
 
 const LS_URL = 'mm_pouch_url';
 const LS_KEY = 'mm_sync_key';
@@ -143,6 +144,7 @@ function startReconnectTimer(url: string, key: string) {
         supabase = client;
         subscribeRealtime(client);
         notifyChange();
+        dispatchSyncEvent({ status: 'complete', message: 'Sync reconnected' });
       }
     } catch {}
   }, RECONNECT_INTERVAL);
@@ -467,10 +469,22 @@ export async function checkConnection(): Promise<boolean> {
   if (!cfg.url || !cfg.key) return false;
   if (connected()) {
     const userId = await getCurrentUserId();
-    return !!userId;
+    if (userId) return true;
+    // Session looks dead — try a self-healing reconnect once (auto-refreshes the token)
   }
-  const { ok } = await connectRemote(cfg.url, cfg.key);
-  return ok;
+  try {
+    const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
+    const { data: sessionData } = await client.auth.getSession();
+    if (!sessionData.session) return false;
+    const { ok } = await pingRemote(client);
+    if (ok) {
+      supabase = client;
+      subscribeRealtime(client);
+    }
+    return ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function ensureConnected() {
