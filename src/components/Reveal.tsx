@@ -9,18 +9,39 @@ export default function Reveal({ children, className = '', delay = 0 }: { childr
     const el = ref.current;
     if (!el) return;
 
+    const reveal = () => {
+      setTimeout(() => el.classList.add('revealed'), delay);
+    };
+
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      reveal();
+      return;
+    }
+
+    if (typeof IntersectionObserver === 'undefined') {
+      reveal();
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setTimeout(() => el.classList.add('revealed'), delay);
+          reveal();
           observer.disconnect();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.01, rootMargin: '0px 0px -5% 0px' }
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+
+    const safety = setTimeout(reveal, delay + 1500);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(safety);
+    };
   }, [delay]);
 
   return (
