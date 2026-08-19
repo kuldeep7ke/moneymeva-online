@@ -725,7 +725,9 @@ export default function TransactionPage({ type, title, description }: Transactio
                       </span>
                       <div className="min-w-0">
                         <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{t.description || t.category}</p>
-                        <p className="text-[11px] text-slate-400 flex items-center gap-1.5">{t.date}{t.account && ACCOUNT_BADGE[t.account] && (
+                        <p className="text-[11px] text-slate-400 flex items-center gap-1.5">{t.date}{t.category && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-brand-muted text-slate-500 dark:text-slate-400 font-medium">{t.category}</span>
+                        )}{t.account && ACCOUNT_BADGE[t.account] && (
                           <span className={cn("px-1.5 py-0.5 rounded-full font-medium", ACCOUNT_BADGE[t.account].cls)}>{ACCOUNT_BADGE[t.account].label}</span>
                         )}</p>
                       </div>
