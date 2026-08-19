@@ -26,7 +26,8 @@ npm install -D @types/pouchdb-browser @types/pouchdb-find
 
 # For Capacitor (Android app)
 npm install @capacitor/cli @capacitor/core @capacitor/android \
-  @capacitor/local-notifications @capacitor/status-bar @capacitor/app
+  @capacitor/local-notifications @capacitor/status-bar @capacitor/app \
+  @capacitor/filesystem @capacitor/share
 
 npx cap init Money Meva com.moneymeva.app
 npx cap add android
@@ -382,9 +383,10 @@ A reusable CRUD page used by Income, Expenses, and Investments.
 - Sort by date/amount, ascending/descending
 - Group by day/week/month
 - Desktop table view
-- Mobile minimal list view (icon + description + date + amount)
+- Mobile minimal list view (icon + description + date + amount) with **category badge** (slate pill) + **account badge** (Cash/Bank/UPI/Invest, colored) beside the date — shared `ACCOUNT_BADGE` map in `TransactionPage.tsx`; works in the Android APK
 - Tap-to-view detail modal on mobile (full info)
 - Archive view with restore permanent delete
+- **30-day default date filter** (`filterDateFrom` = local-tz date − 30 days on init; "Clear Filters" resets to show all)
 
 **Future-date guard:** Income/expense/investment entries cannot be dated in the future. Date inputs use `max={today}`, and submit handlers validate with a warning toast (a shared `todayStr()` helper in each file). Recurring start/end dates, task/todo due dates, and investment maturity dates are exempt.
 
@@ -450,7 +452,7 @@ Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`; the cloud
 | `signUpUser(url, key, email, password)` | Creates Supabase account + connects |
 | `connectRemote(url, key, email, password)` | Signs in, pushes local buffer, subscribes to realtime, pulls |
 | `disconnectRemote()` | Stops realtime subscription, clears session |
-| `checkConnection()` | Validates session + ping |
+| `checkConnection()` | Validates session + ping; **self-healing** — if the session looks dead (expired token), recreates the client, `getSession()` auto-refreshes, re-pings, re-subscribes; never returns false on a recoverable state |
 | `ensureConnected()` | Re-subscribes if session exists but subscription dropped |
 | `putDoc(entity, data)` | Writes doc to local PouchDB + pushes to Supabase (`onConflict user_id,id`) |
 | `removeDoc(entity, id)` | Removes doc from local PouchDB + upserts `deleted_at` on cloud |
@@ -460,8 +462,9 @@ Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`; the cloud
 
 ### Reconnect Strategy
 - 30-second interval timer (`RECONNECT_INTERVAL`)
-- Only active when not already connected
+- Detects dead sessions (supabase set but no user) → recreates client → `getSession()` auto-refreshes the token → ping → re-subscribe → `notifyChange()` → dispatches sync event (`'complete'`, "Sync reconnected")
 - `ensureConnected()` re-establishes the realtime subscription using the stored session
+- **Settings page listens via `listenSyncEvents()`** and re-runs `checkConnection()` on every sync event — the Connect/Sync-Now UI follows actual connection state instead of going stale (fixes Android APK flicker between "Sync Now" and the create-account form)
 
 ### Periodic Pull (in store.ts)
 Every 2 minutes, calls `processRemoteChanges()` which:
@@ -495,7 +498,7 @@ Storage key: `mm_activity_log`
 
 ---
 
-## 12. Export/Import (`src/lib/export.ts`)
+## 12. Export/Import (`src/lib/export.ts` + `src/lib/download.ts`)
 
 | Function | Format | Libraries |
 |---|---|---|
@@ -505,6 +508,10 @@ Storage key: `mm_activity_log`
 | `exportAllDataExcel()` | Excel of all transactions | `xlsx` |
 | JSON export (in Settings) | Full JSON backup | Built-in JSON |
 | JSON import (in Settings) | Cross-user detection + reassignment | Built-in JSON |
+
+All exports funnel through `downloadBlob()` in `src/lib/download.ts`:
+- **Web:** `navigator.share({ files })` when available, else blob-URL + anchor click
+- **Android (Capacitor):** blob → base64 → `Filesystem.writeFile` to `Cache/exports/` → `Filesystem.getUri` → **native share sheet** (`@capacitor/share`), file auto-deleted after 60s. Blob-URL anchor downloads do NOT work inside the WebView — this is why the native path is required.
 
 ---
 
@@ -799,6 +806,7 @@ money-meva/
 │   │   ├── localAuth.ts        # Local auth system
 │   │   ├── pinStore.ts         # PIN security
 │   │   ├── export.ts           # PDF/Excel export
+│   │   ├── download.ts         # downloadBlob (native share sheet on Android), copyText, printHtml
 │   │   ├── activityLog.ts      # Activity tracking
 │   │   ├── defaultCategories.ts# Category definitions
 │   │   ├── utils.ts            # Shared utilities

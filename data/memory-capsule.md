@@ -1,6 +1,6 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.65 (incremented on every build)
+**Version:** v7.1.1.66 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
@@ -192,7 +192,7 @@ All list/table/chart empty views show **icon + bold heading + grey hint** (not b
 - Shared `TransactionPage` component
 - Desktop: table with Date, Category, Description, Amount, Partner, Actions
 - Mobile: minimal list with tap-to-view detail modal
-- **Account badges** (Cash/Bank/UPI/Invest) shown next to the description on desktop and beside the date in the mobile list (both views share one `ACCOUNT_BADGE` map in `TransactionPage.tsx`) — works in the Android APK too
+- **Badges**: category badge (slate pill) + account badge (Cash/Bank/UPI/Invest, colored) shown beside the date in the mobile list and next to the description on desktop — both views share one `ACCOUNT_BADGE` map in `TransactionPage.tsx`; works in the Android APK too
 - Add/Edit modals with searchable category + party dropdowns
 - Search, filters (category/date/amount), sort, group by day/week/month
 - 30-day default date filter (`filterDateFrom` init = local-tz date −30d; "Clear Filters" shows all)
@@ -271,6 +271,9 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.66 (2026-08-19) — Category Badges on Mobile
+- Mobile transaction list row now shows the category badge (slate pill, same style as the desktop table) beside the date, before the account badge — covers the Android APK (uses the mobile layout).
 
 ### v7.1.1.65 (2026-08-19) — Sync Status Stability + Native Exports + Mobile Badges
 - **Sync flicker fixed** (Android APK: Settings alternated between "Sync Now" and the create-link form with blank email/password). Root cause: `checkConnection()` returned `false` on a dead session (expired Supabase access token) and nothing re-checked after the 30s reconnect timer recovered — the UI only re-evaluated on page remount. Fixes: (1) `checkConnection()` now self-heals — recreates the client, `getSession()` auto-refreshes the token, re-pings, re-subscribes, returns the real result; (2) `startReconnectTimer` dispatches a sync event (`'complete'`, "Sync reconnected") after successful reconnect; (3) Settings subscribes via `listenSyncEvents` and re-runs `checkConnection()` — status follows reality instead of going stale.
