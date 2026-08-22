@@ -9,7 +9,10 @@ const FALLBACK_IDS = {
   broadcast: '6a89f038f5f4af5e29363c79',
   banner: '6a89f053f5f4af5e29363cb3',
 };
-const TTL_SECONDS = 3600; // 1h edge cache
+// How long each response is cached at Cloudflare's edge (in MINUTES).
+// Lower = users see jsonbin edits sooner (but jsonbin gets more requests). Higher = fewer requests.
+const TTL_MINUTES = 60;
+const TTL_SECONDS = TTL_MINUTES * 60;
 
 export async function onRequestGet(context) {
   const { request, env, waitUntil } = context;
