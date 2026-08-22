@@ -531,6 +531,19 @@ All exports funnel through `downloadBlob()` in `src/lib/download.ts`:
 | Overdue reminders | `dueDate <= today` | info |
 | Weekend backup | Saturday/Sunday (once per day) | warning |
 
+### Remote Announcements (jsonbin.io)
+Broadcast pills and banner modals are remote-config — owner edits JSON on jsonbin.io, all users (web + installed APKs) get changes without app updates.
+
+```
+jsonbin.io bins ──fetch (cache-busted, every dashboard load)──> BroadcastBanner.tsx / BannerModal.tsx
+```
+
+- **Config** (`src/lib/env.ts`): `BROADCAST_BIN_ID` / `BANNER_BIN_ID` from `NEXT_PUBLIC_*` env vars with hardcoded fallbacks
+- **Fetch**: `https://api.jsonbin.io/v3/b/<BIN_ID>/latest?t=${Date.now()}` with `cache: 'no-store'`; unwrap response via `res?.record ?? res`
+- **Broadcast pill**: centered floating pills top-center (`z-[9998]`, stacked 44px apart), color-coded by `type`, optional clickable `link`, per-ID dismissal (`mm_dismissed_broadcasts`), `pinned` = no dismiss; JSON is an array of objects
+- **Banner modal**: full-screen overlay (`z-[10000]`), centered card with title/content/image/href/width, X top-right with 5s countdown, shows EVERY refresh (no persistence), scheduled via `startDate`/`expires`
+- Full field reference: `docs/BROADCAST-GUIDE.md`
+
 ---
 
 ## 14. PWA Setup
@@ -638,6 +651,8 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 | `DataSafetyNotice` | Data safety information banner |
 | `SecurityTipNotice` | Security tip banner |
 | `WhatsNewModal` | Version update release notes modal — shows once per version (localStorage `mm_seen_release`) on dashboard load |
+| `BroadcastBanner` | Remote broadcast pills — stacked floating notifications top-center, fetched from jsonbin.io (`BROADCAST_BIN_ID`), per-ID dismissal in localStorage |
+| `BannerModal` | Remote ad-style overlay — full-screen backdrop + centered card (image/href/width), X with 5s countdown, shows every refresh, `startDate`/`expires` scheduling |
 | `LoadingOverlay` | Full-screen loading overlay |
 | `RegisterSW` | Service worker registration |
 | `ui/button` | Base button component |
@@ -791,6 +806,8 @@ money-meva/
 │   ├── og-image.svg            # Social media preview
 │   ├── sitemap.xml             # SEO sitemap (public pages only)
 │   ├── robots.txt              # Crawler directives
+│   ├── broadcast.json          # Legacy fallback — live source is jsonbin.io
+│   ├── banner.json             # Legacy fallback — live source is jsonbin.io
 │   └── favicon-32.png
 ├── scripts/
 │   ├── bump-version.cjs        # Version increment
@@ -809,6 +826,7 @@ money-meva/
 │   │   ├── export.ts           # PDF/Excel export
 │   │   ├── download.ts         # downloadBlob (native share sheet on Android), copyText, printHtml
 │   │   ├── whats-new.ts        # Release notes + localStorage version tracking for What's New modal
+│   │   ├── env.ts              # Baked build config: SUPABASE_URL/ANON_KEY, SITE_URL, BROADCAST_BIN_ID, BANNER_BIN_ID (env vars with hardcoded fallbacks)
 │   │   ├── activityLog.ts      # Activity tracking
 │   │   ├── defaultCategories.ts# Category definitions
 │   │   ├── utils.ts            # Shared utilities

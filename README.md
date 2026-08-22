@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.65** — A minimalistic, local-first personal finance companion.
+**v7.1.1.84** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India.
 
@@ -44,6 +44,13 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Audit Ledger** — Full mutation log with entity type icons, action badges, expandable lifecycle chain, copy transition ID, CSV export, entity/action filters, search.
 - **Categories Page** — Dedicated management page with Income/Expense/Investment tabs; inline edit, delete, add; PIN-protected batch save to localStorage.
 - **Export / Import** — CSV (transactions), PDF (jsPDF with auto-table), Excel (SheetJS), full JSON backup/restore with cross-user detection and reassignment. Import from JSON file via Developer Zone to restore data across devices. On Android, exports open the **native share sheet** (file written to app Cache, then shared — blob downloads don't work inside the WebView).
+- **Save Toasts** — every successful income/expense/investment/partner save shows a summary toast (`{Type} added · {category} · {amount}`) across add, duplicate-confirm, and edit flows.
+
+### Remote Announcements (jsonbin.io)
+- **Broadcast Pills** — floating color-coded notifications centered at the top of the screen (info/warning/success/error). Multiple messages stack; each is independently dismissable per device; `pinned` messages have no dismiss; optional `link` makes the whole pill clickable; `expires` auto-hides old messages. Emojis supported.
+- **Banner Modal** — full-screen ad-style overlay with centered card: title, content, image, optional click-through `href`, configurable width (`max-w-sm`…`max-w-2xl`). X close button top-right with a 5-second countdown. Shows on every refresh (session-only dismissal). Scheduled via `startDate` + `expires`.
+- **Zero-deploy editing** — both are driven by JSON bins on jsonbin.io (Bin IDs baked into the build). Edit in the jsonbin dashboard → save → all users (web AND installed APKs) see changes on next app open. No commit, no build, no store update. See [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
+- **What's New Modal** — on dashboard load the app compares its version against `mm_seen_release` and shows release notes once per version (fires after APK installs too).
 
 ### Security & Privacy
 - **PIN Security** — 10 one-time 4-digit PINs for sensitive operations (delete, edit, archive, export/import, clear data). Session auto-lock (1h–24h).
@@ -228,6 +235,9 @@ src/
 │   ├── DashboardLayout.tsx      # Sidebar nav + layout wrapper
 │   ├── TransactionPage.tsx      # Shared income/expense/investment CRUD page
 │   ├── InvestmentCalculator.tsx # FD/SIP/RD/PPF calculator (4 pill tabs)
+│   ├── BroadcastBanner.tsx      # Remote broadcast pills (jsonbin.io)
+│   ├── BannerModal.tsx          # Remote ad-style banner overlay (jsonbin.io)
+│   ├── WhatsNewModal.tsx        # Release notes modal, once per version
 │   ├── Toast.tsx                # Global toast system (context + container)
 │   ├── Skeleton.tsx             # Skeleton loading components (card/table/chart/list)
 │   ├── LanguageSelector.tsx     # i18n language dropdown (portal)
@@ -255,6 +265,8 @@ src/
 │   ├── activityLog.ts           # Security + CRUD event history
 │   ├── export.ts                # PDF + Excel + CSV export
 │   ├── download.ts              # downloadBlob (native share sheet on Android), copyText, printHtml
+│   ├── env.ts                   # Baked build config (Supabase URL/key, site URL, jsonbin Bin IDs)
+│   ├── whats-new.ts             # Release notes + version tracking for What's New modal
 │   ├── defaultCategories.ts     # Default category seed data
 │   ├── capacitor-notifications.ts # Local notification scheduling
 │   ├── utils.ts                 # cn(), useInView, date helpers
@@ -278,7 +290,7 @@ docs/
 ├── templates/          # Feature / Bug Report / Daily Dev Log / Quick Note
 └── dev/                # Daily development logs
 ```
-Cloud sync schema lives in [`supabase/schema.sql`](supabase/schema.sql). Owner setup + troubleshooting: [`CLOUD-SYNC-GUIDE.md`](CLOUD-SYNC-GUIDE.md).
+Cloud sync schema lives in [`supabase/schema.sql`](supabase/schema.sql). Owner setup + troubleshooting: [`CLOUD-SYNC-GUIDE.md`](CLOUD-SYNC-GUIDE.md). Remote broadcast/banner editing: [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
 
 ---
 
@@ -326,6 +338,22 @@ Each account's data is isolated in the cloud (row-level security) — no user ca
 > **Tip:** to let new users sign up instantly without email confirmation, turn off **Authentication → Sign In / Providers → Email → "Confirm email"** in the Supabase dashboard (or run the one-liner at the bottom of `supabase/schema.sql`).
 
 > **Advanced:** users can paste a different URL + anon key directly in Settings to point at their own Supabase project (bring-your-own-Supabase).
+
+---
+
+## Remote Announcements Setup (jsonbin.io)
+
+Broadcast pills and banner modals are fetched from [jsonbin.io](https://jsonbin.io) on every dashboard load — edit them online without touching this repo:
+
+1. **Create bins** — jsonbin.io → Bins → Create Bin (Public): one for broadcasts (array of pill objects), one for the banner (single object)
+2. **Wire the Bin IDs** — `.env.local`:
+   ```
+   NEXT_PUBLIC_BROADCAST_BIN_ID=<broadcast bin id>
+   NEXT_PUBLIC_BANNER_BIN_ID=<banner bin id>
+   ```
+3. **Build once** — IDs are baked into web + APK builds; after that, editing the JSON online is enough
+
+Full field reference, scheduling recipes, and day-to-day workflow: [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
 
 ---
 

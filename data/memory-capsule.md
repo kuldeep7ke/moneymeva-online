@@ -1,12 +1,13 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.69 (incremented on every build)
+**Version:** v7.1.1.84 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
+**Remote announcements:** jsonbin.io bins (broadcast + banner) — see `docs/BROADCAST-GUIDE.md`
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
-**Last Updated:** 2026-08-19
+**Last Updated:** 2026-08-23
 
 ---
 
@@ -72,6 +73,16 @@ Income/expense/investment entries cannot be dated after today. Dated picker capp
 
 ### 7. Per-Type Categories
 Categories are kept **separate** per transaction type — `mm_income_categories`, `mm_expense_categories`, `mm_investment_categories` + default base lists. Never merged across types (intentional: dropdowns stay relevant, budgets/breakdowns stay type-scoped).
+
+### 8. Remote Announcements (jsonbin.io)
+Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io, fetched with cache-busting (`?t=${Date.now()}`, `cache: 'no-store'`) on every dashboard load. Works in web AND installed APKs without app updates.
+- **Bins**: broadcast `6a89f038f5f4af5e29363c79` (array of pill objects), banner `6a89f053f5f4af5e29363cb3` (single object)
+- **Wiring**: Bin IDs in `.env.local` (`NEXT_PUBLIC_BROADCAST_BIN_ID`/`NEXT_PUBLIC_BANNER_BIN_ID`) with hardcoded fallbacks in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`)
+- **jsonbin response shape**: `{ record: <actual JSON>, metadata: {...} }` — components unwrap via `res?.record ?? res`
+- **Broadcast pill** (`BroadcastBanner.tsx`): centered floating pill top-center, `fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)]`, stacked via inline `style={{top: `${8+i*44}px`}}`; solid color-coded bg (info=blue-600, warning=amber-500, success=green-600, error=red-600); optional `link` wraps pill in anchor + ExternalLink icon; per-ID dismissal in localStorage `mm_dismissed_broadcasts`; `pinned: true` = no X; array format = multiple stacked pills
+- **Banner modal** (`BannerModal.tsx`): full-screen overlay `fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm`, centered card, width via Tailwind class field (`max-w-md` default), optional image (max-h-64) + href (whole card clickable); X button absolute top-right with 5-second countdown (disabled until 0, shows number then X icon); NO localStorage persistence — shows every refresh; scheduling via `startDate`/`expires` date checks
+- Local `public/broadcast.json`/`public/banner.json` are dead fallbacks only (fetch URL switches to jsonbin when BIN_ID set — which is always now)
+- Full editing workflow: `docs/BROADCAST-GUIDE.md`
 
 ---
 
@@ -271,6 +282,24 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.84 (2026-08-23) — jsonbin Bin IDs Wired
+- Broadcast/banner Bin IDs baked in: `.env.local` + hardcoded fallbacks in `src/lib/env.ts`. jsonbin.io is now the live source of truth for announcements; GitHub JSON files are inert fallbacks.
+
+### v7.1.1.82–.83 (2026-08-23) — jsonbin.io Remote Config
+- `BroadcastBanner.tsx`/`BannerModal.tsx` fetch from `https://api.jsonbin.io/v3/b/<BIN_ID>/latest` when a Bin ID is configured, else fall back to local `/broadcast.json`//`banner.json`. Response unwrapped via `res?.record ?? res` (jsonbin wraps payloads).
+
+### v7.1.1.81 (2026-08-23) — Banner Date Scheduling
+- `startDate` field added to banner: shows only between `startDate` and `expires` (both YYYY-MM-DD). Guide rewritten with scheduling recipes.
+
+### v7.1.1.77–.80 (2026-08-19–23) — Banner Modal
+- New `public/banner.json` + `BannerModal.tsx`, wired into DashboardLayout (z-[10000] overlay above broadcast pills). Iterated per feedback: filled all options (.78) → X button top-right with 5s countdown, no bottom close (.79) → removed localStorage persistence so it shows on EVERY refresh, dismissal session-only (.80).
+
+### v7.1.1.70–.76 (2026-08-19) — Broadcast Pill System
+- New `public/broadcast.json` + `BroadcastBanner.tsx` + DashboardLayout wiring; owner edits JSON → all users see messages without app updates. Position iterated: full-width banner → compact pill top-right → static centered banner (covered page, rejected) → final **centered floating pill** that never pushes content down. Then added: optional clickable `link` + emoji support (.75), array format for multiple independently-dismissable stacked pills (.76). `docs/BROADCAST-GUIDE.md` created.
+
+### v7.1.1.72 (2026-08-19) — Archive Panel Moved to Top
+- TransactionPage archive panel moved from bottom of ledger pages to right after the header (near the Archive button where users look for it); duplicate bottom copy removed.
 
 ### v7.1.1.66 (2026-08-19) — Category Badges on Mobile
 - Mobile transaction list row now shows the category badge (slate pill, same style as the desktop table) beside the date, before the account badge — covers the Android APK (uses the mobile layout).
