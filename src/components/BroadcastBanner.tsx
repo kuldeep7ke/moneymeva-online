@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Megaphone, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { X, Info, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface BroadcastData {
   id: string;
@@ -11,11 +10,18 @@ interface BroadcastData {
   expires?: string;
 }
 
-const TYPE_STYLES: Record<string, string> = {
-  info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200',
-  warning: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200',
-  success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200',
-  error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200',
+const ICONS: Record<string, React.ReactNode> = {
+  info: <Info className="h-3.5 w-3.5 shrink-0" />,
+  warning: <AlertTriangle className="h-3.5 w-3.5 shrink-0" />,
+  success: <CheckCircle className="h-3.5 w-3.5 shrink-0" />,
+  error: <AlertCircle className="h-3.5 w-3.5 shrink-0" />,
+};
+
+const BG: Record<string, string> = {
+  info: 'bg-blue-600 text-white',
+  warning: 'bg-amber-500 text-white',
+  success: 'bg-green-600 text-white',
+  error: 'bg-red-600 text-white',
 };
 
 const DISMISSED_KEY = 'mm_dismissed_broadcasts';
@@ -50,24 +56,23 @@ export default function BroadcastBanner() {
 
   if (!data) return null;
 
+  const type = data.type || 'info';
+
   const dismiss = () => {
     saveDismissed(data.id);
     setData(null);
   };
 
   return (
-    <div className={cn(
-      'mx-4 mt-3 mb-1 px-4 py-3 rounded-xl border flex items-start gap-3 text-sm',
-      TYPE_STYLES[data.type || 'info'],
-    )}>
-      <Megaphone className="h-4 w-4 mt-0.5 shrink-0 opacity-60" />
-      <div className="flex-1 min-w-0">
-        {data.title && <p className="font-semibold mb-0.5">{data.title}</p>}
-        <p className="opacity-90">{data.message}</p>
-      </div>
+    <div className={`fixed top-2 right-2 z-[9998] max-w-sm w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-start gap-2`}>
+      <span className="mt-0.5">{ICONS[type]}</span>
+      <span className="flex-1 min-w-0">
+        {data.title && <span className="font-bold">{data.title} </span>}
+        {data.message}
+      </span>
       {!data.pinned && (
-        <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-          <X className="h-3.5 w-3.5 opacity-50" />
+        <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-white/20 transition-colors">
+          <X className="h-3 w-3" />
         </button>
       )}
     </div>
