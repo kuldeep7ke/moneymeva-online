@@ -1,0 +1,8 @@
+{
+  "id": "broadcast-2026-08-19",
+  "title": "Money Meva v7.1.2",
+  "message": "Success toasts now show entry summaries. Exports work on Android. Sync status fixed.",
+  "type": "info",
+  "pinned": false,
+  "expires": "2026-09-19"
+}

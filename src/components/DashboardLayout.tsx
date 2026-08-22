@@ -38,6 +38,7 @@ import DataSafetyNotice from '@/components/DataSafetyNotice';
 import SecurityTipNotice from '@/components/SecurityTipNotice';
 import InstallPrompt from '@/components/InstallPrompt';
 import WhatsNewModal from '@/components/WhatsNewModal';
+import BroadcastBanner from '@/components/BroadcastBanner';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -383,6 +384,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {ready && children}
       </main>
 
+      <BroadcastBanner />
       <SyncStatusBar />
       <DataSafetyNotice delay={8000} />
       <SecurityTipNotice delay={45000} />
