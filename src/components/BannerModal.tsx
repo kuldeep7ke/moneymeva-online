@@ -21,6 +21,12 @@ const COUNTDOWN_SECONDS = 7;
 // app start / refresh / reload, which is exactly when the banner should show.
 let bannerShownThisLoad = false;
 
+// Signals dashboard listeners (e.g. the welcome card) that the banner saga is
+// over for this load — either it closed, or no banner was scheduled at all.
+function notifyBannerDone() {
+  try { window.dispatchEvent(new CustomEvent('mm-banner-done')); } catch {}
+}
+
 export default function BannerModal() {
   const [data, setData] = useState<BannerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +34,7 @@ export default function BannerModal() {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
-    if (bannerShownThisLoad) { setLoading(false); return; }
+    if (bannerShownThisLoad) { setLoading(false); notifyBannerDone(); return; }
     // Primary: edge-cached proxy (quota-friendly). Fallback: direct jsonbin.
     const fetchJson = async (): Promise<any | null> => {
       try {
@@ -46,14 +52,14 @@ export default function BannerModal() {
     };
     fetchJson()
       .then((res: any) => {
-        if (!res) return;
+        if (!res) { notifyBannerDone(); return; }
         const b: BannerData = res?.record ?? res;
-        if (!b?.id || !b?.content) return;
-        if (!isWithinPeriod(b.startDate, b.expires)) return;
+        if (!b?.id || !b?.content) { notifyBannerDone(); return; }
+        if (!isWithinPeriod(b.startDate, b.expires)) { notifyBannerDone(); return; }
         bannerShownThisLoad = true;
         setData(b);
       })
-      .catch(() => {})
+      .catch(() => { notifyBannerDone(); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -84,6 +90,7 @@ export default function BannerModal() {
     setData(null);
     setReady(false);
     setCountdown(null);
+    notifyBannerDone();
   }, []);
 
   if (loading) {

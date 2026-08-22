@@ -181,12 +181,34 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!showWelcome) return;
-    const fadeTimer = setTimeout(() => setWelcomeFading(true), 5000);
-    const hideTimer = setTimeout(() => {
-      setShowWelcome(false);
-      sessionStorage.setItem('mm_welcome_seen', '1');
-    }, 6000);
-    return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
+    let started = false;
+    let fadeTimer: ReturnType<typeof setTimeout> | undefined;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const start = () => {
+      if (started) return;
+      started = true;
+      fadeTimer = setTimeout(() => setWelcomeFading(true), 5000);
+      hideTimer = setTimeout(() => {
+        setShowWelcome(false);
+        sessionStorage.setItem('mm_welcome_seen', '1');
+      }, 6000);
+    };
+    // If a banner is scheduled, its countdown runs first — the welcome card
+    // only starts fading after the banner is closed. BannerModal fires
+    // 'mm-banner-done' both when a banner closes AND when no banner shows.
+    const onBannerDone = () => {
+      window.removeEventListener('mm-banner-done', onBannerDone);
+      clearTimeout(fallback);
+      start();
+    };
+    const fallback = setTimeout(onBannerDone, 15000); // safety net if fetch hangs
+    window.addEventListener('mm-banner-done', onBannerDone);
+    return () => {
+      window.removeEventListener('mm-banner-done', onBannerDone);
+      clearTimeout(fallback);
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
   }, []);
 
   useEffect(() => {

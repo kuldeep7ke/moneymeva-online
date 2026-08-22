@@ -620,7 +620,7 @@ const en: Record<string, string> = {
   'dashboard.totalIncome': 'Total Income',
   'dashboard.totalExpenses': 'Total Expenses',
   'dashboard.investments': 'Investments',
-  'dashboard.partners': 'Partners',
+  'dashboard.partners': 'Party',
   'dashboard.cashFlow': 'Cash Flow',
   'dashboard.reminders': 'Reminders',
   'dashboard.spending': 'Spending Pattern',

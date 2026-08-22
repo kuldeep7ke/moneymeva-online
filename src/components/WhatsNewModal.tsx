@@ -4,11 +4,13 @@ import { requestPopup, cancelPopup } from '@/lib/popup-queue';
 
 export default function WhatsNewModal() {
   const [show, setShow] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
 
   useEffect(() => {
     const meta = document.querySelector('meta[name="app-version"]');
     const version = meta?.getAttribute('content');
     if (!version) return;
+    setAppVersion(version);
     if (shouldShowWhatsNew(version)) {
       requestPopup('whats-new', 10, () => setShow(true));
     }
@@ -32,7 +34,7 @@ export default function WhatsNewModal() {
           What&apos;s New in Money Meva
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-          {RELEASE_NOTES.version} &middot; {RELEASE_NOTES.date}
+          {appVersion || RELEASE_NOTES.version} &middot; {RELEASE_NOTES.date}
         </p>
         <ul className="space-y-2 mb-6">
           {RELEASE_NOTES.items.map((item, i) => (

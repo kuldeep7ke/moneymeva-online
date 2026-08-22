@@ -5,14 +5,13 @@ export interface WhatsNewItem {
 }
 
 export const RELEASE_NOTES: WhatsNewItem = {
-  version: 'v7.1.2',
-  date: '19 Aug 2026',
+  version: 'v7.1.1.98',
+  date: '23 Aug 2026',
   items: [
-    'Success toast now shows entry summary after saving (type, category, amount)',
-    'Category and account badges (Cash/Bank/UPI/Invest) on mobile transaction list',
-    'Exports (PDF/Excel/CSV) open the Android share sheet instead of silently failing',
-    'Sync status no longer flickers between "Sync Now" and the create-account form on Android',
-    '30-day default date filter restored on Income & Expenses pages',
+    'Startup popups now appear one at a time, in order — no more stacking',
+    'Welcome card starts its fade timer only after the announcement banner closes',
+    'Dashboard Partners card renamed to Party',
+    'Announcements load through our own server cache — faster and lighter',
   ],
 };
 
