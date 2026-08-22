@@ -8,6 +8,44 @@ Send messages to all Money Meva users. Zero backend — edit a JSON file and pus
 2. Commit + push to `master`
 3. Cloudflare auto-deploys — all users see it on next page load
 
+## JSON Format
+
+Single broadcast:
+```json
+{
+  "id": "broadcast-2026-08-19-v1",
+  "title": "Money Meva v7.1.2",
+  "message": "Success toasts now show entry summaries.",
+  "type": "info",
+  "pinned": false,
+  "expires": "2026-09-19",
+  "link": "https://github.com/kuldeep7ke/moneymeva-online/releases"
+}
+```
+
+Multiple broadcasts (array):
+```json
+[
+  {
+    "id": "broadcast-2026-08-19-v1",
+    "title": "Money Meva v7.1.2",
+    "message": "Success toasts now show entry summaries.",
+    "type": "info",
+    "pinned": false,
+    "expires": "2026-09-19"
+  },
+  {
+    "id": "broadcast-2026-08-19-v1b",
+    "message": "Exports now work on Android via share sheet.",
+    "type": "success",
+    "pinned": false,
+    "expires": "2026-09-19"
+  }
+]
+```
+
+Each broadcast is stacked vertically (second appears below the first). Each is independently dismissable.
+
 ## Fields
 
 | Field | Required | Description |
@@ -80,11 +118,14 @@ Quick tip with emoji:
 ## Behavior
 
 - Fetches `broadcast.json` with cache-busting on every page load
-- Dismissed via X button — stored in localStorage, won't show again
+- Supports single object OR array of broadcasts
+- Each broadcast is independently dismissable (X button per pill)
+- Dismissed IDs stored in localStorage — won't show again
 - Pinned messages have no X button — always visible
 - Expired messages auto-hidden after `expires` date
+- Multiple broadcasts stack vertically (44px apart)
 - Centered floating pill at top of screen — does NOT push content down
-- If `link` is set, entire pill is clickable (opens in new tab, shows link icon)
+- If `link` is set, entire pill is clickable (opens in new tab)
 
 ## Tips
 
@@ -95,3 +136,4 @@ Quick tip with emoji:
 - Set `expires` for time-sensitive messages
 - Change `id` for each new broadcast (old IDs stay dismissed)
 - `link` can be a full URL or relative path (e.g. `/dashboard/settings`)
+- Use array format for 2+ broadcasts; single object works for just one

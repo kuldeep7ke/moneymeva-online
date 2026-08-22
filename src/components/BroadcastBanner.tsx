@@ -40,35 +40,13 @@ function saveDismissed(id: string) {
   try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed])); } catch {}
 }
 
-export default function BroadcastBanner() {
-  const [data, setData] = useState<BroadcastData | null>(null);
-
-  useEffect(() => {
-    fetch(`/broadcast.json?t=${Date.now()}`, { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((b: BroadcastData) => {
-        if (!b?.id || !b?.message) return;
-        if (b.expires && new Date(b.expires) < new Date()) return;
-        if (!b.pinned && getDismissed().has(b.id)) return;
-        setData(b);
-      })
-      .catch(() => {});
-  }, []);
-
-  if (!data) return null;
-
+function BroadcastPill({ data, onDismiss }: { data: BroadcastData; onDismiss: () => void }) {
   const type = data.type || 'info';
-
-  const dismiss = () => {
-    saveDismissed(data.id);
-    setData(null);
-  };
-
   const Wrapper = data.link ? 'a' : 'div';
   const wrapperProps = data.link ? { href: data.link, target: '_blank', rel: 'noopener noreferrer' } : {};
 
   return (
-    <div className={`fixed top-2 left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`}>
+    <div className={`fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`} style={{ top: '8px' }}>
       <Wrapper {...wrapperProps} className="contents">
         <span className="shrink-0">{ICONS[type]}</span>
         <span className="flex-1 min-w-0 truncate">
@@ -78,10 +56,48 @@ export default function BroadcastBanner() {
         {data.link && <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />}
       </Wrapper>
       {!data.pinned && (
-        <button onClick={(e) => { e.stopPropagation(); dismiss(); }} className="shrink-0 p-0.5 rounded hover:bg-white/20 transition-colors">
+        <button onClick={(e) => { e.stopPropagation(); onDismiss(); }} className="shrink-0 p-0.5 rounded hover:bg-white/20 transition-colors">
           <X className="h-3 w-3" />
         </button>
       )}
     </div>
+  );
+}
+
+export default function BroadcastBanner() {
+  const [items, setItems] = useState<BroadcastData[]>([]);
+
+  useEffect(() => {
+    fetch(`/broadcast.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((raw: BroadcastData | BroadcastData[]) => {
+        const list = Array.isArray(raw) ? raw : [raw];
+        const dismissed = getDismissed();
+        const visible = list.filter(b => {
+          if (!b?.id || !b?.message) return false;
+          if (b.expires && new Date(b.expires) < new Date()) return false;
+          if (!b.pinned && dismissed.has(b.id)) return false;
+          return true;
+        });
+        setItems(visible);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (items.length === 0) return null;
+
+  const dismiss = (id: string) => {
+    saveDismissed(id);
+    setItems(prev => prev.filter(b => b.id !== id));
+  };
+
+  return (
+    <>
+      {items.map((b, i) => (
+        <div key={b.id} style={{ top: `${8 + i * 44}px` }} className={`fixed left-1/2 -translate-x-1/2 z-[9998]`}>
+          <BroadcastPill data={b} onDismiss={() => dismiss(b.id)} />
+        </div>
+      ))}
+    </>
   );
 }
