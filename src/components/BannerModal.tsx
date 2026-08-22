@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X } from 'lucide-react';
-import { BANNER_BIN_ID } from '@/lib/env';
+import { BANNER_BIN_ID, JSONBIN_BASE } from '@/lib/env';
 
 interface BannerData {
   id: string;
@@ -19,7 +19,7 @@ export default function BannerModal() {
 
   useEffect(() => {
     const url = BANNER_BIN_ID
-      ? `https://api.jsonbin.io/v3/b/${BANNER_BIN_ID}/latest`
+      ? `${JSONBIN_BASE}${BANNER_BIN_ID}/latest`
       : `/banner.json?t=${Date.now()}`;
     fetch(url, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })

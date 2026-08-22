@@ -1,12 +1,28 @@
-// Fallback runtime config: values are baked at build time from NEXT_PUBLIC_* env vars.
-// The hardcoded fallbacks guarantee Google sign-in and sync work even if env vars are
-// missing at build time (e.g. an APK built without .env.local). The Supabase anon key
-// is a public client key (already present in every deployed web bundle) — row-level
-// security on the database protects the actual data.
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://orpgmbrycnmjwtalupce.supabase.co';
-export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycGdtYnJ5Y25tand0YWx1cGNlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5NDk0MjUsImV4cCI6MjEwMjUyNTQyNX0.-TEONoqeaJzbPcJZnMoQDZznmoGajlNpXLrSESSIv4U';
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://moneymevaonline.pages.dev';
+// Runtime config. Values are stored XOR-obfuscated + base64 so they do not appear as
+// plain-text strings in the shipped bundle (no casual grep/extraction from APK or web JS).
+// Decode happens in-memory at runtime. Note: a determined attacker monitoring network
+// traffic can still recover these — this is obfuscation, not cryptographic secrecy.
+// The Supabase anon key is a public client key by design — row-level security on the
+// database protects the actual data.
+const _K = 'moneymeva';
+function _d(e: string): string {
+  try {
+    const bin = atob(e);
+    let out = '';
+    for (let i = 0; i < bin.length; i++) {
+      out += String.fromCharCode(bin.charCodeAt(i) ^ _K.charCodeAt(i % _K.length));
+    }
+    return out;
+  } catch {
+    return '';
+  }
+}
 
-// jsonbin.io Bin IDs (for broadcast & banner — edit via jsonbin.io dashboard)
-export const BROADCAST_BIN_ID = process.env.NEXT_PUBLIC_BROADCAST_BIN_ID || '6a89f038f5f4af5e29363c79';
-export const BANNER_BIN_ID = process.env.NEXT_PUBLIC_BANNER_BIN_ID || '6a89f053f5f4af5e29363cb3';
+export const SUPABASE_URL = _d('BRsaFQpXSlkOHx8JCBsfHBUPAAUZERgBEAYCCEEdEAkMBxcSCEENCg==');
+export const SUPABASE_ANON_KEY = _d('CBYkDRsqBh8uBCUnMAMkVDgIJBwnCytYBjUoWyYFFSE7JjxYQwoXLwkOVjsIIgYkHx01Jx44ACkUPyokFj8PJwM0DDBbLBtYFAwpAQ00CzxUNF1bERgDAUY4OhdfBj4jCT8IGgYNCEAePyUoWyYDIwwPV0IIISwkFSA1NB8uBypdKj00UDglBl8jDyweLBs3WQwtLE8gDzMWIAU7HDc5NA8vNV9ASC0oKjgOHAoPLwMPNRUrNwEjCigpPwwPAAApBBMBKwY5IR09ICo+LABVOA==');
+export const SITE_URL = 'https://moneymevaonline.pages.dev';
+
+// jsonbin.io Bin IDs (broadcast & banner — edit via jsonbin.io dashboard, see docs/BROADCAST-GUIDE.md)
+export const BROADCAST_BIN_ID = _d('Ww5WXB9dVk4HWAlaBB9YAERYXlldBk5U');
+export const BANNER_BIN_ID = _d('Ww5WXB9dUEUHWAlaBB9YAERYXlldBhte');
+export const JSONBIN_BASE = _d('BRsaFQpXSlkAHQZADwoCCxQIA0EHClYbVlkDQg==');

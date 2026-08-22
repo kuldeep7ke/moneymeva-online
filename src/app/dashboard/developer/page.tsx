@@ -5,15 +5,20 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
-import { clearRemote, getConfig, checkConnection, connected as syncConnected } from '@/lib/pouchdb';
+import { clearRemote, getConfig, checkConnection } from '@/lib/pouchdb';
 import { downloadBlob } from '@/lib/download';
-import { AlertTriangle, Trash2, Loader2, Download, Upload, Key, Eye, EyeOff, Database, BarChart3, HardDrive, Search, Wifi, Palette, User, FileUp } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Download, Upload, Key, Eye, EyeOff, Database, HardDrive, Search, Wifi, Palette, User, FileUp, Megaphone } from 'lucide-react';
 import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { cn } from '@/lib/utils';
 import { getSession } from '@/lib/localAuth';
 import { useTheme, getBrands } from '@/components/ThemeProvider';
 import { useToast } from '@/components/Toast';
 import { createProgressOverlay } from '@/lib/progressOverlay';
+import { getLastSyncEvent } from '@/lib/sync-notify';
+import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE } from '@/lib/env';
+import { RELEASE_NOTES, getLastSeenVersion } from '@/lib/whats-new';
+
+const mask = (s: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
 
 export default function DeveloperPage() {
   const toast = useToast();
@@ -31,6 +36,21 @@ export default function DeveloperPage() {
   const [importData, setImportData] = useState<Record<string, any[]> | null>(null);
   const [importFileName, setImportFileName] = useState('');
   const [timer, setTimer] = useState(180);
+  const [appVersion, setAppVersion] = useState('');
+  const [annTest, setAnnTest] = useState<string | null>(null);
+  const [annTesting, setAnnTesting] = useState(false);
+  const [dismissedCount, setDismissedCount] = useState(0);
+
+  useEffect(() => {
+    const m = document.querySelector('meta[name="app-version"]');
+    if (m) setAppVersion(m.getAttribute('content') || '');
+    refreshDismissed();
+  }, []);
+
+  const readDismissed = (): string[] => {
+    try { return JSON.parse(localStorage.getItem('mm_dismissed_broadcasts') || '[]'); } catch { return []; }
+  };
+  const refreshDismissed = () => setDismissedCount(readDismissed().length);
 
   useEffect(() => {
     if (!warnDismissed) return;
@@ -144,6 +164,34 @@ export default function DeveloperPage() {
     setSyncing(false);
   };
 
+  const testAnnouncements = async () => {
+    setAnnTesting(true);
+    setAnnTest(null);
+    const out: string[] = [];
+    try {
+      const r = await fetch(`${JSONBIN_BASE}${BROADCAST_BIN_ID}/latest?t=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('http');
+      const j = await r.json();
+      const rec = j?.record ?? j;
+      out.push(`Broadcast bin OK · ${Array.isArray(rec) ? rec.length : 1} item(s)`);
+    } catch { out.push('Broadcast bin FAILED'); }
+    try {
+      const r = await fetch(`${JSONBIN_BASE}${BANNER_BIN_ID}/latest?t=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('http');
+      const j = await r.json();
+      const rec = j?.record ?? j;
+      out.push(`Banner bin OK · ${rec?.id || 'no id'}`);
+    } catch { out.push('Banner bin FAILED'); }
+    setAnnTest(out.join(' · '));
+    setAnnTesting(false);
+  };
+
+  const clearDismissed = () => {
+    localStorage.removeItem('mm_dismissed_broadcasts');
+    refreshDismissed();
+    toast('Dismissed broadcasts cleared — all pills will reappear', 'success');
+  };
+
   const handleExportRaw = async () => {
     const tables = ['transactions','partners','recurring','budgets','reminders','adjustments','goals','todos','mutation_log'] as const;
     const overlay = createProgressOverlay('Exporting raw data…');
@@ -188,7 +236,11 @@ export default function DeveloperPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Developer Zone</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Tools and diagnostics</p>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 font-mono">Session expires in {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+            <p className="text-xs text-brand font-mono">{appVersion || 'v?.?.?.?'}</p>
+            <p className="text-xs text-slate-400 font-mono">Release notes: {RELEASE_NOTES.version} · seen: {getLastSeenVersion() || 'never'}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-mono">Session expires in {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</p>
+          </div>
         </div>
 
         {/* Import from File */}
@@ -266,11 +318,17 @@ export default function DeveloperPage() {
         <Section icon={Wifi} title="Sync Diagnostics" iconColor="text-sky-500">
           {(() => {
             const cfg = getConfig();
+            let sbEmail: string | null = null;
+            try { sbEmail = JSON.parse(localStorage.getItem('mm_sb_session') || 'null')?.user?.email || null; } catch {}
+            const lastEv = getLastSyncEvent();
             return (
               <>
                 <div className="text-xs space-y-1 mb-3">
-                  <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url || '(none)'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url ? mask(cfg.url) : '(none)'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Sync account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbEmail || 'not signed in'}</span></div>
                   <div className="flex justify-between"><span className="text-slate-500">Status</span><span className={cn('font-mono', syncOk === true ? 'text-green-500' : syncOk === false ? 'text-red-500' : 'text-slate-400')}>{syncOk === null ? 'untested' : syncOk ? 'connected' : 'failed'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Last sync event</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{lastEv ? `${lastEv.status}${lastEv.message ? ` · ${lastEv.message}` : ''}` : '—'}</span></div>
+                  <p className="text-[10px] text-slate-400 pt-1">Realtime push ≈ seconds · periodic pull every 2 min · reconnect watchdog 30 s</p>
                 </div>
                 <Button variant="outline" onClick={testSync} disabled={syncing} className="w-full text-xs">
                   {syncing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Connection'}
@@ -281,6 +339,27 @@ export default function DeveloperPage() {
               </>
             );
           })()}
+        </Section>
+
+        {/* Remote Announcements */}
+        <Section icon={Megaphone} title="Remote Announcements" iconColor="text-orange-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Broadcast pills &amp; banner are fetched live from jsonbin.io on every dashboard load — edit them online, no app update needed (see docs/BROADCAST-GUIDE.md).</p>
+          <div className="text-xs space-y-1">
+            <div className="flex justify-between"><span className="text-slate-500">Broadcast bin</span><span className="font-mono text-slate-700 dark:text-slate-300">{mask(BROADCAST_BIN_ID)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Banner bin</span><span className="font-mono text-slate-700 dark:text-slate-300">{mask(BANNER_BIN_ID)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Dismissed pills (this device)</span><span className="font-mono text-slate-700 dark:text-slate-300">{dismissedCount}</span></div>
+          </div>
+          {annTest && (
+            <div className={cn('p-3 rounded-xl text-sm', annTest.includes('FAILED') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300')}>
+              {annTest}
+            </div>
+          )}
+          <Button variant="outline" onClick={testAnnouncements} disabled={annTesting} className="w-full text-xs">
+            {annTesting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Bin Fetch'}
+          </Button>
+          <Button variant="outline" onClick={clearDismissed} disabled={!dismissedCount} className="w-full text-xs">
+            Clear Dismissed Pills
+          </Button>
         </Section>
 
         {/* Quick Brand Switcher */}

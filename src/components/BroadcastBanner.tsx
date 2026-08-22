@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
-import { BROADCAST_BIN_ID } from '@/lib/env';
+import { BROADCAST_BIN_ID, JSONBIN_BASE } from '@/lib/env';
 
 interface BroadcastData {
   id: string;
@@ -70,7 +70,7 @@ export default function BroadcastBanner() {
 
   useEffect(() => {
     const url = BROADCAST_BIN_ID
-      ? `https://api.jsonbin.io/v3/b/${BROADCAST_BIN_ID}/latest`
+      ? `${JSONBIN_BASE}${BROADCAST_BIN_ID}/latest`
       : `/broadcast.json?t=${Date.now()}`;
     fetch(url, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
