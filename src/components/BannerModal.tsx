@@ -63,29 +63,23 @@ export default function BannerModal() {
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ${widthClass} w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col`} onClick={e => e.stopPropagation()}>
-        {data.title && (
-          <div className="px-6 pt-5 pb-3">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{data.title}</h2>
-          </div>
-        )}
+      <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ${widthClass} w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] overflow-hidden relative`} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={dismiss}
+          disabled={countdown > 0}
+          className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {countdown > 0 ? <span className="text-xs font-bold">{countdown}</span> : <X className="h-4 w-4" />}
+        </button>
         <Wrapper {...wrapperProps} className="contents">
-          <div className="px-6 pb-4 flex-1 overflow-y-auto">
-            {data.image && (
-              <img src={data.image} alt={data.title || ''} className="w-full rounded-xl mb-3 object-cover max-h-64" />
-            )}
+          {data.image && (
+            <img src={data.image} alt={data.title || ''} className="w-full object-cover max-h-64" />
+          )}
+          <div className="px-6 py-5">
+            {data.title && <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{data.title}</h2>}
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">{data.content}</p>
           </div>
         </Wrapper>
-        <div className="px-6 pb-5 pt-2 flex justify-end">
-          <button
-            onClick={dismiss}
-            disabled={countdown > 0}
-            className="px-4 py-2 rounded-xl bg-brand text-white text-sm font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {countdown > 0 ? `Close (${countdown}s)` : 'Close'}
-          </button>
-        </div>
       </div>
     </div>
   );
