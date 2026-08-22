@@ -83,7 +83,7 @@ Send messages to all Money Meva users. Zero backend — just edit a JSON file an
 - **Dismissed**: User taps X → stored in `mm_dismissed_broadcasts` localStorage → won't show again
 - **Pinned**: Always shown, no X button
 - **Expired**: Auto-hidden after `expires` date
-- **Position**: Fixed top-right corner, compact pill, color-coded
+- **Position**: Static full-width banner at the top of the dashboard, centered content, color-coded background
 
 ## Tips
 
