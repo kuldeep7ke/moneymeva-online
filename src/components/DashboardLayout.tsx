@@ -39,6 +39,7 @@ import SecurityTipNotice from '@/components/SecurityTipNotice';
 import InstallPrompt from '@/components/InstallPrompt';
 import WhatsNewModal from '@/components/WhatsNewModal';
 import BroadcastBanner from '@/components/BroadcastBanner';
+import BannerModal from '@/components/BannerModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -390,6 +391,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SecurityTipNotice delay={45000} />
       <InstallPrompt delay={30000} />
       <WhatsNewModal />
+      <BannerModal />
     </div>
   );
 }

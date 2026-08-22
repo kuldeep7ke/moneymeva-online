@@ -1,14 +1,20 @@
-# Broadcast Guide
+# Broadcast & Banner Guide
 
-Send messages to all Money Meva users. Zero backend — edit a JSON file and push to GitHub.
+Send messages to all Money Meva users. Zero backend — edit JSON files and push to GitHub.
 
-## How to Broadcast
+---
+
+## Broadcast Pill
+
+Small floating notification at the top of the screen. Does NOT block content.
+
+### How to Broadcast
 
 1. Edit `public/broadcast.json`
 2. Commit + push to `master`
 3. Cloudflare auto-deploys — all users see it on next page load
 
-## JSON Format
+### JSON Format
 
 Single broadcast:
 ```json
@@ -44,9 +50,7 @@ Multiple broadcasts (array):
 ]
 ```
 
-Each broadcast is stacked vertically (second appears below the first). Each is independently dismissable.
-
-## Fields
+### Fields
 
 | Field | Required | Description |
 |---|---|---|
@@ -58,64 +62,7 @@ Each broadcast is stacked vertically (second appears below the first). Each is i
 | `expires` | No | Auto-hide after this date (YYYY-MM-DD) |
 | `link` | No | URL — makes entire pill clickable (opens in new tab) |
 
-## Examples
-
-New version release:
-```json
-{
-  "id": "broadcast-2026-08-20-v1",
-  "title": "v7.1.3 Released",
-  "message": "New investment calculator with FD/SIP/RD/PPF support.",
-  "type": "success",
-  "pinned": false,
-  "expires": "2026-09-20",
-  "link": "https://github.com/kuldeep7ke/moneymeva-online/releases"
-}
-```
-
-Maintenance notice:
-```json
-{
-  "id": "broadcast-2026-08-21-v1",
-  "title": "Scheduled Maintenance",
-  "message": "Cloud sync unavailable for 2 hours on Aug 22, 2-4 AM IST.",
-  "type": "warning",
-  "pinned": true
-}
-```
-
-Security alert:
-```json
-{
-  "id": "broadcast-2026-08-22-v1",
-  "title": "Security Update",
-  "message": "Please update to v7.1.4+ for important security fixes.",
-  "type": "error",
-  "pinned": true,
-  "link": "https://github.com/kuldeep7ke/moneymeva-online/releases"
-}
-```
-
-Feature announcement with link:
-```json
-{
-  "id": "broadcast-2026-08-23-v1",
-  "message": "Multi-device sync is now available! Enable it in Settings.",
-  "type": "info",
-  "link": "/dashboard/settings"
-}
-```
-
-Quick tip with emoji:
-```json
-{
-  "id": "broadcast-2026-08-24-v1",
-  "message": "Did you know? Long-press any transaction to edit it quickly.",
-  "type": "info"
-}
-```
-
-## Behavior
+### Behavior
 
 - Fetches `broadcast.json` with cache-busting on every page load
 - Supports single object OR array of broadcasts
@@ -125,15 +72,114 @@ Quick tip with emoji:
 - Expired messages auto-hidden after `expires` date
 - Multiple broadcasts stack vertically (44px apart)
 - Centered floating pill at top of screen — does NOT push content down
-- If `link` is set, entire pill is clickable (opens in new tab)
+
+---
+
+## Banner Modal
+
+Full-screen overlay popup in the center of the page. Blocks all content until dismissed.
+
+### How to Banner
+
+1. Edit `public/banner.json`
+2. Commit + push to `master`
+3. Cloudflare auto-deploys — all users see it on next page load
+
+### JSON Format
+
+```json
+{
+  "id": "banner-2026-08-19-v1",
+  "title": "Welcome to Money Meva",
+  "content": "Your personal finance companion. Track income, expenses, and investments.",
+  "image": "https://example.com/image.jpg",
+  "href": "https://github.com/kuldeep7ke/moneymeva-online",
+  "width": "max-w-md",
+  "expires": "2026-09-19"
+}
+```
+
+### Fields
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | Yes | Unique ID (use `banner-YYYY-MM-DD-vN`) |
+| `title` | No | Bold heading at top of banner |
+| `content` | Yes | Main text (supports newlines). Can include embed code or HTML |
+| `image` | No | Image URL shown above content (auto-sizes to fit) |
+| `href` | No | URL — makes entire banner clickable (opens in new tab) |
+| `width` | No | Tailwind max-width class (default: `max-w-md`). Options: `max-w-sm`, `max-w-md`, `max-w-lg`, `max-w-xl`, `max-w-2xl` |
+| `expires` | No | Auto-hide after this date (YYYY-MM-DD) |
+
+### Behavior
+
+- Fetches `banner.json` with cache-busting on every page load
+- Shows full-screen overlay (black backdrop + centered card)
+- Close button has **5-second countdown** — disabled until timer reaches 0
+- Click outside does NOT close (per app convention)
+- Dismissed via X button — stored in localStorage, won't show again
+- Expired banners auto-hidden after `expires` date
+- Auto-sizes based on content (max-h with scroll)
+- Optional: click banner opens `href` in new tab
+
+### Examples
+
+Simple announcement:
+```json
+{
+  "id": "banner-2026-08-20-v1",
+  "title": "New Feature",
+  "content": "Multi-device sync is now available! Go to Settings to enable it.",
+  "width": "max-w-md"
+}
+```
+
+Image banner with link:
+```json
+{
+  "id": "banner-2026-08-21-v1",
+  "title": "Diwali Offer",
+  "content": "Track your festival spending with Money Meva!",
+  "image": "https://example.com/diwali.jpg",
+  "href": "https://example.com/offer",
+  "width": "max-w-lg",
+  "expires": "2026-11-15"
+}
+```
+
+Social media embed:
+```json
+{
+  "id": "banner-2026-08-22-v1",
+  "title": "Follow Us",
+  "content": "https://twitter.com/moneymeva/status/123456789",
+  "width": "max-w-sm"
+}
+```
+
+Large promo banner:
+```json
+{
+  "id": "banner-2026-08-23-v1",
+  "title": "Money Meva v8.0",
+  "content": "Complete redesign with new features. Update now!",
+  "image": "https://example.com/v8-banner.jpg",
+  "href": "https://github.com/kuldeep7ke/moneymeva-online/releases",
+  "width": "max-w-2xl",
+  "expires": "2026-10-01"
+}
+```
+
+---
 
 ## Tips
 
-- Use emojis in title or message for visual appeal
-- Keep messages short (1-2 lines max)
-- Use `pinned: true` for critical alerts (security, maintenance)
-- Use `pinned: false` for informational messages (new features, tips)
+- **Broadcast pill** = quick info, does not block app
+- **Banner modal** = important announcement, blocks app until dismissed
+- Use emojis in both for visual appeal
+- Keep messages short (1-2 lines for pills, 2-3 lines for banners)
+- Use `pinned: true` or no close timer for critical alerts
 - Set `expires` for time-sensitive messages
-- Change `id` for each new broadcast (old IDs stay dismissed)
-- `link` can be a full URL or relative path (e.g. `/dashboard/settings`)
+- Change `id` for each new broadcast/banner (old IDs stay dismissed)
+- `link`/`href` can be full URL or relative path (e.g. `/dashboard/settings`)
 - Use array format for 2+ broadcasts; single object works for just one
