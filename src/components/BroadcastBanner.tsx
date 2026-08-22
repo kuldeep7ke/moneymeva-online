@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { BROADCAST_BIN_ID } from '@/lib/env';
 
 interface BroadcastData {
   id: string;
@@ -68,10 +69,14 @@ export default function BroadcastBanner() {
   const [items, setItems] = useState<BroadcastData[]>([]);
 
   useEffect(() => {
-    fetch(`/broadcast.json?t=${Date.now()}`, { cache: 'no-store' })
+    const url = BROADCAST_BIN_ID
+      ? `https://api.jsonbin.io/v3/b/${BROADCAST_BIN_ID}/latest`
+      : `/broadcast.json?t=${Date.now()}`;
+    fetch(url, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((raw: BroadcastData | BroadcastData[]) => {
-        const list = Array.isArray(raw) ? raw : [raw];
+      .then((res: any) => {
+        const raw = res?.record ?? res;
+        const list: BroadcastData[] = Array.isArray(raw) ? raw : [raw];
         const dismissed = getDismissed();
         const visible = list.filter(b => {
           if (!b?.id || !b?.message) return false;

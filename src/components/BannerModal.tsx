@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X } from 'lucide-react';
+import { BANNER_BIN_ID } from '@/lib/env';
 
 interface BannerData {
   id: string;
@@ -17,9 +18,13 @@ export default function BannerModal() {
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
-    fetch(`/banner.json?t=${Date.now()}`, { cache: 'no-store' })
+    const url = BANNER_BIN_ID
+      ? `https://api.jsonbin.io/v3/b/${BANNER_BIN_ID}/latest`
+      : `/banner.json?t=${Date.now()}`;
+    fetch(url, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((b: BannerData) => {
+      .then((res: any) => {
+        const b: BannerData = res?.record ?? res;
         if (!b?.id || !b?.content) return;
         const now = new Date();
         if (b.startDate && new Date(b.startDate) > now) return;
