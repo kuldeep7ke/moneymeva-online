@@ -1,9 +1,10 @@
 {
-  "id": "banner-2026-08-19-v2",
+  "id": "banner-2026-08-19-v3",
   "title": "Money Meva v7.1.2 is Live!",
   "content": "Track your income, expenses, and investments — all offline-first. New features: success toasts, Android exports, sync stability fix.",
   "image": "https://placehold.co/800x400/FF8A3D/FFFFFF?text=Money+Meva+v7.1.2",
   "href": "https://github.com/kuldeep7ke/moneymeva-online/releases",
   "width": "max-w-xl",
+  "startDate": "2026-08-19",
   "expires": "2026-09-19"
 }

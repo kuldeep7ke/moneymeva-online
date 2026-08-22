@@ -8,6 +8,7 @@ interface BannerData {
   image?: string;
   href?: string;
   width?: string;
+  startDate?: string;
   expires?: string;
 }
 
@@ -20,7 +21,9 @@ export default function BannerModal() {
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((b: BannerData) => {
         if (!b?.id || !b?.content) return;
-        if (b.expires && new Date(b.expires) < new Date()) return;
+        const now = new Date();
+        if (b.startDate && new Date(b.startDate) > now) return;
+        if (b.expires && new Date(b.expires) < now) return;
         setData(b);
         setCountdown(5);
       })

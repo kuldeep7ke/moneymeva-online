@@ -95,6 +95,7 @@ Full-screen overlay popup in the center of the page. Blocks all content until di
   "image": "https://example.com/image.jpg",
   "href": "https://github.com/kuldeep7ke/moneymeva-online",
   "width": "max-w-md",
+  "startDate": "2026-08-19",
   "expires": "2026-09-19"
 }
 ```
@@ -105,70 +106,68 @@ Full-screen overlay popup in the center of the page. Blocks all content until di
 |---|---|---|
 | `id` | Yes | Unique ID (use `banner-YYYY-MM-DD-vN`) |
 | `title` | No | Bold heading at top of banner |
-| `content` | Yes | Main text (supports newlines). Can include embed code or HTML |
+| `content` | Yes | Main text (supports newlines) |
 | `image` | No | Image URL shown above content (auto-sizes to fit) |
 | `href` | No | URL — makes entire banner clickable (opens in new tab) |
 | `width` | No | Tailwind max-width class (default: `max-w-md`). Options: `max-w-sm`, `max-w-md`, `max-w-lg`, `max-w-xl`, `max-w-2xl` |
-| `expires` | No | Auto-hide after this date (YYYY-MM-DD) |
+| `startDate` | No | Show banner only after this date (YYYY-MM-DD). Before this date, banner is hidden |
+| `expires` | No | Auto-hide after this date (YYYY-MM-DD). After this date, banner is hidden |
+
+### Scheduling Examples
+
+Show for one week only:
+```json
+{
+  "id": "banner-2026-08-20-v1",
+  "title": "Weekend Sale",
+  "content": "50% off premium features this weekend only!",
+  "startDate": "2026-08-22",
+  "expires": "2026-08-24"
+}
+```
+
+Show starting next month:
+```json
+{
+  "id": "banner-2026-08-21-v1",
+  "title": "September Update",
+  "content": "Big changes coming in September. Stay tuned!",
+  "startDate": "2026-09-01",
+  "expires": "2026-09-30"
+}
+```
+
+Permanent banner (no expiry):
+```json
+{
+  "id": "banner-2026-08-22-v1",
+  "title": "Welcome",
+  "content": "Thanks for using Money Meva!",
+  "startDate": "2026-08-01"
+}
+```
+
+Past banner (already expired, won't show):
+```json
+{
+  "id": "banner-2026-07-01-v1",
+  "title": "June Offer",
+  "content": "Special June promotion.",
+  "startDate": "2026-06-01",
+  "expires": "2026-06-30"
+}
+```
 
 ### Behavior
 
 - Fetches `banner.json` with cache-busting on every page load
 - Shows full-screen overlay (black backdrop + centered card)
-- Close button has **5-second countdown** — disabled until timer reaches 0
+- X button in top-right corner with **5-second countdown** — disabled until timer reaches 0
 - Click outside does NOT close (per app convention)
-- Dismissed via X button — stored in localStorage, won't show again
-- Expired banners auto-hidden after `expires` date
+- Shows on every page refresh (no localStorage persistence)
+- Hidden if before `startDate` or after `expires`
 - Auto-sizes based on content (max-h with scroll)
 - Optional: click banner opens `href` in new tab
-
-### Examples
-
-Simple announcement:
-```json
-{
-  "id": "banner-2026-08-20-v1",
-  "title": "New Feature",
-  "content": "Multi-device sync is now available! Go to Settings to enable it.",
-  "width": "max-w-md"
-}
-```
-
-Image banner with link:
-```json
-{
-  "id": "banner-2026-08-21-v1",
-  "title": "Diwali Offer",
-  "content": "Track your festival spending with Money Meva!",
-  "image": "https://example.com/diwali.jpg",
-  "href": "https://example.com/offer",
-  "width": "max-w-lg",
-  "expires": "2026-11-15"
-}
-```
-
-Social media embed:
-```json
-{
-  "id": "banner-2026-08-22-v1",
-  "title": "Follow Us",
-  "content": "https://twitter.com/moneymeva/status/123456789",
-  "width": "max-w-sm"
-}
-```
-
-Large promo banner:
-```json
-{
-  "id": "banner-2026-08-23-v1",
-  "title": "Money Meva v8.0",
-  "content": "Complete redesign with new features. Update now!",
-  "image": "https://example.com/v8-banner.jpg",
-  "href": "https://github.com/kuldeep7ke/moneymeva-online/releases",
-  "width": "max-w-2xl",
-  "expires": "2026-10-01"
-}
-```
 
 ---
 
@@ -178,8 +177,9 @@ Large promo banner:
 - **Banner modal** = important announcement, blocks app until dismissed
 - Use emojis in both for visual appeal
 - Keep messages short (1-2 lines for pills, 2-3 lines for banners)
-- Use `pinned: true` or no close timer for critical alerts
-- Set `expires` for time-sensitive messages
-- Change `id` for each new broadcast/banner (old IDs stay dismissed)
+- Use `pinned: true` for critical broadcast alerts (security, maintenance)
+- Set `startDate` + `expires` for time-limited campaigns
+- Change `id` for each new broadcast/banner (old IDs stay dismissed for broadcasts)
 - `link`/`href` can be full URL or relative path (e.g. `/dashboard/settings`)
 - Use array format for 2+ broadcasts; single object works for just one
+- Banner shows on every refresh; broadcast pill stays dismissed until new ID
