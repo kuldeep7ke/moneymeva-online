@@ -531,15 +531,16 @@ All exports funnel through `downloadBlob()` in `src/lib/download.ts`:
 | Overdue reminders | `dueDate <= today` | info |
 | Weekend backup | Saturday/Sunday (once per day) | warning |
 
-### Remote Announcements (jsonbin.io)
-Broadcast pills and banner modals are remote-config — owner edits JSON on jsonbin.io, all users (web + installed APKs) get changes without app updates.
+### Remote Announcements (jsonbin.io + edge cache)
+Broadcast pills and banner modals are remote-config — owner edits JSON on jsonbin.io, all users (web + installed APKs) get changes within ~1h, no app updates.
 
 ```
-jsonbin.io bins ──fetch (cache-busted, every dashboard load)──> BroadcastBanner.tsx / BannerModal.tsx
+jsonbin.io bins ──origin fetch──> functions/api/announcements.js (Cloudflare Pages Function, 1h edge cache) ──/api/announcements?type=…──> BroadcastBanner.tsx / BannerModal.tsx
 ```
 
-- **Config** (`src/lib/env.ts`): `BROADCAST_BIN_ID` / `BANNER_BIN_ID` / `JSONBIN_BASE` stored as XOR+base64 obfuscated strings (`_K` = 'moneymeva', decoded at runtime via `_d()`) — no plain-text IDs or URLs in shipped bundles
-- **Fetch**: `https://api.jsonbin.io/v3/b/<BIN_ID>/latest?t=${Date.now()}` with `cache: 'no-store'`; unwrap response via `res?.record ?? res`
+- **Quota protection**: every device hits the site's own `/api/announcements` endpoint; the Pages Function edge-caches responses for `TTL_SECONDS = 3600` (1h), so jsonbin receives only ~24 origin requests/day total — the 10k/month free tier is effectively unlimited. Bin IDs live server-side in the Function (optional Pages env vars override hardcoded fallbacks)
+- **Config** (`src/lib/env.ts`): `BROADCAST_BIN_ID` / `BANNER_BIN_ID` / `JSONBIN_BASE` / `ANNOUNCEMENTS_API` stored as XOR+base64 obfuscated strings (`_K` = 'moneymeva', decoded at runtime via `_d()`) — no plain-text IDs or URLs in shipped bundles
+- **Fetch**: proxy first (`ANNOUNCEMENTS_API?type=broadcast|banner`, default HTTP caching), then direct jsonbin fallback (`?t=${Date.now()}` + `cache: 'no-store'`) if the proxy fails; unwrap response via `res?.record ?? res`
 - **Broadcast pill**: centered floating pills top-center (`z-[9998]`, stacked 44px apart), color-coded by `type`, optional clickable `link`, per-ID dismissal (`mm_dismissed_broadcasts`), `pinned` = no dismiss; JSON is an array of objects; fetched list cached at module level (no refetch on navigation)
 - **Banner modal**: full-screen overlay (`z-[10000]`), skeleton card while fetching, centered card with title/content/image/href/width, countdown (7s) starts only after the banner fully displays (waits for image `onLoad`, with cached-image `complete` check + `onError` fallback), X top-right enables at 0; shows once per app load via module flag `bannerShownThisLoad` — resets on real refresh/reload only; scheduled via inclusive local-day `startDate`/`expires` through `isWithinPeriod()` in `utils.ts`
 - Full field reference: `docs/BROADCAST-GUIDE.md`
@@ -809,6 +810,9 @@ money-meva/
 │   ├── broadcast.json          # Legacy fallback — live source is jsonbin.io
 │   ├── banner.json             # Legacy fallback — live source is jsonbin.io
 │   └── favicon-32.png
+├── functions/
+│   └── api/
+│       └── announcements.js     # Cloudflare Pages Function — edge-cached (1h) proxy for jsonbin bins; serves /api/announcements?type=broadcast|banner
 ├── scripts/
 │   ├── bump-version.cjs        # Version increment
 │   ├── update-android-version.cjs

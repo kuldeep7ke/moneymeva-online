@@ -49,7 +49,8 @@ Money Meva was built around a single belief: **financial clarity should not requ
 ### Remote Announcements (jsonbin.io)
 - **Broadcast Pills** — floating color-coded notifications centered at the top of the screen (info/warning/success/error). Multiple messages stack; each is independently dismissable per device; `pinned` messages have no dismiss; optional `link` makes the whole pill clickable; `expires` auto-hides old messages. Emojis supported.
 - **Banner Modal** — full-screen ad-style overlay with centered card: title, content, image, optional click-through `href`, configurable width (`max-w-sm`…`max-w-2xl`). Shows a skeleton loading card while fetching; the X close button appears in the top-right only after the banner fully displays (image included), then counts down 7 seconds before enabling. Shows once per app start/refresh/reload — never on in-app menu navigation. Scheduled via inclusive local-calendar-day `startDate` + `expires`.
-- **Zero-deploy editing** — both are driven by JSON bins on jsonbin.io (Bin IDs baked into the build). Edit in the jsonbin dashboard → save → all users (web AND installed APKs) see changes on next app open. No commit, no build, no store update. See [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
+- **Zero-deploy editing** — both are driven by JSON bins on jsonbin.io. Edit in the jsonbin dashboard → save → all users (web AND installed APKs) see changes within ~1h. No commit, no build, no store update. See [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
+- **Quota-protecting edge proxy** — apps fetch from the site's own `/api/announcements` Cloudflare Pages Function (`functions/api/announcements.js`), which edge-caches responses for 1h. jsonbin receives only ~24 requests/day total regardless of user count — the 10k/month free tier is effectively unlimited. Direct-jsonbin fallback keeps announcements live if the proxy ever fails.
 - **What's New Modal** — on dashboard load the app compares its version against `mm_seen_release` and shows release notes once per version (fires after APK installs too).
 
 ### Security & Privacy
@@ -336,13 +337,13 @@ Each account's data is isolated in the cloud (row-level security) — no user ca
 
 ---
 
-## Remote Announcements Setup (jsonbin.io)
+## Remote Announcements Setup (jsonbin.io + edge cache)
 
-Broadcast pills and banner modals are fetched from [jsonbin.io](https://jsonbin.io) on every dashboard load — edit them online without touching this repo:
+Broadcast pills and banner modals are driven by [jsonbin.io](https://jsonbin.io) — edit them online without touching this repo:
 
 1. **Create bins** — jsonbin.io → Bins → Create Bin (Public): one for broadcasts (array of pill objects), one for the banner (single object)
-2. **Wire the Bin IDs** — put them in [`src/lib/env.ts`](src/lib/env.ts) as XOR+base64 obfuscated strings (encode with the same `_K` key, see the existing constants)
-3. **Build once** — IDs ship obfuscated (never plain text in web/APK bundles); after that, editing the JSON online is enough
+2. **Wire the Bin IDs** — put them in [`functions/api/announcements.js`](functions/api/announcements.js) (server-side only; override with Pages env vars `BROADCAST_BIN_ID`/`BANNER_BIN_ID`) and in [`src/lib/env.ts`](src/lib/env.ts) as XOR+base64 obfuscated fallbacks
+3. **Build once** — after that, editing the JSON online is enough. Apps fetch `/api/announcements?type=broadcast|banner`, which the Cloudflare Function serves from a 1h edge cache → jsonbin sees ~24 requests/day total (10k/month free tier = effectively unlimited)
 
 Full field reference, scheduling recipes, and day-to-day workflow: [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
 

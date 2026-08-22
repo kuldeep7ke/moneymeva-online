@@ -74,15 +74,17 @@ Income/expense/investment entries cannot be dated after today. Dated picker capp
 ### 7. Per-Type Categories
 Categories are kept **separate** per transaction type — `mm_income_categories`, `mm_expense_categories`, `mm_investment_categories` + default base lists. Never merged across types (intentional: dropdowns stay relevant, budgets/breakdowns stay type-scoped).
 
-### 8. Remote Announcements (jsonbin.io)
-Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io, fetched with cache-busting (`?t=${Date.now()}`, `cache: 'no-store'`) on every dashboard load. Works in web AND installed APKs without app updates.
+### 8. Remote Announcements (jsonbin.io + edge cache)
+Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io, fetched through the site's own edge-cached proxy. Works in web AND installed APKs without app updates.
 - **Bins**: broadcast `6a89f038f5f4af5e29363c79` (array of pill objects), banner `6a89f053f5f4af5e29363cb3` (single object)
-- **Wiring**: Bin IDs + jsonbin base URL stored as XOR+base64 obfuscated constants in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`/`JSONBIN_BASE`, runtime `_d()` decoder) — invisible to bundle extraction; verified zero plain-text occurrences in `out/`
+- **Quota protection (v7.1.1.93+)**: apps fetch `https://moneymevaonline.pages.dev/api/announcements?type=broadcast|banner` — a Cloudflare Pages Function (`functions/api/announcements.js`, plain JS so Next tsc ignores it) that fetches jsonbin as origin and edge-caches for `TTL_SECONDS = 3600` (1h, Cache API + Cache-Control). jsonbin sees ~24 origin requests/day TOTAL regardless of user count → 10k/month free tier effectively unlimited. Edits propagate in ≤1h; lower TTL to go faster
+- **Fallback chain**: proxy fail → direct jsonbin `?t=${Date.now()}` + `cache: 'no-store'` (Bin IDs stay in env.ts for this) — announcements never go dark
+- **Wiring**: Bin IDs + URLs stored as XOR+base64 obfuscated constants in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`/`JSONBIN_BASE`/`ANNOUNCEMENTS_API`, runtime `_d()` decoder) — invisible to bundle extraction; verified zero plain-text occurrences in `out/`. Function has its own hardcoded bin IDs (overridable via Pages env vars `BROADCAST_BIN_ID`/`BANNER_BIN_ID`)
 - **jsonbin response shape**: `{ record: <actual JSON>, metadata: {...} }` — components unwrap via `res?.record ?? res`
 - **Broadcast pill** (`BroadcastBanner.tsx`): centered floating pill top-center, `fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)]`, stacked via inline `style={{top: `${8+i*44}px`}}`; solid color-coded bg (info=blue-600, warning=amber-500, success=green-600, error=red-600); optional `link` wraps pill in anchor + ExternalLink icon; per-ID dismissal in localStorage `mm_dismissed_broadcasts`; `pinned: true` = no X; array format = multiple stacked pills; fetched list cached at module level (`broadcastCache`) so navigation never refetches
 - **Banner modal** (`BannerModal.tsx`): full-screen overlay `fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm`, centered card, width via Tailwind class field (`max-w-md` default), optional image (max-h-64) + href (whole card clickable); **skeleton loading card while fetching**; countdown (7s) starts only after full display — waits for image `onLoad`/`onError` with cached-image ref `complete` check; X button appears at 0 (spinner/number badge before); shows **once per app load** via module flag `bannerShownThisLoad` — SPA menu navigation never re-shows it, resets on real refresh/reload; NO localStorage persistence; scheduling via inclusive local-calendar-day windows through shared `isWithinPeriod(startDate?, endDate?)` in `utils.ts`
-- Local `public/broadcast.json`/`public/banner.json` are dead fallbacks only (fetch URL switches to jsonbin when BIN_ID set — which is always now)
-- Full editing workflow: `docs/BROADCAST-GUIDE.md`
+- Local `public/broadcast.json`/`public/banner.json` are dead fallbacks only
+- Full editing workflow: `docs/BROADCAST-GUIDE.md`; Developer Zone → Remote Announcements tests BOTH proxy and jsonbin paths live
 
 ---
 
@@ -287,6 +289,10 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.93 (2026-08-23) — Edge-Cache Proxy for jsonbin Quota
+- New `functions/api/announcements.js` (Cloudflare Pages Function, plain JS): proxies `?type=broadcast|banner` to the jsonbin bins, edge-caches 1h (`caches.default` + `Cache-Control: public, max-age=3600`, CORS `*` for APK). Bin IDs server-side (hardcoded fallbacks + optional Pages env vars). Deployed automatically — workflow's `wrangler pages deploy out` runs from repo root so `functions/` is bundled.
+- Both components + Developer Zone test now hit the proxy FIRST, direct-jsonbin as fallback. jsonbin usage drops from per-device-per-load to ~24 requests/day/month total (10k free tier = effectively unlimited). Trade-off: owner edits propagate in ≤1h.
 
 ### v7.1.1.91 (2026-08-23) — Banner Once Per Load + Broadcast Cache
 - Banner shows only on app start/refresh/reload: module flag `bannerShownThisLoad` set when the banner passes all checks and displays — SPA menu navigation never re-shows it (previously every page's own `<DashboardLayout>` remount refetched + reshowed).

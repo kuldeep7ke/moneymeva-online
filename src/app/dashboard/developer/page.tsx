@@ -15,7 +15,7 @@ import { useTheme, getBrands } from '@/components/ThemeProvider';
 import { useToast } from '@/components/Toast';
 import { createProgressOverlay } from '@/lib/progressOverlay';
 import { getLastSyncEvent } from '@/lib/sync-notify';
-import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE } from '@/lib/env';
+import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API } from '@/lib/env';
 import { RELEASE_NOTES, getLastSeenVersion } from '@/lib/whats-new';
 
 const mask = (s: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
@@ -168,20 +168,27 @@ export default function DeveloperPage() {
     setAnnTesting(true);
     setAnnTest(null);
     const out: string[] = [];
+    // Proxy first (production path, edge-cached), then direct jsonbin fallback
+    try {
+      const r = await fetch(`${ANNOUNCEMENTS_API}?type=broadcast`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('http');
+      const j = await r.json();
+      const rec = j?.record ?? j;
+      out.push(`Broadcast OK · ${Array.isArray(rec) ? rec.length : 1} item(s)`);
+    } catch { out.push('Proxy FAILED · trying jsonbin…'); }
     try {
       const r = await fetch(`${JSONBIN_BASE}${BROADCAST_BIN_ID}/latest?t=${Date.now()}`, { cache: 'no-store' });
       if (!r.ok) throw new Error('http');
       const j = await r.json();
       const rec = j?.record ?? j;
-      out.push(`Broadcast bin OK · ${Array.isArray(rec) ? rec.length : 1} item(s)`);
-    } catch { out.push('Broadcast bin FAILED'); }
+      out.push(`jsonbin broadcast OK · ${Array.isArray(rec) ? rec.length : 1} item(s)`);
+    } catch { out.push('jsonbin broadcast FAILED'); }
     try {
-      const r = await fetch(`${JSONBIN_BASE}${BANNER_BIN_ID}/latest?t=${Date.now()}`, { cache: 'no-store' });
+      const r = await fetch(`${ANNOUNCEMENTS_API}?type=banner`, { cache: 'no-store' });
       if (!r.ok) throw new Error('http');
       const j = await r.json();
-      const rec = j?.record ?? j;
-      out.push(`Banner bin OK · ${rec?.id || 'no id'}`);
-    } catch { out.push('Banner bin FAILED'); }
+      out.push(`Banner OK · ${j?.record?.id || 'no id'}`);
+    } catch { out.push('Banner proxy FAILED'); }
     setAnnTest(out.join(' · '));
     setAnnTesting(false);
   };

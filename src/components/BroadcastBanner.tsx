@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
-import { BROADCAST_BIN_ID, JSONBIN_BASE } from '@/lib/env';
+import { BROADCAST_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API } from '@/lib/env';
 import { isWithinPeriod } from '@/lib/utils';
 
 interface BroadcastData {
@@ -87,17 +87,28 @@ export default function BroadcastBanner() {
 
     if (broadcastCache) { applyFilter(broadcastCache); return; }
 
-    const url = BROADCAST_BIN_ID
-      ? `${JSONBIN_BASE}${BROADCAST_BIN_ID}/latest`
-      : `/broadcast.json?t=${Date.now()}`;
-    fetch(url, { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((res: any) => {
-        const raw = res?.record ?? res;
-        broadcastCache = Array.isArray(raw) ? raw : [raw];
-        applyFilter(broadcastCache);
-      })
-      .catch(() => {});
+    // Primary: edge-cached proxy (quota-friendly). Fallback: direct jsonbin.
+    const fetchJson = async (): Promise<any | null> => {
+      try {
+        const r = await fetch(`${ANNOUNCEMENTS_API}?type=broadcast`);
+        if (!r.ok) throw new Error();
+        return await r.json();
+      } catch {}
+      try {
+        if (!BROADCAST_BIN_ID) return null;
+        const r = await fetch(`${JSONBIN_BASE}${BROADCAST_BIN_ID}/latest?t=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error();
+        return await r.json();
+      } catch {}
+      return null;
+    };
+
+    fetchJson().then(res => {
+      if (!res) return;
+      const raw = res?.record ?? res;
+      broadcastCache = Array.isArray(raw) ? raw : [raw];
+      applyFilter(broadcastCache);
+    }).catch(() => {});
   }, []);
 
   if (items.length === 0) return null;

@@ -26,3 +26,9 @@ export const SITE_URL = 'https://moneymevaonline.pages.dev';
 export const BROADCAST_BIN_ID = _d('Ww5WXB9dVk4HWAlaBB9YAERYXlldBk5U');
 export const BANNER_BIN_ID = _d('Ww5WXB9dUEUHWAlaBB9YAERYXlldBhte');
 export const JSONBIN_BASE = _d('BRsaFQpXSlkAHQZADwoCCxQIA0EHClYbVlkDQg==');
+
+// Edge-cached proxy (Cloudflare Pages Function, functions/api/announcements.js).
+// Primary source for broadcasts/banner — protects the jsonbin free quota
+// (~48 origin requests/month instead of per-device requests). Direct jsonbin
+// URLs above remain as automatic fallback if the proxy fails.
+export const ANNOUNCEMENTS_API = `${SITE_URL}/api/announcements`;

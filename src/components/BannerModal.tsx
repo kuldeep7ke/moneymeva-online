@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { BANNER_BIN_ID, JSONBIN_BASE } from '@/lib/env';
+import { BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API } from '@/lib/env';
 import { isWithinPeriod } from '@/lib/utils';
 
 interface BannerData {
@@ -29,12 +29,24 @@ export default function BannerModal() {
 
   useEffect(() => {
     if (bannerShownThisLoad) { setLoading(false); return; }
-    const url = BANNER_BIN_ID
-      ? `${JSONBIN_BASE}${BANNER_BIN_ID}/latest?t=${Date.now()}`
-      : `/banner.json?t=${Date.now()}`;
-    fetch(url, { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    // Primary: edge-cached proxy (quota-friendly). Fallback: direct jsonbin.
+    const fetchJson = async (): Promise<any | null> => {
+      try {
+        const r = await fetch(`${ANNOUNCEMENTS_API}?type=banner`);
+        if (!r.ok) throw new Error();
+        return await r.json();
+      } catch {}
+      try {
+        if (!BANNER_BIN_ID) return null;
+        const r = await fetch(`${JSONBIN_BASE}${BANNER_BIN_ID}/latest?t=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error();
+        return await r.json();
+      } catch {}
+      return null;
+    };
+    fetchJson()
       .then((res: any) => {
+        if (!res) return;
         const b: BannerData = res?.record ?? res;
         if (!b?.id || !b?.content) return;
         if (!isWithinPeriod(b.startDate, b.expires)) return;
