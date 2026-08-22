@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { BANNER_BIN_ID, JSONBIN_BASE } from '@/lib/env';
 
 interface BannerData {
@@ -13,13 +13,17 @@ interface BannerData {
   expires?: string;
 }
 
+const COUNTDOWN_SECONDS = 7;
+
 export default function BannerModal() {
   const [data, setData] = useState<BannerData | null>(null);
-  const [countdown, setCountdown] = useState(5);
+  const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const url = BANNER_BIN_ID
-      ? `${JSONBIN_BASE}${BANNER_BIN_ID}/latest`
+      ? `${JSONBIN_BASE}${BANNER_BIN_ID}/latest?t=${Date.now()}`
       : `/banner.json?t=${Date.now()}`;
     fetch(url, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
@@ -30,40 +34,98 @@ export default function BannerModal() {
         if (b.startDate && new Date(b.startDate) > now) return;
         if (b.expires && new Date(b.expires) < now) return;
         setData(b);
-        setCountdown(5);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
+  // No image → banner is fully rendered as soon as data paints
   useEffect(() => {
-    if (!data || countdown <= 0) return;
-    const timer = setInterval(() => setCountdown(c => c - 1), 1000);
-    return () => clearInterval(timer);
-  }, [data, countdown]);
+    if (data && !data.image) setReady(true);
+  }, [data]);
+
+  // Countdown starts once fully displayed (7s)
+  useEffect(() => {
+    if (ready && countdown === null) setCountdown(COUNTDOWN_SECONDS);
+  }, [ready, countdown]);
+
+  useEffect(() => {
+    if (!ready || countdown === null) return;
+    if (countdown <= 0) return;
+    const t = setInterval(() => setCountdown(c => (c !== null && c > 0 ? c - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [ready, countdown]);
+
+  // Cached images may never fire onLoad — check completeness via ref
+  const imgRef = useCallback((el: HTMLImageElement | null) => {
+    if (el && el.complete && el.naturalWidth > 0) setReady(true);
+  }, []);
+  const onImgDone = useCallback(() => setReady(true), []);
 
   const dismiss = useCallback(() => {
     setData(null);
+    setReady(false);
+    setCountdown(null);
   }, []);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-[calc(100vw-2rem)] overflow-hidden">
+          <div className="h-44 bg-slate-200 dark:bg-slate-800 flex items-center justify-center gap-2">
+            <Loader2 className="h-6 w-6 text-slate-400 animate-spin" />
+            <span className="text-xs text-slate-400 font-medium">Loading…</span>
+          </div>
+          <div className="px-6 py-5 space-y-3">
+            <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-3 w-full rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+              <div className="h-3 w-5/6 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) return null;
 
   const widthClass = data.width || 'max-w-md';
   const Wrapper = data.href ? 'a' : 'div';
   const wrapperProps = data.href ? { href: data.href, target: '_blank', rel: 'noopener noreferrer' } : {};
+  const canClose = countdown !== null && countdown <= 0;
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl ${widthClass} w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] overflow-hidden relative`} onClick={e => e.stopPropagation()}>
-        <button
-          onClick={dismiss}
-          disabled={countdown > 0}
-          className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {countdown > 0 ? <span className="text-xs font-bold">{countdown}</span> : <X className="h-4 w-4" />}
-        </button>
+        {canClose && (
+          <button
+            onClick={dismiss}
+            className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-opacity"
+            aria-label="Close banner"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+        {!canClose && (
+          <div className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-black/40 flex items-center justify-center text-white">
+            {countdown !== null && countdown > 0 ? (
+              <span className="text-xs font-bold">{countdown}</span>
+            ) : (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+          </div>
+        )}
         <Wrapper {...wrapperProps} className="contents">
           {data.image && (
-            <img src={data.image} alt={data.title || ''} className="w-full object-cover max-h-64" />
+            <img
+              ref={imgRef}
+              src={data.image}
+              alt={data.title || ''}
+              onLoad={onImgDone}
+              onError={onImgDone}
+              className="w-full object-cover max-h-64"
+            />
           )}
           <div className="px-6 py-5">
             {data.title && <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{data.title}</h2>}
