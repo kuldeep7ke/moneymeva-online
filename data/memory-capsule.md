@@ -77,7 +77,7 @@ Categories are kept **separate** per transaction type — `mm_income_categories`
 ### 8. Remote Announcements (jsonbin.io + edge cache)
 Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io, fetched through the site's own edge-cached proxy. Works in web AND installed APKs without app updates.
 - **Bins**: broadcast `6a89f038f5f4af5e29363c79` (array of pill objects), banner `6a89f053f5f4af5e29363cb3` (single object)
-- **Quota protection (v7.1.1.93+)**: apps fetch `https://moneymevaonline.pages.dev/api/announcements?type=broadcast|banner` — a Cloudflare Pages Function (`functions/api/announcements.js`, plain JS so Next tsc ignores it) that fetches jsonbin as origin and edge-caches for `TTL_SECONDS = 3600` (1h, Cache API + Cache-Control). jsonbin sees ~24 origin requests/day TOTAL regardless of user count → 10k/month free tier effectively unlimited. Edits propagate in ≤1h; lower TTL to go faster
+- **Quota protection (v7.1.1.93+)**: apps fetch `https://moneymevaonline.pages.dev/api/announcements?type=broadcast|banner` — a Cloudflare Pages Function (`functions/api/announcements.js`, plain JS so Next tsc ignores it) that fetches jsonbin as origin and edge-caches via Cache API + `Cache-Control`. Cache window = `TTL_MINUTES` (currently **10**, since v7.1.1.95). jsonbin volume is time-bound, not user-bound: ~6×/hour/bin ≈ 290/day combined ≈ 8.6k/month worst case (per Cloudflare POP) — near the 10k free cap; docs recommend raising to 20–30 min if quota warnings appear. Edits propagate in ≤10 min
 - **Fallback chain**: proxy fail → direct jsonbin `?t=${Date.now()}` + `cache: 'no-store'` (Bin IDs stay in env.ts for this) — announcements never go dark
 - **Wiring**: Bin IDs + URLs stored as XOR+base64 obfuscated constants in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`/`JSONBIN_BASE`/`ANNOUNCEMENTS_API`, runtime `_d()` decoder) — invisible to bundle extraction; verified zero plain-text occurrences in `out/`. Function has its own hardcoded bin IDs (overridable via Pages env vars `BROADCAST_BIN_ID`/`BANNER_BIN_ID`)
 - **jsonbin response shape**: `{ record: <actual JSON>, metadata: {...} }` — components unwrap via `res?.record ?? res`
@@ -289,6 +289,10 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.94–.96 (2026-08-23) — TTL in Minutes, Set to 10
+- Proxy cache window renamed `TTL_SECONDS` → `TTL_MINUTES` (single number to edit) and set to **10 minutes** per owner choice: edits on jsonbin visible within ~10 min.
+- Honest quota math documented everywhere: 10-min TTL ⇒ ≤ ~290 jsonbin requests/day (~8.6k/month worst case per POP) — close to the 10k free cap; earlier "~24/day" estimate was wrong (that's per-bin-per-hour territory). Guidance added: raise to 20–30 min if quota warnings ever appear.
 
 ### v7.1.1.93 (2026-08-23) — Edge-Cache Proxy for jsonbin Quota
 - New `functions/api/announcements.js` (Cloudflare Pages Function, plain JS): proxies `?type=broadcast|banner` to the jsonbin bins, edge-caches 1h (`caches.default` + `Cache-Control: public, max-age=3600`, CORS `*` for APK). Bin IDs server-side (hardcoded fallbacks + optional Pages env vars). Deployed automatically — workflow's `wrangler pages deploy out` runs from repo root so `functions/` is bundled.

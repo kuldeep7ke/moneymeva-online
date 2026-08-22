@@ -1,7 +1,7 @@
 // Cloudflare Pages Function — edge-cached proxy for jsonbin announcement bins.
-// All devices hit THIS endpoint; Cloudflare serves from edge cache for 1h,
-// so jsonbin receives only ~24 requests/day/month total regardless of user count.
-// Bin IDs live server-side here (never shipped in app bundles).
+// All devices hit THIS endpoint; Cloudflare serves each response from the edge
+// cache for TTL_MINUTES, so jsonbin request volume depends on time only —
+// never on user count. Bin IDs live server-side here (never in app bundles).
 // Optional: set BROADCAST_BIN_ID / BANNER_BIN_ID as Pages env vars in the
 // Cloudflare dashboard to override the fallbacks below.
 const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b/';
