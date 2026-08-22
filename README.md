@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.87** — A minimalistic, local-first personal finance companion.
+**v7.1.1.91** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India.
 
@@ -48,7 +48,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 
 ### Remote Announcements (jsonbin.io)
 - **Broadcast Pills** — floating color-coded notifications centered at the top of the screen (info/warning/success/error). Multiple messages stack; each is independently dismissable per device; `pinned` messages have no dismiss; optional `link` makes the whole pill clickable; `expires` auto-hides old messages. Emojis supported.
-- **Banner Modal** — full-screen ad-style overlay with centered card: title, content, image, optional click-through `href`, configurable width (`max-w-sm`…`max-w-2xl`). X close button top-right with a 5-second countdown. Shows on every refresh (session-only dismissal). Scheduled via `startDate` + `expires`.
+- **Banner Modal** — full-screen ad-style overlay with centered card: title, content, image, optional click-through `href`, configurable width (`max-w-sm`…`max-w-2xl`). Shows a skeleton loading card while fetching; the X close button appears in the top-right only after the banner fully displays (image included), then counts down 7 seconds before enabling. Shows once per app start/refresh/reload — never on in-app menu navigation. Scheduled via inclusive local-calendar-day `startDate` + `expires`.
 - **Zero-deploy editing** — both are driven by JSON bins on jsonbin.io (Bin IDs baked into the build). Edit in the jsonbin dashboard → save → all users (web AND installed APKs) see changes on next app open. No commit, no build, no store update. See [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
 - **What's New Modal** — on dashboard load the app compares its version against `mm_seen_release` and shows release notes once per version (fires after APK installs too).
 

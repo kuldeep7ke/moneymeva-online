@@ -66,7 +66,9 @@ Small floating notification centered at the top of the screen. Does NOT block co
 - Multiple broadcasts: just add more objects to the array — they stack vertically (44px apart)
 - Each pill has its own X (dismiss); dismissed IDs stored per-device in localStorage `mm_dismissed_broadcasts`
 - Pinned messages never show an X — always visible until removed from JSON or expired
+- Expired messages hidden after `expires` (inclusive local calendar day)
 - Centered floating pill, `max-w-lg`, does not push page content down
+- Fetched once per app load and cached — navigating between pages never re-requests it
 
 ---
 
@@ -99,8 +101,10 @@ Full-screen overlay popup, centered card. Blocks content until dismissed (X appe
 | `image` | No | Image URL above content, auto-sizes (`max-h-64 object-cover`) |
 | `href` | No | URL — entire card clickable (opens new tab) |
 | `width` | No | Tailwind max-width class. Options: `max-w-sm` `max-w-md` `max-w-lg` `max-w-xl` `max-w-2xl`. Default `max-w-md` |
-| `startDate` | No | Show ONLY from this date (YYYY-MM-DD). Before it → hidden |
-| `expires` | No | Hide after this date. After it → hidden |
+| `startDate` | No | Show ON and after this local calendar day (YYYY-MM-DD). Before it → hidden |
+| `expires` | No | Show THROUGH this local calendar day. From the next day → hidden |
+
+Both dates are inclusive calendar days in the viewer's timezone: a banner with `2026-08-22 → 2026-08-24` shows all three days, then disappears.
 
 ### Scheduling Recipes
 
@@ -118,11 +122,12 @@ Permanent (always shows): omit both fields.
 Never shows again: set `expires` in the past.
 
 ### Behavior
-- Shows on EVERY refresh — dismissal is session-only, nothing saved to localStorage
-- Black backdrop + blur; card auto-sizes to content
-- X button top-right with **5-second countdown** — disabled (shows number) until timer hits 0
+- **Shows once per app start/refresh/reload** — in-app menu navigation never re-shows it; a real reload does
+- While the JSON fetches, a skeleton loading card shows (spinner + pulsing blocks)
+- The X button (top-right) appears only after the banner FULLY displays — if there's an image, it waits for the image to finish loading — then counts down **7 seconds** (number badge → spinner → X)
 - Backdrop click does NOT close (app convention)
 - If `href` set, tapping the card opens the link (X still closes)
+- Only visible inside its `startDate` → `expires` window (inclusive local calendar days)
 
 ---
 
@@ -160,7 +165,7 @@ Common edits:
 
 | Symptom | Check |
 |---|---|
-| Pill/banner not showing | JSON valid? `id` present? `expires` in past? `startDate` in future? |
+| Pill/banner not showing | JSON valid? `id` present? Outside `startDate`–`expires` window? Banner already shown once this app load (reload to see again)? |
 | Changes not appearing | Saved in jsonbin (Ctrl+S)? Hard-refresh app (Ctrl+F5)? Wait a few seconds |
-| Banner shows but X disabled | Normal — 5s countdown must finish first |
+| Banner shows but X disabled | Normal — countdown starts only after full display (image included) and runs 7s |
 | Pill keeps coming back | Its `id` changed since last dismiss — that's by design |

@@ -1,6 +1,6 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.87 (incremented on every build)
+**Version:** v7.1.1.91 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
@@ -79,8 +79,8 @@ Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io
 - **Bins**: broadcast `6a89f038f5f4af5e29363c79` (array of pill objects), banner `6a89f053f5f4af5e29363cb3` (single object)
 - **Wiring**: Bin IDs + jsonbin base URL stored as XOR+base64 obfuscated constants in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`/`JSONBIN_BASE`, runtime `_d()` decoder) — invisible to bundle extraction; verified zero plain-text occurrences in `out/`
 - **jsonbin response shape**: `{ record: <actual JSON>, metadata: {...} }` — components unwrap via `res?.record ?? res`
-- **Broadcast pill** (`BroadcastBanner.tsx`): centered floating pill top-center, `fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)]`, stacked via inline `style={{top: `${8+i*44}px`}}`; solid color-coded bg (info=blue-600, warning=amber-500, success=green-600, error=red-600); optional `link` wraps pill in anchor + ExternalLink icon; per-ID dismissal in localStorage `mm_dismissed_broadcasts`; `pinned: true` = no X; array format = multiple stacked pills
-- **Banner modal** (`BannerModal.tsx`): full-screen overlay `fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm`, centered card, width via Tailwind class field (`max-w-md` default), optional image (max-h-64) + href (whole card clickable); X button absolute top-right with 5-second countdown (disabled until 0, shows number then X icon); NO localStorage persistence — shows every refresh; scheduling via `startDate`/`expires` date checks
+- **Broadcast pill** (`BroadcastBanner.tsx`): centered floating pill top-center, `fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)]`, stacked via inline `style={{top: `${8+i*44}px`}}`; solid color-coded bg (info=blue-600, warning=amber-500, success=green-600, error=red-600); optional `link` wraps pill in anchor + ExternalLink icon; per-ID dismissal in localStorage `mm_dismissed_broadcasts`; `pinned: true` = no X; array format = multiple stacked pills; fetched list cached at module level (`broadcastCache`) so navigation never refetches
+- **Banner modal** (`BannerModal.tsx`): full-screen overlay `fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm`, centered card, width via Tailwind class field (`max-w-md` default), optional image (max-h-64) + href (whole card clickable); **skeleton loading card while fetching**; countdown (7s) starts only after full display — waits for image `onLoad`/`onError` with cached-image ref `complete` check; X button appears at 0 (spinner/number badge before); shows **once per app load** via module flag `bannerShownThisLoad` — SPA menu navigation never re-shows it, resets on real refresh/reload; NO localStorage persistence; scheduling via inclusive local-calendar-day windows through shared `isWithinPeriod(startDate?, endDate?)` in `utils.ts`
 - Local `public/broadcast.json`/`public/banner.json` are dead fallbacks only (fetch URL switches to jsonbin when BIN_ID set — which is always now)
 - Full editing workflow: `docs/BROADCAST-GUIDE.md`
 
@@ -287,6 +287,17 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.91 (2026-08-23) — Banner Once Per Load + Broadcast Cache
+- Banner shows only on app start/refresh/reload: module flag `bannerShownThisLoad` set when the banner passes all checks and displays — SPA menu navigation never re-shows it (previously every page's own `<DashboardLayout>` remount refetched + reshowed).
+- Broadcast pills: fetched list cached at module level `broadcastCache` — navigation renders from cache, zero extra jsonbin requests per click.
+
+### v7.1.1.90 (2026-08-23) — Local-Day Period Windows
+- New shared `isWithinPeriod(startDate?, endDate?)` in `utils.ts`: parses YYYY-MM-DD as inclusive local calendar days (old UTC-parsed checks shifted boundaries ~5.5 h in IST). Applied to banner (`startDate`+`expires`) and pill expiry. Start day shows from local midnight; end day shows through end of day.
+
+### v7.1.1.89 (2026-08-23) — Banner Load-Aware Timing
+- Skeleton loading card (spinner + pulsing blocks) while the banner fetches.
+- Countdown 5 s → **7 s**, and it starts only after the banner FULLY displays: no image → on data paint; with image → after `onLoad` (ref callback also handles cached images via `complete` check; `onError` starts timer so broken images can't block forever). Spinner badge in corner until X enables at 0.
 
 ### v7.1.1.87 (2026-08-23) — Developer Zone Refresh
 - Header shows live app version (meta `app-version`) + release-notes version/seen status (`getLastSeenVersion`).

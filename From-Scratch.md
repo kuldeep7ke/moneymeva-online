@@ -540,8 +540,8 @@ jsonbin.io bins ──fetch (cache-busted, every dashboard load)──> Broadcas
 
 - **Config** (`src/lib/env.ts`): `BROADCAST_BIN_ID` / `BANNER_BIN_ID` / `JSONBIN_BASE` stored as XOR+base64 obfuscated strings (`_K` = 'moneymeva', decoded at runtime via `_d()`) — no plain-text IDs or URLs in shipped bundles
 - **Fetch**: `https://api.jsonbin.io/v3/b/<BIN_ID>/latest?t=${Date.now()}` with `cache: 'no-store'`; unwrap response via `res?.record ?? res`
-- **Broadcast pill**: centered floating pills top-center (`z-[9998]`, stacked 44px apart), color-coded by `type`, optional clickable `link`, per-ID dismissal (`mm_dismissed_broadcasts`), `pinned` = no dismiss; JSON is an array of objects
-- **Banner modal**: full-screen overlay (`z-[10000]`), centered card with title/content/image/href/width, X top-right with 5s countdown, shows EVERY refresh (no persistence), scheduled via `startDate`/`expires`
+- **Broadcast pill**: centered floating pills top-center (`z-[9998]`, stacked 44px apart), color-coded by `type`, optional clickable `link`, per-ID dismissal (`mm_dismissed_broadcasts`), `pinned` = no dismiss; JSON is an array of objects; fetched list cached at module level (no refetch on navigation)
+- **Banner modal**: full-screen overlay (`z-[10000]`), skeleton card while fetching, centered card with title/content/image/href/width, countdown (7s) starts only after the banner fully displays (waits for image `onLoad`, with cached-image `complete` check + `onError` fallback), X top-right enables at 0; shows once per app load via module flag `bannerShownThisLoad` — resets on real refresh/reload only; scheduled via inclusive local-day `startDate`/`expires` through `isWithinPeriod()` in `utils.ts`
 - Full field reference: `docs/BROADCAST-GUIDE.md`
 
 ---
@@ -652,7 +652,7 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 | `SecurityTipNotice` | Security tip banner |
 | `WhatsNewModal` | Version update release notes modal — shows once per version (localStorage `mm_seen_release`) on dashboard load |
 | `BroadcastBanner` | Remote broadcast pills — stacked floating notifications top-center, fetched from jsonbin.io (`BROADCAST_BIN_ID`), per-ID dismissal in localStorage |
-| `BannerModal` | Remote ad-style overlay — full-screen backdrop + centered card (image/href/width), X with 5s countdown, shows every refresh, `startDate`/`expires` scheduling |
+| `BannerModal` | Remote ad-style overlay — full-screen backdrop + centered card (image/href/width), skeleton loading while fetch, X appears after full display then 7s countdown, shows once per app load (module flag — never on SPA navigation), inclusive local-day `startDate`/`expires` scheduling via shared `isWithinPeriod()` |
 | `LoadingOverlay` | Full-screen loading overlay |
 | `RegisterSW` | Service worker registration |
 | `ui/button` | Base button component |
