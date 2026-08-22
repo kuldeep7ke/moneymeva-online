@@ -44,6 +44,21 @@ export function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Inclusive calendar-day window in the device's local timezone.
+// startDate 'YYYY-MM-DD' → shows ON that day from midnight; endDate → shows THROUGH that day.
+export function isWithinPeriod(startDate?: string, endDate?: string): boolean {
+  if (!startDate && !endDate) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const parseDay = (s: string) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y || 1970, (m || 1) - 1, d || 1);
+  };
+  if (startDate && parseDay(startDate) > today) return false;
+  if (endDate && parseDay(endDate) < today) return false;
+  return true;
+}
+
 export function getSortedCategories(baseCategories: string[], type?: string): string[] {
   try {
     const txs = getTransactions(type);

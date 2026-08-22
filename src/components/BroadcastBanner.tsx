@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, Info, AlertTriangle, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { BROADCAST_BIN_ID, JSONBIN_BASE } from '@/lib/env';
+import { isWithinPeriod } from '@/lib/utils';
 
 interface BroadcastData {
   id: string;
@@ -65,10 +66,27 @@ function BroadcastPill({ data, onDismiss }: { data: BroadcastData; onDismiss: ()
   );
 }
 
+// Module scope: fetched list is cached across in-app navigation so menu clicks
+// don't re-request jsonbin. Cache resets on app start / refresh / reload.
+let broadcastCache: BroadcastData[] | null = null;
+
 export default function BroadcastBanner() {
   const [items, setItems] = useState<BroadcastData[]>([]);
 
   useEffect(() => {
+    const applyFilter = (list: BroadcastData[]) => {
+      const dismissed = getDismissed();
+      const visible = list.filter(b => {
+        if (!b?.id || !b?.message) return false;
+        if (!isWithinPeriod(undefined, b.expires)) return false;
+        if (!b.pinned && dismissed.has(b.id)) return false;
+        return true;
+      });
+      setItems(visible);
+    };
+
+    if (broadcastCache) { applyFilter(broadcastCache); return; }
+
     const url = BROADCAST_BIN_ID
       ? `${JSONBIN_BASE}${BROADCAST_BIN_ID}/latest`
       : `/broadcast.json?t=${Date.now()}`;
@@ -76,15 +94,8 @@ export default function BroadcastBanner() {
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((res: any) => {
         const raw = res?.record ?? res;
-        const list: BroadcastData[] = Array.isArray(raw) ? raw : [raw];
-        const dismissed = getDismissed();
-        const visible = list.filter(b => {
-          if (!b?.id || !b?.message) return false;
-          if (b.expires && new Date(b.expires) < new Date()) return false;
-          if (!b.pinned && dismissed.has(b.id)) return false;
-          return true;
-        });
-        setItems(visible);
+        broadcastCache = Array.isArray(raw) ? raw : [raw];
+        applyFilter(broadcastCache);
       })
       .catch(() => {});
   }, []);

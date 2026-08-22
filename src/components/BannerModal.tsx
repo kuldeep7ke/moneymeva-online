@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { BANNER_BIN_ID, JSONBIN_BASE } from '@/lib/env';
+import { isWithinPeriod } from '@/lib/utils';
 
 interface BannerData {
   id: string;
@@ -15,6 +16,11 @@ interface BannerData {
 
 const COUNTDOWN_SECONDS = 7;
 
+// Module scope: true after the banner displays once. Survives in-app navigation
+// (menu clicks) because SPA route changes don't reset modules — but resets on
+// app start / refresh / reload, which is exactly when the banner should show.
+let bannerShownThisLoad = false;
+
 export default function BannerModal() {
   const [data, setData] = useState<BannerData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +28,7 @@ export default function BannerModal() {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
+    if (bannerShownThisLoad) { setLoading(false); return; }
     const url = BANNER_BIN_ID
       ? `${JSONBIN_BASE}${BANNER_BIN_ID}/latest?t=${Date.now()}`
       : `/banner.json?t=${Date.now()}`;
@@ -30,9 +37,8 @@ export default function BannerModal() {
       .then((res: any) => {
         const b: BannerData = res?.record ?? res;
         if (!b?.id || !b?.content) return;
-        const now = new Date();
-        if (b.startDate && new Date(b.startDate) > now) return;
-        if (b.expires && new Date(b.expires) < now) return;
+        if (!isWithinPeriod(b.startDate, b.expires)) return;
+        bannerShownThisLoad = true;
         setData(b);
       })
       .catch(() => {})
