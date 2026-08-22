@@ -11,21 +11,6 @@ interface BannerData {
   expires?: string;
 }
 
-const DISMISSED_KEY = 'mm_dismissed_banners';
-
-function getDismissed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DISMISSED_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch { return new Set(); }
-}
-
-function saveDismissed(id: string) {
-  const dismissed = getDismissed();
-  dismissed.add(id);
-  try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissed])); } catch {}
-}
-
 export default function BannerModal() {
   const [data, setData] = useState<BannerData | null>(null);
   const [countdown, setCountdown] = useState(5);
@@ -36,7 +21,6 @@ export default function BannerModal() {
       .then((b: BannerData) => {
         if (!b?.id || !b?.content) return;
         if (b.expires && new Date(b.expires) < new Date()) return;
-        if (getDismissed().has(b.id)) return;
         setData(b);
         setCountdown(5);
       })
@@ -50,10 +34,8 @@ export default function BannerModal() {
   }, [data, countdown]);
 
   const dismiss = useCallback(() => {
-    if (!data) return;
-    saveDismissed(data.id);
     setData(null);
-  }, [data]);
+  }, []);
 
   if (!data) return null;
 
