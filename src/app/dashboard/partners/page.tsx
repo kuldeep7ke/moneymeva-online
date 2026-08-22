@@ -141,6 +141,7 @@ export default function PartnersPage() {
       return;
     }
     addTransaction({ ...tx, isRecurring: false });
+    toast(`${txForm.type[0].toUpperCase() + txForm.type.slice(1)} added · ${txForm.category} · ${formatCurrency(amount)}`, 'success');
 
     setShowTxModal(null);
     setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr() });
@@ -152,6 +153,7 @@ export default function PartnersPage() {
     const amount = dupWarning.amount;
     if (!(amount > 0)) return;
     addTransaction({ amount, type: dupWarning.type, category: dupWarning.category, description: dupWarning.description, date: dupWarning.date, partnerAccountId: dupWarning.partnerAccountId, isRecurring: false });
+    toast(`${dupWarning.type[0].toUpperCase() + dupWarning.type.slice(1)} added · ${dupWarning.category} · ${formatCurrency(amount)}`, 'success');
 
     setDupWarning(null);
     setShowTxModal(null);

@@ -278,6 +278,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     updateTransaction(id, { amount: Number(editForm.amount), category: editForm.category, description: desc, date: editForm.date, partnerAccountId: editForm.partnerAccountId || undefined });
     saveCategoryToLocalStorage(editForm.category);
     logActivity('entry_edited', `${type} — ${editForm.category}`);
+    toast(`${type[0].toUpperCase() + type.slice(1)} updated · ${editForm.category} · ${formatCurrency(Number(editForm.amount))}`, 'success');
     setEditingTransaction(null);
     setEditCategorySearch('');
     setEditCatHighlightIndex(-1);
@@ -354,6 +355,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     addTransaction({ ...tx, account, isRecurring: false });
     saveCategoryToLocalStorage(form.category);
     logActivity('entry_created', `${type} — ${form.category}`);
+    toast(`${type[0].toUpperCase() + type.slice(1)} added · ${form.category} · ${formatCurrency(amount)}`, 'success');
 
     if (type === 'investment' && form.investSource === 'bank') {
       addTransaction({ amount, type: 'expense', category: 'Investment Outflow', description: `Fund source for ${form.description || form.category}`, date: form.date, partnerAccountId: undefined, isRecurring: false, account: 'bank' });
@@ -376,6 +378,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     if (!(amount > 0)) return;
     const account = dupWarning.type === 'investment' ? (dupWarning.investSource === 'cash' ? dupWarning.account : 'invest') : dupWarning.account;
     addTransaction({ amount, type: dupWarning.type, category: dupWarning.category, description: dupWarning.description, date: dupWarning.date, partnerAccountId: dupWarning.partnerAccountId, isRecurring: false, account });
+    toast(`${dupWarning.type[0].toUpperCase() + dupWarning.type.slice(1)} added · ${dupWarning.category} · ${formatCurrency(amount)}`, 'success');
 
     if (type === 'investment' && dupWarning.investSource === 'bank') {
       addTransaction({ amount, type: 'expense', category: 'Investment Outflow', description: `Fund source for ${dupWarning.description || dupWarning.category}`, date: dupWarning.date, partnerAccountId: undefined, isRecurring: false, account: 'bank' });

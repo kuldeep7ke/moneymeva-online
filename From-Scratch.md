@@ -637,6 +637,7 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 | `InstallPrompt` | PWA install banner |
 | `DataSafetyNotice` | Data safety information banner |
 | `SecurityTipNotice` | Security tip banner |
+| `WhatsNewModal` | Version update release notes modal — shows once per version (localStorage `mm_seen_release`) on dashboard load |
 | `LoadingOverlay` | Full-screen loading overlay |
 | `RegisterSW` | Service worker registration |
 | `ui/button` | Base button component |
@@ -807,6 +808,7 @@ money-meva/
 │   │   ├── pinStore.ts         # PIN security
 │   │   ├── export.ts           # PDF/Excel export
 │   │   ├── download.ts         # downloadBlob (native share sheet on Android), copyText, printHtml
+│   │   ├── whats-new.ts        # Release notes + localStorage version tracking for What's New modal
 │   │   ├── activityLog.ts      # Activity tracking
 │   │   ├── defaultCategories.ts# Category definitions
 │   │   ├── utils.ts            # Shared utilities

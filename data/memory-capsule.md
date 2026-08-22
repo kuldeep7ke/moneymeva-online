@@ -1,6 +1,6 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.66 (incremented on every build)
+**Version:** v7.1.1.69 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
@@ -274,6 +274,12 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ### v7.1.1.66 (2026-08-19) — Category Badges on Mobile
 - Mobile transaction list row now shows the category badge (slate pill, same style as the desktop table) beside the date, before the account badge — covers the Android APK (uses the mobile layout).
+
+### v7.1.1.68 (2026-08-19) — Entry Submission Toasts
+- Success toasts added to every save flow: `handleAdd`, `handleDupConfirm`, `doEdit` in TransactionPage + partners page `handleAddTx`/`handleDupConfirm`. Shows entry summary: `{Type} added/updated · {category} · {amount}`.
+
+### v7.1.1.69 (2026-08-19) — What's New Modal
+- On dashboard load, compares current build version (from `<meta name="app-version">`) against `mm_seen_release` in localStorage. If different, shows a "What's New" modal listing the latest release notes. Dismissed via "Got it" button (no backdrop close). Works on web + Android APK — APK installs a new build → version differs → modal shows once.
 
 ### v7.1.1.65 (2026-08-19) — Sync Status Stability + Native Exports + Mobile Badges
 - **Sync flicker fixed** (Android APK: Settings alternated between "Sync Now" and the create-link form with blank email/password). Root cause: `checkConnection()` returned `false` on a dead session (expired Supabase access token) and nothing re-checked after the 30s reconnect timer recovered — the UI only re-evaluated on page remount. Fixes: (1) `checkConnection()` now self-heals — recreates the client, `getSession()` auto-refreshes the token, re-pings, re-subscribes, returns the real result; (2) `startReconnectTimer` dispatches a sync event (`'complete'`, "Sync reconnected") after successful reconnect; (3) Settings subscribes via `listenSyncEvents` and re-runs `checkConnection()` — status follows reality instead of going stale.
