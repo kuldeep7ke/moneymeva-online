@@ -1,8 +1,9 @@
 {
-  "id": "broadcast-2026-08-19-v3",
+  "id": "broadcast-2026-08-19-v4",
   "title": "Money Meva v7.1.2",
-  "message": "Success toasts now show entry summaries. Exports work on Android. Sync status fixed.",
+  "message": "✨ Success toasts now show entry summaries. Exports work on Android. Sync status fixed.",
   "type": "info",
   "pinned": false,
-  "expires": "2026-09-19"
+  "expires": "2026-09-19",
+  "link": "https://github.com/kuldeep7ke/moneymeva-online/releases"
 }

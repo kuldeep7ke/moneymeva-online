@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Info, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Info, AlertTriangle, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 
 interface BroadcastData {
   id: string;
@@ -8,6 +8,7 @@ interface BroadcastData {
   type?: 'info' | 'warning' | 'success' | 'error';
   pinned?: boolean;
   expires?: string;
+  link?: string;
 }
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -63,15 +64,21 @@ export default function BroadcastBanner() {
     setData(null);
   };
 
+  const Wrapper = data.link ? 'a' : 'div';
+  const wrapperProps = data.link ? { href: data.link, target: '_blank', rel: 'noopener noreferrer' } : {};
+
   return (
-    <div className={`fixed top-2 left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2`}>
-      <span className="shrink-0">{ICONS[type]}</span>
-      <span className="flex-1 min-w-0 truncate">
-        {data.title && <span className="font-bold">{data.title} </span>}
-        {data.message}
-      </span>
+    <div className={`fixed top-2 left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`}>
+      <Wrapper {...wrapperProps} className="contents">
+        <span className="shrink-0">{ICONS[type]}</span>
+        <span className="flex-1 min-w-0 truncate">
+          {data.title && <span className="font-bold">{data.title} </span>}
+          {data.message}
+        </span>
+        {data.link && <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />}
+      </Wrapper>
       {!data.pinned && (
-        <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-white/20 transition-colors">
+        <button onClick={(e) => { e.stopPropagation(); dismiss(); }} className="shrink-0 p-0.5 rounded hover:bg-white/20 transition-colors">
           <X className="h-3 w-3" />
         </button>
       )}
