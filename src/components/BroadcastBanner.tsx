@@ -11,17 +11,17 @@ interface BroadcastData {
 }
 
 const ICONS: Record<string, React.ReactNode> = {
-  info: <Info className="h-4 w-4 shrink-0" />,
-  warning: <AlertTriangle className="h-4 w-4 shrink-0" />,
-  success: <CheckCircle className="h-4 w-4 shrink-0" />,
-  error: <AlertCircle className="h-4 w-4 shrink-0" />,
+  info: <Info className="h-3.5 w-3.5 shrink-0" />,
+  warning: <AlertTriangle className="h-3.5 w-3.5 shrink-0" />,
+  success: <CheckCircle className="h-3.5 w-3.5 shrink-0" />,
+  error: <AlertCircle className="h-3.5 w-3.5 shrink-0" />,
 };
 
 const BG: Record<string, string> = {
-  info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
-  warning: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300',
-  success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300',
-  error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300',
+  info: 'bg-blue-600 text-white',
+  warning: 'bg-amber-500 text-white',
+  success: 'bg-green-600 text-white',
+  error: 'bg-red-600 text-white',
 };
 
 const DISMISSED_KEY = 'mm_dismissed_broadcasts';
@@ -64,17 +64,17 @@ export default function BroadcastBanner() {
   };
 
   return (
-    <div className={`w-full border-b ${BG[type]}`}>
-      <div className="max-w-4xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium">
-        <span className="shrink-0">{ICONS[type]}</span>
-        {data.title && <span className="font-bold">{data.title}</span>}
-        <span>{data.message}</span>
-        {!data.pinned && (
-          <button onClick={dismiss} className="ml-2 shrink-0 p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-            <X className="h-3.5 w-3.5 opacity-50" />
-          </button>
-        )}
-      </div>
+    <div className={`fixed top-2 left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2`}>
+      <span className="shrink-0">{ICONS[type]}</span>
+      <span className="flex-1 min-w-0 truncate">
+        {data.title && <span className="font-bold">{data.title} </span>}
+        {data.message}
+      </span>
+      {!data.pinned && (
+        <button onClick={dismiss} className="shrink-0 p-0.5 rounded hover:bg-white/20 transition-colors">
+          <X className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 }
