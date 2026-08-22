@@ -11,7 +11,7 @@ const FALLBACK_IDS = {
 };
 // How long each response is cached at Cloudflare's edge (in MINUTES).
 // Lower = users see jsonbin edits sooner (but jsonbin gets more requests). Higher = fewer requests.
-const TTL_MINUTES = 60;
+const TTL_MINUTES = 10;
 const TTL_SECONDS = TTL_MINUTES * 60;
 
 export async function onRequestGet(context) {
