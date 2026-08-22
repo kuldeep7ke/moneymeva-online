@@ -575,6 +575,47 @@ export default function TransactionPage({ type, title, description }: Transactio
           </div>
         </Reveal>
 
+        {/* Archive Panel — shown at top when toggled */}
+        {showArchive && (
+          <div className="bg-amber-50 dark:bg-amber-900/30 rounded-2xl border border-amber-200 dark:border-amber-700 shadow-sm">
+            <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-700 flex items-center justify-between">
+              <h3 className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <Archive className="h-4 w-4" /> Archive
+              </h3>
+              <button onClick={() => setShowArchive(false)} className="h-8 w-8 rounded-lg flex items-center justify-center text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors"><X className="h-4 w-4" /></button>
+            </div>
+            {archived.length === 0 ? (
+              <div className="px-6 py-10 text-center">
+                <Archive className="h-8 w-8 text-amber-300 dark:text-amber-600 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Archive is empty</p>
+                <p className="text-xs text-amber-500 dark:text-amber-500 mt-1">Deleted items will appear here.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-amber-200 dark:divide-amber-700">
+                {archived.map(t => (
+                  <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-amber-100/50 dark:hover:bg-amber-800/30 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <p className="text-xs text-amber-600 dark:text-amber-500 shrink-0">{t.date}</p>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-400 text-[11px] font-medium">{t.category}</span>
+                    </div>
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-400 shrink-0 mr-3">{formatCurrency(t.amount)}</p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-green-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'restore' }); else handleRestore(t.id); }}>
+                        <Undo2 className="h-3.5 w-3.5" />
+                        <span className="hidden md:inline text-xs">Restore</span>
+                      </button>
+                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-red-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'delete' }); else handlePermanentDelete(t.id); }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span className="hidden md:inline text-xs">Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <Reveal delay={100}>
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 max-w-md">
@@ -854,47 +895,6 @@ export default function TransactionPage({ type, title, description }: Transactio
         </div>
         </div>
         </Reveal>
-
-        {/* Archive Panel */}
-        {showArchive && (
-          <div className="bg-amber-50 dark:bg-amber-900/30 rounded-2xl border border-amber-200 dark:border-amber-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-700 flex items-center justify-between">
-              <h3 className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                <Archive className="h-4 w-4" /> Archive
-              </h3>
-              <button onClick={() => setShowArchive(false)} className="h-8 w-8 rounded-lg flex items-center justify-center text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors"><X className="h-4 w-4" /></button>
-            </div>
-            {archived.length === 0 ? (
-              <div className="px-6 py-10 text-center">
-                <Archive className="h-8 w-8 text-amber-300 dark:text-amber-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Archive is empty</p>
-                <p className="text-xs text-amber-500 dark:text-amber-500 mt-1">Deleted items will appear here.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-amber-200 dark:divide-amber-700">
-                {archived.map(t => (
-                  <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-amber-100/50 dark:hover:bg-amber-800/30 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <p className="text-xs text-amber-600 dark:text-amber-500 shrink-0">{t.date}</p>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-400 text-[11px] font-medium">{t.category}</span>
-                    </div>
-                    <p className="text-sm font-bold text-amber-700 dark:text-amber-400 shrink-0 mr-3">{formatCurrency(t.amount)}</p>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-green-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'restore' }); else handleRestore(t.id); }}>
-                        <Undo2 className="h-3.5 w-3.5" />
-                        <span className="hidden md:inline text-xs">Restore</span>
-                      </button>
-                      <button className="p-1.5 rounded-lg text-amber-600 hover:text-red-600 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors gap-1" onClick={() => { if (hasPins()) setPinArchiveAction({ id: t.id, action: 'delete' }); else handlePermanentDelete(t.id); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="hidden md:inline text-xs">Delete</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Add Modal */}

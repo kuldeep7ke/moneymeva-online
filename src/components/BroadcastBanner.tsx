@@ -43,7 +43,7 @@ export default function BroadcastBanner() {
   const [data, setData] = useState<BroadcastData | null>(null);
 
   useEffect(() => {
-    fetch(`/broadcast.json?t=${Date.now()}`)
+    fetch(`/broadcast.json?t=${Date.now()}`, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((b: BroadcastData) => {
         if (!b?.id || !b?.message) return;
