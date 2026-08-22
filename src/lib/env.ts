@@ -8,5 +8,5 @@ export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'e
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://moneymevaonline.pages.dev';
 
 // jsonbin.io Bin IDs (for broadcast & banner — edit via jsonbin.io dashboard)
-export const BROADCAST_BIN_ID = process.env.NEXT_PUBLIC_BROADCAST_BIN_ID || '';
-export const BANNER_BIN_ID = process.env.NEXT_PUBLIC_BANNER_BIN_ID || '';
+export const BROADCAST_BIN_ID = process.env.NEXT_PUBLIC_BROADCAST_BIN_ID || '6a89f038f5f4af5e29363c79';
+export const BANNER_BIN_ID = process.env.NEXT_PUBLIC_BANNER_BIN_ID || '6a89f053f5f4af5e29363cb3';
