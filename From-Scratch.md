@@ -346,7 +346,7 @@ src/app/
     ├── summary/page.tsx    # Charts: cash flow, spending breakdown, month-by-month
     ├── archive/page.tsx    # Soft-deleted items: restore, permanent delete, empty all
     ├── settings/page.tsx   # PIN setup, sync config, export/import, themes, brand, auto-lock, clear data
-    ├── developer/page.tsx  # DB stats, localStorage inspector, sync diagnostics, JSON import, PIN viewer
+    ├── developer/page.tsx  # Dev tools: version/release-notes status, DB stats, localStorage inspector, sync diagnostics (masked URL, sync email, last event), announcement bin tests, JSON import/export, PIN viewer
     ├── account/page.tsx    # PIN-gated password change and user management
     ├── support/page.tsx    # Contact support (Telegram, email, website)
     ├── about/page.tsx      # App info, version, edit profile
@@ -447,7 +447,7 @@ Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`; the cloud
 
 | Function | Purpose |
 |---|---|
-| `getConfig()` | `{ url, key }` from build env or localStorage override |
+| `getConfig()` | `{ url, key }` from obfuscated defaults in `env.ts` or localStorage override (`mm_sb_url`/`mm_sb_key`) |
 | `initPouchDB()` | Creates local PouchDB instance, creates indexes |
 | `signUpUser(url, key, email, password)` | Creates Supabase account + connects |
 | `connectRemote(url, key, email, password)` | Signs in, pushes local buffer, subscribes to realtime, pulls |
@@ -538,7 +538,7 @@ Broadcast pills and banner modals are remote-config — owner edits JSON on json
 jsonbin.io bins ──fetch (cache-busted, every dashboard load)──> BroadcastBanner.tsx / BannerModal.tsx
 ```
 
-- **Config** (`src/lib/env.ts`): `BROADCAST_BIN_ID` / `BANNER_BIN_ID` from `NEXT_PUBLIC_*` env vars with hardcoded fallbacks
+- **Config** (`src/lib/env.ts`): `BROADCAST_BIN_ID` / `BANNER_BIN_ID` / `JSONBIN_BASE` stored as XOR+base64 obfuscated strings (`_K` = 'moneymeva', decoded at runtime via `_d()`) — no plain-text IDs or URLs in shipped bundles
 - **Fetch**: `https://api.jsonbin.io/v3/b/<BIN_ID>/latest?t=${Date.now()}` with `cache: 'no-store'`; unwrap response via `res?.record ?? res`
 - **Broadcast pill**: centered floating pills top-center (`z-[9998]`, stacked 44px apart), color-coded by `type`, optional clickable `link`, per-ID dismissal (`mm_dismissed_broadcasts`), `pinned` = no dismiss; JSON is an array of objects
 - **Banner modal**: full-screen overlay (`z-[10000]`), centered card with title/content/image/href/width, X top-right with 5s countdown, shows EVERY refresh (no persistence), scheduled via `startDate`/`expires`
@@ -826,7 +826,7 @@ money-meva/
 │   │   ├── export.ts           # PDF/Excel export
 │   │   ├── download.ts         # downloadBlob (native share sheet on Android), copyText, printHtml
 │   │   ├── whats-new.ts        # Release notes + localStorage version tracking for What's New modal
-│   │   ├── env.ts              # Baked build config: SUPABASE_URL/ANON_KEY, SITE_URL, BROADCAST_BIN_ID, BANNER_BIN_ID (env vars with hardcoded fallbacks)
+│   │   ├── env.ts              # Runtime config (Supabase URL/key, jsonbin Bin IDs) as XOR+base64 obfuscated strings — decoded at runtime via _d(), never plain text in bundles
 │   │   ├── activityLog.ts      # Activity tracking
 │   │   ├── defaultCategories.ts# Category definitions
 │   │   ├── utils.ts            # Shared utilities

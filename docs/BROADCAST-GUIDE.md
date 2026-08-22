@@ -26,7 +26,7 @@ You edit JSON on jsonbin.io  →  app fetches on every page load  →  pill/bann
 
 Dashboard: https://jsonbin.io → **Bins** → click a bin → edit → **Save (Ctrl+S)**
 
-The Bin IDs are baked into the build via `.env.local` (`NEXT_PUBLIC_BROADCAST_BIN_ID`, `NEXT_PUBLIC_BANNER_BIN_ID`) and hardcoded fallbacks in `src/lib/env.ts`.
+The Bin IDs live obfuscated (XOR + base64) in `src/lib/env.ts` (`BROADCAST_BIN_ID`, `BANNER_BIN_ID`) — they are decoded at runtime and never appear as plain text in the web/APK bundles. To change bins, edit `env.ts` and rebuild.
 
 ---
 
@@ -152,7 +152,7 @@ Common edits:
 - Fetch: `https://api.jsonbin.io/v3/b/<BIN_ID>/latest?_=` (cache-busted, `cache: 'no-store'`)
 - Response wrapper handled automatically — jsonbin returns `{ record: <your JSON>, metadata: {...} }`; the app reads `.record ?? raw`
 - Components: `src/components/BroadcastBanner.tsx`, `src/components/BannerModal.tsx`
-- Config: `src/lib/env.ts` (`BROADCAST_BIN_ID`, `BANNER_BIN_ID`)
+- Config: `src/lib/env.ts` (`BROADCAST_BIN_ID`, `BANNER_BIN_ID`, `JSONBIN_BASE` — XOR-obfuscated, decoded at runtime; Developer Zone → Remote Announcements shows masked IDs + a live bin-fetch test)
 - Free tier: ~10,000 requests/month per bin (each dashboard load = 2 requests total). Plenty for current scale; if exceeded, bins simply stop updating — app keeps working
 - To switch services later: change the URLs in the two components' fetch calls
 

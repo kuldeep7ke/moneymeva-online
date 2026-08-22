@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.84** — A minimalistic, local-first personal finance companion.
+**v7.1.1.87** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India.
 
@@ -33,7 +33,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Income, Expenses, Investments** — Full CRUD with search, filter, sort, group by day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion, archive/restore. Mobile: minimal ledger list with tap-to-view detail modal. **Account badges** (Cash/Bank/UPI/Invest) next to the description on desktop and beside the date in the mobile list — including in the Android APK. Transaction types are exactly three: `income`, `expense`, `investment` (no savings type). Categories stay separate per type (income/expense/investment lists). Future-dated entries are blocked — date pickers cap at today and submit validates with a warning toast.
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
-- **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), DB stats viewer, localStorage inspector, sync diagnostics, raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
+- **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), live version + release-notes tracking status, DB stats viewer, localStorage inspector, storage usage, sync diagnostics (masked URL, sync account email, connection test, last sync event, timing hints), remote announcement diagnostics (masked Bin IDs, live bin fetch test, dismissed-pills counter + clear), raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
 - **Savings & Goals** — Dual-tab page: goals grid with contribute/withdraw + progress bars, and a finance to-do list. Goal contributions record as `expense` transactions (withdrawals as `income`).
 - **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit (name, group, type, investment, description) from the partners page.
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days. Future start/end dates allowed.
@@ -265,7 +265,7 @@ src/
 │   ├── activityLog.ts           # Security + CRUD event history
 │   ├── export.ts                # PDF + Excel + CSV export
 │   ├── download.ts              # downloadBlob (native share sheet on Android), copyText, printHtml
-│   ├── env.ts                   # Baked build config (Supabase URL/key, site URL, jsonbin Bin IDs)
+│   ├── env.ts                   # Runtime config (Supabase URL/key, site URL, jsonbin Bin IDs) — XOR-obfuscated, never plain text in the bundle
 │   ├── whats-new.ts             # Release notes + version tracking for What's New modal
 │   ├── defaultCategories.ts     # Default category seed data
 │   ├── capacitor-notifications.ts # Local notification scheduling
@@ -321,12 +321,7 @@ Cloud sync uses **Supabase** (Postgres + Auth + Realtime) — every user gets th
 3. **Get your keys** — Project Settings → API:
    - Project URL: `https://<project-ref>.supabase.co`
    - anon public key (starts with `eyJ…`)
-4. **Bake into the build** — put them in `.env.local`:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
-   ```
-   then build (`npm run build`). The URL + key are embedded; users only enter email + password.
+4. **Keys are pre-baked** — the URL + anon key live obfuscated in [`src/lib/env.ts`](src/lib/env.ts) (XOR + base64, decoded at runtime — no plain-text secrets in shipped bundles). To point at a different project, edit that file and rebuild; end users can also paste their own URL + key in Settings at runtime.
 5. **In-app** — Settings → Multi-Device Sync:
    - **New user:** enter an email + a **password you choose** (min 6 characters — this is your *cloud account* password, unrelated to the app unlock password or your Google password) → tap **Create account & sync**
    - **Existing user:** enter the same email + password → tap **Connect**
@@ -346,12 +341,8 @@ Each account's data is isolated in the cloud (row-level security) — no user ca
 Broadcast pills and banner modals are fetched from [jsonbin.io](https://jsonbin.io) on every dashboard load — edit them online without touching this repo:
 
 1. **Create bins** — jsonbin.io → Bins → Create Bin (Public): one for broadcasts (array of pill objects), one for the banner (single object)
-2. **Wire the Bin IDs** — `.env.local`:
-   ```
-   NEXT_PUBLIC_BROADCAST_BIN_ID=<broadcast bin id>
-   NEXT_PUBLIC_BANNER_BIN_ID=<banner bin id>
-   ```
-3. **Build once** — IDs are baked into web + APK builds; after that, editing the JSON online is enough
+2. **Wire the Bin IDs** — put them in [`src/lib/env.ts`](src/lib/env.ts) as XOR+base64 obfuscated strings (encode with the same `_K` key, see the existing constants)
+3. **Build once** — IDs ship obfuscated (never plain text in web/APK bundles); after that, editing the JSON online is enough
 
 Full field reference, scheduling recipes, and day-to-day workflow: [`docs/BROADCAST-GUIDE.md`](docs/BROADCAST-GUIDE.md).
 

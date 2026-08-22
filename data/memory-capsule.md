@@ -1,6 +1,6 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.84 (incremented on every build)
+**Version:** v7.1.1.87 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
@@ -62,7 +62,7 @@ Local PouchDB buffer (`mm_pouch`) + Supabase `sync_docs` table as the cloud hub 
 - **Pull**: `select` scoped by RLS (`auth.uid() = user_id`)
 - **Live updates**: realtime channel on `sync_docs_realtime` (replica identity full); 30s reconnect interval; `onRemoteChange` for UI refresh
 - **Self-healing checks**: `checkConnection()` — if session looks dead (getUser fails on expired token), recreates the client, `getSession()` auto-refreshes, re-pings, and re-subscribes instead of reporting `false`. Successful reconnects dispatch a sync event (`'complete', 'Sync reconnected'`) so Settings updates its UI live (listens via `listenSyncEvents`) — no more flicker between "Sync Now" and the create-account form on slow/flaky Android networks
-- **URL/key overrides**: Settings can paste a different URL + anon key (bring-your-own-Supabase); defaults baked from `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (`.env.local`, gitignored)
+- **URL/key defaults**: baked into `src/lib/env.ts` as XOR+base64 obfuscated constants (`_K='moneymeva'`, runtime `_d()` decoder) — no plain-text secrets in shipped bundles; `.env.local` is inert (nothing reads env vars anymore). Settings can still paste a different URL + anon key at runtime (bring-your-own-Supabase); re-encode via one-liner in CLOUD-SYNC-GUIDE.md
 - **Multi-user isolation**: verified E2E — account B sees 0 rows of account A, RLS blocks cross-account writes, realtime events never cross accounts
 
 ### 5. Local Auth with Multi-User
@@ -77,7 +77,7 @@ Categories are kept **separate** per transaction type — `mm_income_categories`
 ### 8. Remote Announcements (jsonbin.io)
 Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io, fetched with cache-busting (`?t=${Date.now()}`, `cache: 'no-store'`) on every dashboard load. Works in web AND installed APKs without app updates.
 - **Bins**: broadcast `6a89f038f5f4af5e29363c79` (array of pill objects), banner `6a89f053f5f4af5e29363cb3` (single object)
-- **Wiring**: Bin IDs in `.env.local` (`NEXT_PUBLIC_BROADCAST_BIN_ID`/`NEXT_PUBLIC_BANNER_BIN_ID`) with hardcoded fallbacks in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`)
+- **Wiring**: Bin IDs + jsonbin base URL stored as XOR+base64 obfuscated constants in `src/lib/env.ts` (`BROADCAST_BIN_ID`/`BANNER_BIN_ID`/`JSONBIN_BASE`, runtime `_d()` decoder) — invisible to bundle extraction; verified zero plain-text occurrences in `out/`
 - **jsonbin response shape**: `{ record: <actual JSON>, metadata: {...} }` — components unwrap via `res?.record ?? res`
 - **Broadcast pill** (`BroadcastBanner.tsx`): centered floating pill top-center, `fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)]`, stacked via inline `style={{top: `${8+i*44}px`}}`; solid color-coded bg (info=blue-600, warning=amber-500, success=green-600, error=red-600); optional `link` wraps pill in anchor + ExternalLink icon; per-ID dismissal in localStorage `mm_dismissed_broadcasts`; `pinned: true` = no X; array format = multiple stacked pills
 - **Banner modal** (`BannerModal.tsx`): full-screen overlay `fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm`, centered card, width via Tailwind class field (`max-w-md` default), optional image (max-h-64) + href (whole card clickable); X button absolute top-right with 5-second countdown (disabled until 0, shows number then X icon); NO localStorage persistence — shows every refresh; scheduling via `startDate`/`expires` date checks
@@ -271,6 +271,11 @@ npm run android:apk          # build → version → gradle assembleDebug
 - All pages must be `'use client'`
 - Images unoptimized
 
+### Runtime Config (env.ts)
+- `NEXT_PUBLIC_*` env vars are NOT read anywhere since v7.1.1.85 — `.env.local` is inert; all defaults live as XOR+base64 strings in `src/lib/env.ts` (`_K='moneymeva'`, `_d()` decoder)
+- To rotate a value: encode with the node one-liner in CLOUD-SYNC-GUIDE.md, paste into env.ts, rebuild
+- Obfuscation defeats bundle grep/extraction only — network traffic still reveals runtime calls
+
 ### i18n
 - `Reveal` component `transform` breaks `fixed` positioning — use `createPortal` for dropdowns
 - Default language saved in `mm_language`
@@ -282,6 +287,17 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.1.1.87 (2026-08-23) — Developer Zone Refresh
+- Header shows live app version (meta `app-version`) + release-notes version/seen status (`getLastSeenVersion`).
+- Sync Diagnostics upgraded: masked URL (`mask()` helper), sync account email from `mm_sb_session`, connection test, **last sync event** via `getLastSyncEvent()`, timing hints (realtime ≈ s / 2-min pull / 30-s watchdog).
+- New **Remote Announcements** section: masked bin IDs, live "Test Bin Fetch" against both jsonbin bins (unwraps `record`, reports item counts), dismissed-pills counter + "Clear Dismissed Pills" (`mm_dismissed_broadcasts` reset).
+- Removed dead imports (`connected as syncConnected`, `BarChart3`).
+
+### v7.1.1.85–.86 (2026-08-23) — Secret Obfuscation
+- All runtime secrets moved to XOR+base64 obfuscated constants in `src/lib/env.ts` (Supabase URL + anon key, both jsonbin Bin IDs, jsonbin base URL). Runtime `_d()` decoder with `_K='moneymeva'`.
+- Removed ALL `process.env.NEXT_PUBLIC_*` reads — `.env.local`/`.env.example` now inert (replaced with pointer comments). CI workflow env vars harmless but unused.
+- Verified: zero plain-text occurrences of any secret in built `out/` bundle (web + APK). Caveat documented: obfuscation ≠ cryptographic secrecy — network monitoring can still recover values; anon key is public-by-design anyway (RLS protects data).
 
 ### v7.1.1.84 (2026-08-23) — jsonbin Bin IDs Wired
 - Broadcast/banner Bin IDs baked in: `.env.local` + hardcoded fallbacks in `src/lib/env.ts`. jsonbin.io is now the live source of truth for announcements; GitHub JSON files are inert fallbacks.

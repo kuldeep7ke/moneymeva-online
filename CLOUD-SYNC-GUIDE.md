@@ -50,14 +50,16 @@ keeps it in sync across your devices — privately, per account.
 2. Run `supabase/schema.sql` in **SQL Editor** (creates `sync_docs` + per-user security)
 3. Optional: turn **OFF** "Confirm email" (Authentication → Sign In / Providers → Email)
    so new users sign up instantly
-4. Set build env vars:
+4. Bake in your keys: open `src/lib/env.ts` and replace the two obfuscated
+   constants (`SUPABASE_URL`, `SUPABASE_ANON_KEY`). Values are stored XOR+base64
+   encoded so they never appear as plain text in shipped bundles. Encode a new
+   value with:
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key from Project Settings → API>
-```
+   ```js
+   node -e "const K='moneymeva',s='https://<project-ref>.supabase.co';console.log(Buffer.from(Buffer.from(s).map((b,i)=>b^K.charCodeAt(i%K.length))).toString('base64'))"
+   ```
 
-5. Build the app (`npm run build`) — the URL + key are baked in, users only
+5. Build the app (`npm run build`) — the URL + key are embedded, users only
    enter email + password
 
 > Users can also paste a different URL + anon key in Settings manually

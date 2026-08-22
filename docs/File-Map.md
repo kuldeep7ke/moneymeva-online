@@ -68,8 +68,8 @@
 | File | Purpose |
 |---|---|
 | `supabase/schema.sql` | `sync_docs` table + RLS + realtime (run in Supabase SQL Editor) |
-| `.env.local` | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (gitignored) |
-| `CLOUD-SYNC-GUIDE.md` | Owner setup + troubleshooting |
+| `src/lib/env.ts` | Runtime config — Supabase URL/key + jsonbin Bin IDs as XOR+base64 obfuscated constants (decoded at runtime) |
+| `CLOUD-SYNC-GUIDE.md` | Owner setup + troubleshooting (includes the secret-encoder one-liner) |
 
 ## Config
 
