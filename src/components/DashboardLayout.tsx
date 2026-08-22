@@ -47,6 +47,7 @@ import { App } from '@capacitor/app';
 import SyncStatusBar from '@/components/SyncStatusBar';
 import { useTranslation } from '@/lib/i18n';
 import { copyText } from '@/lib/download';
+import { pausePopups, resumePopups } from '@/lib/popup-queue';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -129,6 +130,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // Popup queue: nothing new pops while the session is locked
+  useEffect(() => {
+    if (locked) pausePopups();
+    else resumePopups();
+  }, [locked]);
 
   // Session lock: check periodically and track activity
   useEffect(() => {
@@ -319,9 +326,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      {/* Session Lock Overlay */}
+      {/* Session Lock Overlay — topmost: security gate outranks every popup */}
       {locked && !unlocking && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[10001] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-sm w-full p-8 shadow-2xl text-center space-y-6">
             <div className="mx-auto w-16 h-16 rounded-full bg-brand-secondary dark:bg-brand-muted/30 flex items-center justify-center">
               <Lock className="h-8 w-8 text-brand dark:text-brand-secondary" />
@@ -387,9 +394,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <BroadcastBanner />
       <SyncStatusBar />
-      <DataSafetyNotice delay={8000} />
-      <SecurityTipNotice delay={45000} />
-      <InstallPrompt delay={30000} />
+      <DataSafetyNotice />
+      <SecurityTipNotice />
+      <InstallPrompt />
       <WhatsNewModal />
       <BannerModal />
     </div>

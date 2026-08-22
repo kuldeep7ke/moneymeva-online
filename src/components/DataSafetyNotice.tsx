@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Download, Trash2, X } from 'lucide-react';
+import { requestPopup, cancelPopup } from '@/lib/popup-queue';
 
 const LAST_SHOWN_KEY = 'mm_data_safety_last_shown';
 const MIN_DAYS = 2;
@@ -21,7 +22,7 @@ function shouldShow(): boolean {
   return daysSince >= randomDays;
 }
 
-export default function DataSafetyNotice({ delay = 8000 }: { delay?: number }) {
+export default function DataSafetyNotice() {
   const [show, setShow] = useState(false);
   const shownRef = useRef(false);
 
@@ -30,20 +31,23 @@ export default function DataSafetyNotice({ delay = 8000 }: { delay?: number }) {
       if (shownRef.current) return;
       if (shouldShow()) {
         shownRef.current = true;
-        const randomDelay = delay + Math.random() * 5000;
-        setTimeout(() => setShow(true), randomDelay);
+        requestPopup('data-safety', 20, () => setShow(true));
       }
     };
 
     check();
     const interval = setInterval(check, 6 * 60 * 60 * 1000); // check every 6 hours
-    return () => clearInterval(interval);
-  }, [delay]);
+    return () => {
+      clearInterval(interval);
+      cancelPopup('data-safety');
+    };
+  }, []);
 
   if (!show) return null;
 
   const dismiss = () => {
     localStorage.setItem(LAST_SHOWN_KEY, new Date().toISOString());
+    cancelPopup('data-safety');
     setShow(false);
   };
 

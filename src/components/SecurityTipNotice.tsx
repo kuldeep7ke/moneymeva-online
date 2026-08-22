@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, Key, Clock, X, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { hasPins, arePinsShown } from '@/lib/pinStore';
+import { requestPopup, cancelPopup } from '@/lib/popup-queue';
 
 const LAST_SHOWN_KEY = 'mm_security_tip_last_shown';
 const MIN_DAYS = 3;
@@ -41,7 +42,7 @@ function shouldShow(): boolean {
   return daysSince >= randomDays;
 }
 
-export default function SecurityTipNotice({ delay = 10000 }: { delay?: number }) {
+export default function SecurityTipNotice() {
   const [show, setShow] = useState(false);
   const [tipIndex] = useState(() => Math.floor(Math.random() * tips.length));
   const shownRef = useRef(false);
@@ -52,15 +53,17 @@ export default function SecurityTipNotice({ delay = 10000 }: { delay?: number })
       if (shownRef.current) return;
       if (shouldShow()) {
         shownRef.current = true;
-        const randomDelay = delay + Math.random() * 8000;
-        setTimeout(() => setShow(true), randomDelay);
+        requestPopup('security-tip', 40, () => setShow(true));
       }
     };
 
     check();
     const interval = setInterval(check, 12 * 60 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [delay]);
+    return () => {
+      clearInterval(interval);
+      cancelPopup('security-tip');
+    };
+  }, []);
 
   if (!show) return null;
 
@@ -69,6 +72,7 @@ export default function SecurityTipNotice({ delay = 10000 }: { delay?: number })
 
   const dismiss = () => {
     localStorage.setItem(LAST_SHOWN_KEY, new Date().toISOString());
+    cancelPopup('security-tip');
     setShow(false);
   };
 

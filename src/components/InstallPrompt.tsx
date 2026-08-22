@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, X, Wifi, Zap, Shield, Smartphone } from 'lucide-react';
+import { requestPopup, cancelPopup } from '@/lib/popup-queue';
 
 const LAST_SHOWN_KEY = 'mm_install_prompt_last_shown';
 const MIN_DAYS = 4;
@@ -24,7 +25,7 @@ function shouldShow(): boolean {
   return daysSince >= randomDays;
 }
 
-export default function InstallPrompt({ delay = 30000 }: { delay?: number }) {
+export default function InstallPrompt() {
   const [show, setShow] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const shownRef = useRef(false);
@@ -34,8 +35,7 @@ export default function InstallPrompt({ delay = 30000 }: { delay?: number }) {
       if (shownRef.current) return;
       if (shouldShow()) {
         shownRef.current = true;
-        const randomDelay = delay + Math.random() * 10000;
-        setTimeout(() => setShow(true), randomDelay);
+        requestPopup('install-prompt', 30, () => setShow(true));
       }
     };
 
@@ -51,13 +51,15 @@ export default function InstallPrompt({ delay = 30000 }: { delay?: number }) {
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       clearInterval(interval);
+      cancelPopup('install-prompt');
     };
-  }, [delay]);
+  }, []);
 
   if (!show) return null;
 
   const dismiss = () => {
     localStorage.setItem(LAST_SHOWN_KEY, new Date().toISOString());
+    cancelPopup('install-prompt');
     setShow(false);
   };
 
@@ -67,6 +69,7 @@ export default function InstallPrompt({ delay = 30000 }: { delay?: number }) {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         localStorage.setItem(LAST_SHOWN_KEY, new Date().toISOString());
+        cancelPopup('install-prompt');
         setShow(false);
       }
       setDeferredPrompt(null);
