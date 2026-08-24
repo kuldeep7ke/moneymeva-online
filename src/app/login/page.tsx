@@ -105,7 +105,7 @@ function LoginForm() {
 
   useEffect(() => {
     const meta = document.querySelector('meta[name="app-version"]');
-    if (meta) setAppVersion(meta.getAttribute('content') || '');
+    if (meta) setAppVersion((meta.getAttribute('content') || '').replace(/^v/, ''));
     try {
       const cfg = getConfig();
       if (cfg.url) setServerHost(cfg.url.replace(/^https?:\/\//, '').replace(/\/$/, ''));
