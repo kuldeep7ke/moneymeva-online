@@ -1,4 +1,4 @@
-User-agent: *
+﻿User-agent: *
 Allow: /
 Allow: /login
 Allow: /terms
@@ -8,4 +8,4 @@ Disallow: /onboarding
 Disallow: /dashboard
 Disallow: /auth
 
-Sitemap: https://money-meva.pages.dev/sitemap.xml
+Sitemap: https://moneymevaonline.pages.dev/sitemap.xml
