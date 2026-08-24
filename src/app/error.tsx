@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { BASE_PATH } from '@/lib/env';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#F8F6F3] dark:bg-slate-950 p-6">
       <div className="relative flex items-center justify-center mb-8">
-        <img src="/favicon.jpg" alt="" className="h-20 w-20 rounded-2xl shadow-lg opacity-60" />
+        <img src={`${BASE_PATH}/favicon.jpg`} alt="" className="h-20 w-20 rounded-2xl shadow-lg opacity-60" />
       </div>
       <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3">Something went wrong</h1>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 text-center max-w-xs">

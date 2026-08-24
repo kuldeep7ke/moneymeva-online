@@ -10,6 +10,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { useRouter } from 'next/navigation';
 import { loginUser, registerUser, getAllUsers, switchUser, removeUser, getSession, LocalUser, updatePassword, resetPassword, registerGoogleUser } from '@/lib/localAuth';
 import { signInWithGoogle, getOAuthSessionUser, getConfig, connectRemote, manualSync } from '@/lib/pouchdb';
+import { BASE_PATH } from '@/lib/env';
 import { validatePin, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { useAuth } from '@/components/AuthProvider';
 import { Capacitor } from '@capacitor/core';
@@ -270,7 +271,7 @@ function LoginForm() {
           </Link>
           <div className="text-center space-y-2 pt-12">
             <div className="flex items-center justify-center gap-2">
-              <img src="/logo.png" alt="Money Meva" className="h-9 w-auto" />
+              <img src={`${BASE_PATH}/logo.png`} alt="Money Meva" className="h-9 w-auto" />
               <span className="font-bold text-lg text-slate-900 dark:text-slate-100">Money Meva</span>
             </div>
           </div>

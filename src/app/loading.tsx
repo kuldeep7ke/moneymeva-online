@@ -1,8 +1,10 @@
+import { BASE_PATH } from '@/lib/env';
+
 export default function Loading() {
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#F8F6F3] dark:bg-slate-950">
       <div className="relative flex items-center justify-center mb-6">
-        <img src="/favicon.jpg" alt="" className="h-16 w-16 rounded-2xl shadow-lg" />
+        <img src={`${BASE_PATH}/favicon.jpg`} alt="" className="h-16 w-16 rounded-2xl shadow-lg" />
         <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 animate-ping" />
       </div>
       <div className="flex gap-1.5 mb-4">

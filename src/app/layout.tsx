@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/Toast";
 import RegisterSW from "@/components/RegisterSW";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { BASE_PATH } from "@/lib/env";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,14 +21,14 @@ try { APP_VERSION = readFileSync(join(process.cwd(), "VERSION"), "utf-8").trim()
 export const metadata: Metadata = {
   title: "Money Meva - Personal Finance App",
   description: "Manage your expenses, income, savings, and investments with ease. à¤ªà¥ˆà¤¸à¥‡ à¤•à¥à¤ à¥‡ à¤œà¤¾à¤¤à¤¾à¤¤? à¤¶à¥‹à¤§à¥‚à¤¯à¤¾. â€” Local-first, privacy-focused, multi-language personal finance companion.",
-  manifest: "/manifest.webmanifest",
+  manifest: `${BASE_PATH}/manifest.webmanifest`,
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Money Meva" },
   icons: {
     icon: [
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon.svg", sizes: "any", type: "image/svg+xml" },
+      { url: `${BASE_PATH}/favicon-32.png`, sizes: "32x32", type: "image/png" },
+      { url: `${BASE_PATH}/icon.svg`, sizes: "any", type: "image/svg+xml" },
     ],
-    apple: "/icon-512.png",
+    apple: `${BASE_PATH}/icon-512.png`,
   },
   openGraph: {
     title: "Money Meva â€” Personal Finance App",
@@ -83,8 +84,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF8A3D" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="app-version" content={APP_VERSION} />
-        <link rel="apple-touch-icon" href="/icon-512.png" />
-        <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+        <link rel="apple-touch-icon" href={`${BASE_PATH}/icon-512.png`} />
+        <link rel="sitemap" type="application/xml" href={`${BASE_PATH}/sitemap.xml`} />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>

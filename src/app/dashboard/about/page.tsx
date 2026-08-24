@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { BASE_PATH } from '@/lib/env';
 import { Mail, Globe, Copyright, Info, User, Briefcase, Wallet, Target, Phone, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { getSession } from '@/lib/localAuth';
@@ -23,7 +24,7 @@ export default function AboutPage() {
         <Reveal>
         <div className="text-center space-y-4 py-8">
           <div className="mx-auto">
-            <img src="/logo.png" alt="Money Meva" className="h-16 w-auto mx-auto" />
+            <img src={`${BASE_PATH}/logo.png`} alt="Money Meva" className="h-16 w-auto mx-auto" />
           </div>
           <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">Money Meva</h1>
            <p className="text-slate-500 dark:text-slate-400 text-lg">Your minimalistic personal finance companion.</p>

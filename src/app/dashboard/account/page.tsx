@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { getSession, logoutUser, updatePassword, resetPassword } from '@/lib/localAuth';
 import { connected as isConnected, disconnectRemote } from '@/lib/pouchdb';
 import { clearAllDB } from '@/lib/store';
+import { BASE_PATH } from '@/lib/env';
 
 export default function AccountPage() {
   const session = getSession().user;
@@ -74,7 +75,7 @@ export default function AccountPage() {
       await clearAllDB();
     }
     logoutUser();
-    window.location.href = '/login';
+    window.location.href = `${BASE_PATH}/login`;
   };
 
   if (!session) {

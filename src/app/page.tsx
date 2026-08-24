@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { ArrowRight, ArrowUpCircle, ArrowDownCircle, PiggyBank, Wallet, Clock, TrendingUp, Share2, Pencil, Lock, Unlock } from 'lucide-react';
 import ShareButton from '@/components/ShareButton';
+import { BASE_PATH } from '@/lib/env';
 import LanguageSelector from '@/components/LanguageSelector';
 import Reveal from '@/components/Reveal';
 import { useTranslation } from '@/lib/i18n';
@@ -101,7 +102,7 @@ export default function HomePage() {
       {/* Top Bar */}
       <header className="max-w-7xl mx-auto px-6 sm:px-10 h-[72px] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Money Meva" className="h-9 w-auto" />
+            <img src={`${BASE_PATH}/logo.png`} alt="Money Meva" className="h-9 w-auto" />
             <span className="font-bold text-lg text-slate-900">Money Meva</span>
           </div>
         <div className="flex items-center gap-3">
@@ -124,7 +125,7 @@ export default function HomePage() {
           <div className="order-1 text-center lg:text-left pt-4 lg:pt-8">
             <Reveal>
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 text-orange-600/70 border border-orange-200 text-[13px] font-bold mb-6">
-                <img src="/logo.png" alt="" className="h-4 w-auto" /> <span className="text-slate-300">|</span> {t('landing.badge')}
+                <img src={`${BASE_PATH}/logo.png`} alt="" className="h-4 w-auto" /> <span className="text-slate-300">|</span> {t('landing.badge')}
               </div>
             </Reveal>
             <Reveal delay={100}>
@@ -272,7 +273,7 @@ export default function HomePage() {
       <footer className="border-t border-brand/10 py-10">
         <div className="max-w-7xl mx-auto px-6 sm:px-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Money Meva" className="h-7 w-auto" />
+            <img src={`${BASE_PATH}/logo.png`} alt="Money Meva" className="h-7 w-auto" />
             <span className="font-bold text-base text-slate-900">Money Meva</span>
           </div>
           <p className="text-sm text-slate-400">{t('landing.footer.copyright')}</p>

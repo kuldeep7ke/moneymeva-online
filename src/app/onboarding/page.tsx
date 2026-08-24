@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import { BASE_PATH } from '@/lib/env';
 import { Button } from '@/components/ui/button';
 import { User, Briefcase, Target, Users, CheckCircle, ArrowRight, ArrowLeft, Wallet, BarChart3, Upload } from 'lucide-react';
 import { updateProfile } from '@/lib/localAuth';
@@ -635,7 +636,7 @@ export default function OnboardingPage() {
       {importing && (
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white dark:bg-slate-950">
           <div className="relative flex items-center justify-center mb-6">
-            <img src="/favicon.jpg" alt="" className="h-16 w-16 rounded-2xl shadow-lg" />
+            <img src={`${BASE_PATH}/favicon.jpg`} alt="" className="h-16 w-16 rounded-2xl shadow-lg" />
             <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 animate-ping" />
           </div>
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4 px-6 text-center">{importProgress?.label || 'Importing…'}</p>

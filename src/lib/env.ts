@@ -23,6 +23,8 @@ export const SITE_URL = (
   'https://moneymevaonline.pages.dev'
 ).replace(/\/$/, '');
 
+export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 // jsonbin.io Bin IDs (broadcast & banner — edit via jsonbin.io dashboard, see docs/BROADCAST-GUIDE.md)
 export const BROADCAST_BIN_ID = _d('Ww5WXB9dVk4HWAlaBB9YAERYXlldBk5U');
 export const BANNER_BIN_ID = _d('Ww5WXB9dUEUHWAlaBB9YAERYXlldBhte');
