@@ -17,7 +17,8 @@ const minor = Number(match[2]);
 const patch = Number(match[3]);
 const build = Number(match[4] || 0);
 
-const versionCode = build + 10;
+const versionCode =
+  major * 100_000_000 + minor * 1_000_000 + patch * 10_000 + build;
 const versionName = `${major}.${minor}.${patch}.${build}`;
 
 let gradle = fs.readFileSync(gradleFile, 'utf-8');
