@@ -219,6 +219,26 @@ Notes (all hosts):
   author's own environment variables configured privately in their dashboard; it is
   unrelated to your copy.
 
+### Docker (prebuilt image)
+
+A ready-to-run image of the web app is published to GitHub Packages on every
+version tag (workflow: `.github/workflows/publish-package.yml`):
+
+```bash
+docker run -d -p 8080:80 ghcr.io/kuldeep7ke/moneymeva-online:latest
+# open http://localhost:8080 — cloud-free build by default
+```
+
+To bake your own cloud values in, build locally instead:
+
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co \
+  --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ... \
+  --build-arg NEXT_PUBLIC_SITE_URL=http://localhost:8080 \
+  -t moneymeva . && docker run -d -p 8080:80 moneymeva
+```
+
 ---
 
 ## Troubleshooting
