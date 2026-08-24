@@ -326,7 +326,10 @@ export default function DeveloperPage() {
           {(() => {
             const cfg = getConfig();
             let sbEmail: string | null = null;
-            try { sbEmail = JSON.parse(localStorage.getItem('mm_sb_session') || 'null')?.user?.email || null; } catch {}
+            try {
+              const ref = (cfg.url || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
+              sbEmail = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`) || 'null')?.user?.email || null;
+            } catch {}
             const lastEv = getLastSyncEvent();
             return (
               <>

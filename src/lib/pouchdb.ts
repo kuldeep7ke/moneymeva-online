@@ -15,7 +15,7 @@ let channel: any = null;
 let reconnectTimer: any = null;
 let changeListeners: Array<() => void> = [];
 
-export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'todo';
+export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'todo' | 'work' | 'partnership' | 'partnership_entry';
 
 async function ensurePouch() {
   if (_PouchDB) return _PouchDB;
@@ -92,6 +92,7 @@ function notifyChange() {
 const ENTITY_PREFIXES: Record<string, EntityType> = {
   transaction: 'transaction', partner: 'partner', recurring: 'recurring',
   budget: 'budget', reminder: 'reminder', adjustment: 'adjustment', goal: 'goal', todo: 'todo',
+  work: 'work', partnership: 'partnership', partnership_entry: 'partnership_entry',
 };
 
 function cleanSupabaseUrl(url: string): string {

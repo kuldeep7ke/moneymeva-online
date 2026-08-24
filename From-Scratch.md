@@ -81,6 +81,9 @@ Define all data entities. Key types:
 - **`Goal`** — id, userId, transitionId, name, target, saved, deletedAt?, createdAt
 - **`Todo`** — id, userId, transitionId, title, description, dueDate, category, amount?, priority, important, status, completedAt?, deletedAt?, createdAt
 - **`MutationLog`** — id, transitionId, entityType, entityId, action, timestamp, userId, detail?
+- **`WorkEntry`** — id, userId, transitionId, direction ('receivable'|'payable'), partyId?, partnershipId?, profile (WORK_PROFILES key), workType, crop?, season ('kharif'|'rabi'|'summer'|'annual'), year, area? {value, unit}, startDate, endDate?, agreedAmount, paidAmount, payments[] {id, date, amount, note?, linkedTransactionId?}, dueDate?, notes?, deletedAt?, createdAt, updatedAt
+- **`Partnership`** — id, userId, transitionId, title, crop, season, year, members[] {id, partyId?, name, sharePct}, notes?, description?, deletedAt?, createdAt, updatedAt
+- **`PartnershipEntry`** — id, userId, transitionId, partnershipId, type ('income'|'expense'), description, amount, date, paidByPartyId?, linkedTransactionId?, deletedAt?, createdAt, updatedAt
 - **`ArchivedItem`** — id, type, label, subtitle, amount, deletedAt, original
 - **`UserProfile`** — id, full_name, currency, onboarding_completed, email?, phone?, monthly_income?, etc.
 
@@ -104,6 +107,9 @@ class MoneyMevaDB extends Dexie {
   adjustments!: Table<Adjustment, string>;
   goals!: Table<Goal, string>;
   todos!: Table<Todo, string>;
+  works!: Table<WorkEntry, string>;
+  partnerships!: Table<Partnership, string>;
+  partnership_entries!: Table<PartnershipEntry, string>;
   mutation_log!: Table<MutationLog, string>;
 }
 ```
@@ -120,6 +126,13 @@ class MoneyMevaDB extends Dexie {
 | goals | id, name, userId, deletedAt, transitionId |
 | todos | id, status, category, priority, important, userId, deletedAt, transitionId |
 | mutation_log | id, transitionId, entityType, entityId, action, timestamp, userId |
+
+**Schema version 5 adds:**
+| Table | Indexes |
+|---|---|
+| works | id, direction, partyId, partnershipId, profile, crop, status, userId, deletedAt, transitionId |
+| partnerships | id, crop, season, year, userId, deletedAt, transitionId |
+| partnership_entries | id, partnershipId, type, date, paidByPartyId, userId, deletedAt, transitionId |
 
 ---
 
@@ -337,7 +350,8 @@ src/app/
     ├── expenses/page.tsx   # Expenses CRUD (wraps TransactionPage)
     ├── investments/page.tsx# Investments CRUD (wraps TransactionPage)
     ├── savings/page.tsx    # Goals + Tasks (dual-tab: goals grid / to-do list)
-    ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal, edit support
+    ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal, edit support + Partnership (भागीदारी) tab
+    ├── works/page.tsx      # Work register (कामे): direction, crop/season/area, pending payments, payment history
     ├── accounts/page.tsx   # Account overview
     ├── categories/page.tsx  # Categories CRUD with tabs, inline edit/delete, PIN-protected batch save
     ├── adjustments/page.tsx # Balance corrections
@@ -433,21 +447,37 @@ Device A (PouchDB) ──push/pull──→ Supabase sync_docs (RLS per user) �
 
 - **Local buffer**: PouchDB instance named `mm_pouch` with compound index on `[entity, updatedAt]`
 - **Cloud hub**: Supabase `sync_docs` table (PK `(user_id, id)`, `data` jsonb) — see `supabase/schema.sql`
-- **Auth**: Supabase Auth — email + password, JWT session in `mm_sb_session`
+- **Auth**: Supabase Auth — email + password; JWT session stored under `sb-<project-ref>-auth-token` (Supabase JS standard key)
 - **Isolation**: Row-Level Security (`auth.uid() = user_id`) — cross-account access impossible
 - **Live updates**: realtime subscription on `sync_docs_realtime` (replica identity full)
 
-### Entity Mapping
-Each Dexie entity maps to a PouchDB doc prefixed with `entityType:id`; the cloud row id is the same (`entityType:id`):
-- `transaction:abc123` → `entity: 'transaction'`
-- `partner:def456` → `entity: 'partner'`
-- etc.
+### Entity Mapping (verified v7.2.0)
+Every Dexie entity syncs to the single `sync_docs` table as a JSON document. Doc id = `entityType:id`; cloud row id is identical; `entity` column holds the EntityType.
+
+| Dexie table | EntityType | Doc id | Write paths that sync |
+|---|---|---|---|
+| transactions | transaction | `transaction:<id>` | add, update, soft-delete, restore |
+| partners | partner | `partner:<id>` | same |
+| recurring | recurring | `recurring:<id>` | same + advance/skip/pause/resume |
+| budgets | budgets→budget | `budget:<id>` | upsertBulk, add, update, delete/restore |
+| reminders | reminder | `reminder:<id>` | add, update, complete+reschedule, delete/restore |
+| adjustments | adjustment | `adjustment:<id>` | add, update, soft-delete/restore |
+| goals | goal | `goal:<id>` | add, contribute/update, delete/restore |
+| todos | todo | `todo:<id>` | add, toggle/edit, delete/restore, complete |
+| works | work | `work:<id>` | addWork, updateWork (incl. payments), delete/restore |
+| partnerships | partnership | `partnership:<id>` | addPartnership, updatePartnership, delete/restore |
+| partnership_entries | partnership_entry | `partnership_entry:<id>` | add/delete/restore entry |
+
+- **Soft deletes** push the full updated row (`deletedAt` set). **Permanent deletes** push a tombstone `{ id, deletedAt }` via `putDoc` in `deleteFromCacheAndWrite`.
+- **PINs** sync as one doc: `pin:batch` (`entity: 'pin'`) via `writePins()` / `pullPinsFromRemote()`.
+- **Local-only by design**: `mutation_log` table (per-device activity log) and localStorage preferences (language, theme, quotas, dismissed notices, seen-release marker).
+- Supabase-side schema comment lists these entities too — see `supabase/schema.sql`.
 
 ### Key Functions
 
 | Function | Purpose |
 |---|---|
-| `getConfig()` | `{ url, key }` from obfuscated defaults in `env.ts` or localStorage override (`mm_sb_url`/`mm_sb_key`) |
+| `getConfig()` | `{ url, key }` from obfuscated defaults in `env.ts` or localStorage override (`mm_pouch_url` / `mm_sync_key`) |
 | `initPouchDB()` | Creates local PouchDB instance, creates indexes |
 | `signUpUser(url, key, email, password)` | Creates Supabase account + connects |
 | `connectRemote(url, key, email, password)` | Signs in, pushes local buffer, subscribes to realtime, pulls |
@@ -474,7 +504,7 @@ Every 2 minutes, calls `processRemoteChanges()` which:
 4. Merges into cache (respects `updatedAt` timestamps — skips if local is newer)
 
 ### Sync Flow (Settings Page)
-1. URL + anon key pre-filled from env (`mm_sb_url`/`mm_sb_key` overrides allowed)
+1. URL + anon key pre-filled from env (`mm_pouch_url` / `mm_sync_key` overrides allowed)
 2. User enters email + password → **Create account & sync** (`signUpUser`) or **Connect** (`connectRemote`)
 3. Session saved to localStorage
 4. Status indicators: idle → connecting → connected / error
@@ -752,10 +782,30 @@ Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writi
 - **Balance** = total income − total expense (all time, cash/bank/upi)
 - **Carry Forward** = last month's cash/bank/upi balance (positive only)
 - **Total Income/Expense/Investment** = across all accounts (per type; no saving type exists)
+- **v7.2.0**: `getAggregates()` + `getMonthlySummary()` exclude categories `Transfer`, `Capital`, `Drawings` from income/expense totals — internal transfers and owner capital no longer inflate revenue stats (`NON_OPERATIONAL_CATEGORIES` in store.ts)
+- **Accounts page** (5 cards): Cash, Bank, Capital (net of `Capital`/`Drawings` tagged txs), Revenue & Expenses (period-based via pill selector; excludes the same non-operational categories)
 
 ### Partner P&L + Edit
 - `getPartnerPnL(partnerId)` — filters transactions by `partnerAccountId`, sums income/expense, returns `{ income, expense, net }`
 - Partners page has a pencil **Edit** button per card → reuses the add modal pre-filled → `updatePartner(id, updates)`. Duplicate-name check skips the party being edited.
+
+### Works Module (कामे)
+- **Page**: `/dashboard/works` (`src/app/dashboard/works/page.tsx`). Nav item sits after Party Accounts; included in mobile floating nav.
+- **Work profiles**: `WORK_PROFILES` registry in `defaultCategories.ts` (farmer🌾, farm_services🚜, labor👷, shop🏪, contractor📋, transport🚛, general👤). Each profile lists preset work types (i18n keys under `works.types.*`). `profileForProfession()` maps onboarding profession → default profile. Work type field is free text with a datalist of presets; the chosen label is stored verbatim.
+- **Direction model**: `receivable` = my work / payment to receive (auto-ledger entry becomes Income, category "Work Payment"); `payable` = hired work / I must pay (auto-ledger entry becomes Expense, category "Labor").
+- **Status derivation**: `getWorkStatus(w)` → paid when `paidAmount >= agreedAmount > 0`; partial when any payment exists; otherwise pending.
+- **Payments**: `recordWorkPayment(workId, { date, amount, note }, { alsoLedger })` appends to `payments[]`, recomputes `paidAmount`, and optionally creates the mirrored ledger transaction (checkbox default ON). Payment rows store `linkedTransactionId` for traceability.
+- **Dashboard cards**: 6 compact summary cards in one row — Available, Balance (cash/bank split), Income, Expenses, Investments, Parties (partner investments + partnership net combined). Pending Works card was removed in v7.2.0.
+
+### Partnership Module (भागीदारी)
+- **Placement**: tab inside the Party Accounts page (`Accounts | भागीदारी` segmented control) — component `src/components/PartnershipTab.tsx`.
+- **Model**: a Partnership has members with `sharePct` (validated to total 100% on save); entries are shared income/expense records. Expenses track `paidByPartyId` (which member fronted the money).
+- **Settlement math** (`getPartnershipSummary`): per member `balance = incomeShare + paid − expenseShare` where shares are `total × sharePct/100`. Positive → member should receive; negative → member owes the pool.
+- **Ledger mirror**: entry save can auto-create a main-ledger transaction (category "Partnership", description `"{title} · {detail}"`); edits/deletes keep the mirror in step via `linkedTransactionId`.
+- **Works link**: the Add Work form shows a Partnership dropdown when partnerships exist; the work keeps its own `partyId` too.
+
+### Farmer Onboarding
+- Farmer is an official profession choice (`PROFESSION_CATEGORIES.farmer` in both `onboarding/page.tsx` and `defaultCategories.ts`) with farming income/expense/investment categories. Maps to the farmer work profile via `profileForProfession()`.
 
 ### Future-Date Guard
 All income/expense/investment entry points block future dates:

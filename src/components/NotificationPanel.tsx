@@ -32,7 +32,7 @@ export default function NotificationPanel() {
     };
     load();
     initLocalNotifications();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
   }, []);
 

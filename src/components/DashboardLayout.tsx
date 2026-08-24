@@ -27,6 +27,7 @@ import {
   Unlock,
   Share2,
   ScrollText,
+  Sprout,
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useTheme } from '@/components/ThemeProvider';
@@ -72,6 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: t('nav.savings'), href: '/dashboard/savings', icon: PiggyBank },
     { name: t('nav.investments'), href: '/dashboard/investments', icon: TrendingUp },
     { name: t('nav.partners'), href: '/dashboard/partners', icon: Users },
+    { name: t('nav.works'), href: '/dashboard/works', icon: Sprout },
     { name: t('nav.recurring'), href: '/dashboard/recurring', icon: Calendar },
     { name: t('nav.accounts'), href: '/dashboard/accounts', icon: Landmark },
     { name: t('nav.categories'), href: '/dashboard/categories', icon: Tag },
@@ -85,7 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const FLOATING_NAV_NAMES = React.useMemo(() => new Set([
     t('nav.dashboard'), t('nav.income'), t('nav.expenses'), t('nav.savings'),
-    t('nav.investments'), t('nav.partners'), t('nav.accounts'), t('nav.settings'), t('nav.ledger'),
+    t('nav.investments'), t('nav.partners'), t('nav.works'), t('nav.accounts'), t('nav.settings'), t('nav.ledger'),
   ]), [t]);
 
   const [ready, setReady] = useState(false);

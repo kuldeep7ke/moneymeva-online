@@ -19,10 +19,10 @@
 | Framework | Next.js 16.2.9 (App Router) | Static export for cheap hosting; React 19 for latest features |
 | Styling | Tailwind CSS v4 + CSS variables | Rapid prototyping; 3-brand theme via CSS custom properties |
 | i18n | Custom hook + translations.ts | 3 languages (mr/hi/en), no external lib needed |
-| Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 9 tables with compound indexes |
+| Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 12 tables with compound indexes |
 | Sync | PouchDB ↔ Supabase `sync_docs` (realtime) | Local PouchDB buffer (`mm_pouch`); cloud hub = Supabase table; live realtime + manual "Sync Now"; 30s reconnect; self-healing `checkConnection` |
 | State | In-memory cache + Dexie + PouchDB | Cache for instant reads, Dexie for persistence, PouchDB for sync |
-| Auth | Local (localStorage) + optional Supabase Auth | Local multi-user profiles; cloud login (email+password, JWT in `mm_sb_session`) only when Multi-Device Sync enabled |
+| Auth | Local (localStorage) + optional Supabase Auth | Local multi-user profiles; cloud login (email+password, JWT in `sb-<ref>-auth-token`) only when Multi-Device Sync enabled |
 | Security | One-time 4-digit PINs + Supabase RLS | PINs for app access; cloud rows isolated per `auth.uid()` via Row-Level Security; no PII stored remotely |
 | Mobile | Capacitor v8 (Android) | Wraps static Next.js output as native APK; plugins: app, browser, filesystem, share, local-notifications, status-bar |
 | Charts | Recharts | Lightweight, React-native charting |
@@ -85,6 +85,22 @@ Broadcast pills + banner modals are **remote-config**: JSON hosted on jsonbin.io
 - **Banner modal** (`BannerModal.tsx`): full-screen overlay `fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm`, centered card, width via Tailwind class field (`max-w-md` default), optional image (max-h-64) + href (whole card clickable); **skeleton loading card while fetching**; countdown (7s) starts only after full display — waits for image `onLoad`/`onError` with cached-image ref `complete` check; X button appears at 0 (spinner/number badge before); shows **once per app load** via module flag `bannerShownThisLoad` — SPA menu navigation never re-shows it, resets on real refresh/reload; NO localStorage persistence; scheduling via inclusive local-calendar-day windows through shared `isWithinPeriod(startDate?, endDate?)` in `utils.ts`
 - Local `public/broadcast.json`/`public/banner.json` are dead fallbacks only
 - Full editing workflow: `docs/BROADCAST-GUIDE.md`; Developer Zone → Remote Announcements tests BOTH proxy and jsonbin paths live
+
+### 9. Works Module (कामे) — Pending Payments Register
+New entity `WorkEntry` + Dexie v5 table `works` (`src/app/dashboard/works/page.tsx`, store CRUD in `store.ts`).
+- **Direction model**: `receivable` (my work → payment to receive; ledger mirror = Income, category **"Work Payment"**) vs `payable` (hired work → I must pay; mirror = Expense, category **"Labor"**). One page covers both sides.
+- **Profiles**: `WORK_PROFILES` registry in `defaultCategories.ts` — farmer🌾, farm_services🚜, labor👷, shop🏪, contractor📋, transport🚛, general👤 — each with preset work types (i18n keys `works.types.*`). `profileForProfession()` maps onboarding profession → default profile; Farmer profession added to onboarding with farming categories (`PROFESSION_CATEGORIES.farmer`).
+- **Fields**: crop, season (`kharif|rabi|summer|annual`), year, area `{value, unit}` (acre/hectare/guntha/are), start/end dates (auto duration via `workDurationDays`), party link, optional partnership link, agreed amount, payments[] with per-payment `linkedTransactionId`. Status derived by `getWorkStatus()` (pending/partial/paid); `workPendingAmount()` feeds the dashboard card (receivables only).
+- **Payments**: `recordWorkPayment(workId, {date, amount, note}, {alsoLedger})` appends payment, recomputes `paidAmount`, optionally auto-creates the mirrored ledger transaction (default ON).
+- Work-type input = free text + datalist of profile presets; stored value is the translated label (human-readable).
+
+### 10. Partnership Module (भागीदारी) — Shared Work With Settlements
+Entities `Partnership` (members[] with `sharePct`) + `PartnershipEntry`; Dexie v5 tables `partnerships`/`partnership_entries`; UI = tab inside Party Accounts page (`Accounts | भागीदारी` segmented control, `src/components/PartnershipTab.tsx`).
+- **Share validation**: members' percentages must total exactly 100% to save.
+- **Settlement math** (`getPartnershipSummary`): per member `balance = incomeShare + paid − expenseShare` (shares = `total × sharePct/100`). Positive → member should receive from pool; negative → member owes pool. Income assumed collected centrally by the owner.
+- **Ledger mirroring**: entry save can auto-create a main-ledger transaction (category **"Partnership"**, description `"{title} · {detail}"`); edits/deletes keep the mirror in step via `linkedTransactionId`.
+- **Sync**: all three new entities wired through PouchDB `EntityType` + prefixes, archive (restore/permanent delete/empty-all), backup export/import tables, and `clearAllDB`. `processRemoteChanges` maps `partnership_entries` → cache key `partnershipEntries`.
+- **Lesson (process)**: PowerShell `-Encoding UTF8` writes double-encoded the whole `store.ts` ("Â·" mojibake); recovered via `git checkout` + Edit-tool-only re-application. Never write file content via PowerShell.
 
 ---
 
@@ -290,6 +306,27 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ## Recent Changes
 
+### v7.2.0 (2026-08-23, local — NOT yet committed/deployed) — Big Update + Supabase Sync Audit
+- **Released as minor version** v7.2.0.1 (RELEASE_NOTES in whats-new.ts rewritten for the whole batch: works, partnership, accounts 2.0, categories viewer, dashboard redesign, perf, tasks removal).
+- **Accounts page rebuilt**: 5 cards — Cash, Bank, **Capital** (net of `Capital`/`Drawings` tagged txs; Add Capital/Drawings modal with Money In/Out, date, Cash/Bank selector, note → real synced transactions), **Revenue** & **Expenses** (period pills 1W–ALL, default 1M; exclude non-operational). Owner chose period-based + exclude-from-stats.
+- **Stats integrity fix**: `getAggregates()` + `getMonthlySummary()` exclude `NON_OPERATIONAL_CATEGORIES = ['Transfer','Capital','Drawings']` — transfers no longer double-inflate Income+Expense.
+- **Dashboard**: 6 compact cards on one line (`xl:grid-cols-6`): Available, Balance, Income, Expenses, Investments, Parties (**merged** partner investments + partnership net; Pending Works card removed per owner).
+- **Perf fixes** (owner complained "loading mode, hang"): dashboard scanned full tx array ~18×/render → once via `useMemo` (periodTxs/recentTransactions/categoryTotals/pieData/accountBalances); fake 100ms+200ms loading delays removed (skeleton first load only); NotificationPanel poll 20s→60s; works list memoized.
+- **SUPABASE SYNC AUDIT (verified)**: all 11 Dexie entities sync via `syncWriteDoc`/`putDoc` to single `sync_docs`; every create/update/soft-delete pushes full row, permanent deletes push `{id, deletedAt}` tombstone via `deleteFromCacheAndWrite`; PIN batch `pin:batch` (entity 'pin') syncs too. Local-only by design: `mutation_log`, localStorage prefs. Entity list corrected in `supabase/schema.sql` header (was missing work/partnership/partnership_entry).
+- **Doc key-name fixes**: real keys are `mm_pouch_url` / `mm_sync_key` / `mm_pouch_urls` / session `sb-<ref>-auth-token` (docs claimed mm_sb_url/mm_sb_key/mm_sb_session/mm_sync_urls — CouchDB-era leftovers) — fixed in Sync.md, Security.md, README, From-Scratch §10.
+- **Code fix**: Developer → Sync Diagnostics read non-existent `mm_sb_session` → "Sync account" always "not signed in"; now reads `sb-<ref>-auth-token` derived from cfg.url.
+- **Formulas verified**: FD `P(1+r/n)^(nt)`, SIP annuity-due, RD quarterly compounding, PPF yearly, partnership settlement `incomeShare + paid − expenseShare`, works pending `max(0, agreed − paid)`. All self-contained client-side.
+- From-Scratch.md §10 entity mapping replaced with full verified table; §19 dashboard/accounts notes updated; docs/Changelog.md gained v7.2.0 entry (was stale at .34).
+- Verified: tsc clean, build passed. **No git commit/push/deploy until owner verifies offline.**
+
+### v7.1.1.99 (2026-08-23, local — NOT yet committed/deployed) — Works (कामे) + Partnership (भागीदारी)
+- New **Works** page (`/dashboard/works`, nav after Party Accounts, in mobile floating nav): direction toggle (I will receive / I will pay), trade profiles with preset work types (datalist), crop/season/year/area fields, party + partnership links, agreed amount vs payments progress bar, Record Payment modal (optional auto ledger entry), payment history modal, PIN-gated delete.
+- New **Partnership tab** inside Party Accounts (`Accounts | भागीदारी`): partnerships with members & % shares (must total 100%), shared income/expense entries with "who paid", settlement table (gets/owes via `getPartnershipSummary`), optional ledger mirroring (category "Partnership").
+- Data layer: Dexie **version(5)** adds `works`/`partnerships`/`partnership_entries`; types `WorkEntry`/`Partnership`/`PartnershipEntry` (+ `UserProfile.profession?`); PouchDB entity types/prefixes; full store CRUD + archive restore/permanent-delete + backup export/import + clearAllDB coverage; `processRemoteChanges` cache-key fix for `partnership_entries`.
+- Onboarding: **Farmer** 🌾 profession added (farming categories); maps to farmer work profile.
+- Dashboard: Pending Works card (receivables only). i18n: ~120 new keys × mr/hi/en. Release notes bumped to v7.1.1.99. Docs updated (File-Map, README, From-Scratch, capsule).
+- Verified: `tsc --noEmit` clean. Build pending; **no git commit/push/deploy** until owner verifies offline.
+
 ### v7.1.1.94–.96 (2026-08-23) — TTL in Minutes, Set to 10
 - Proxy cache window renamed `TTL_SECONDS` → `TTL_MINUTES` (single number to edit) and set to **10 minutes** per owner choice: edits on jsonbin visible within ~10 min.
 - Honest quota math documented everywhere: 10-min TTL ⇒ ≤ ~290 jsonbin requests/day (~8.6k/month worst case per POP) — close to the 10k free cap; earlier "~24/day" estimate was wrong (that's per-bin-per-hour territory). Guidance added: raise to 20–30 min if quota warnings ever appear.
@@ -385,7 +422,7 @@ Five parallel audits (store/sync, dashboard/summary/savings, TransactionPage ×2
 ### v7.1.1.34 (2026-08-17) — Cloud Sync 2.0 (Supabase)
 - **Migrated cloud sync CouchDB → Supabase** after the Railway CouchDB instance died (404 "Application not found").
 - **Supabase project** `orpgmbrycnmjwtalupce` (ap-south-1, PG 17.6): `sync_docs` table (PK `(user_id,id)`, `data` jsonb, `updated_at`, `deleted_at`), RLS policies `sync_docs_own_{select,insert,update,delete}`, realtime publication, `mailer_autoconfirm: true`.
-- **`pouchdb.ts`**: `signUpUser`, `connectRemote(url, key, email, password)`, `checkConnection`, `ensureConnected`, `disconnectRemote`, user-scoped `putDoc`/`removeDoc` (push upsert `onConflict user_id,id`), realtime subscription, `mm_sb_session`/`mm_sb_url`/`mm_sb_key` in localStorage, env fallback in `getConfig()`.
+- **`pouchdb.ts`**: `signUpUser`, `connectRemote(url, key, email, password)`, `checkConnection`, `ensureConnected`, `disconnectRemote`, user-scoped `putDoc`/`removeDoc` (push upsert `onConflict user_id,id`), realtime subscription; keys: `mm_pouch_url`/`mm_sync_key` overrides + `sb-<ref>-auth-token` session (corrected v7.2.0), env fallback in `getConfig()`.
 - **Settings**: URL + anon key auto-filled from `.env.local`; email + password inputs; "Create account & sync" / "Connect" / "Sync Now" / "Disconnect".
 - **Verified E2E**: ping, push, pull, conflict-update, realtime event, delete, alice/bob isolation, RLS delete-block. All test users cleaned up.
 - **Repo split**: new private repo `moneymeva-online`; origin retargeted; old `moneymeva` untouched at `dc965eb`.

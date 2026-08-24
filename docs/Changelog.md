@@ -1,5 +1,16 @@
 # Changelog
 
+## v7.2.0 (2026-08-23) — Big Update: Works, Partnership, Accounts 2.0, Performance
+- **Works (कामे)** module — farm & job entries with direction (receivable/payable), profiles, payment history, pending tracking
+- **Partnership (भागीदारी)** tab in Party Accounts — member shares (must total 100%), settlement math (`balance = incomeShare + paid − expenseShare`), ledger mirroring; members are free-text fields with recent-party suggestions
+- **Accounts page rebuilt** — 5 cards: Cash, Bank, Capital, Revenue, Expenses; period pills (1W–ALL); Add Capital/Drawings modal writes real synced transactions
+- **Stats integrity** — `getAggregates()`/`getMonthlySummary()` now exclude `Transfer`, `Capital`, `Drawings`; transfers no longer inflate Income+Expense totals
+- **Dashboard** — compact single-line summary cards; Tasks card removed (Savings = Goals only)
+- **Performance** — dashboard scans transactions once per render (was ~18×), first-load-only skeleton, notification polling 20s→60s
+- **Categories page** — tap a category to view all its entries with count + total
+- **Sync audit (v7.2.0)** — verified all 11 entities + `pin:batch` sync through `sync_docs`; entity list corrected in `supabase/schema.sql`; stale localStorage key names fixed across docs (`mm_pouch_url`, `mm_sync_key`, `mm_pouch_urls`, `sb-<ref>-auth-token`)
+- **Fixed**: Developer → Sync Diagnostics read a non-existent session key ("Sync account" always showed not signed in)
+
 ## v7.1.1.34 (2026-08-17) — Cloud Sync 2.0 (Supabase)
 - **Migrated cloud sync from CouchDB → Supabase** (shared project, per-user isolation)
 - `supabase/schema.sql`: `sync_docs` table (PK `user_id,id`), Row-Level Security, realtime publication

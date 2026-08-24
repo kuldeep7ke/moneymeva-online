@@ -1,4 +1,4 @@
-import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationAction, MutationLog, ArchiveItemType, ArchivedItem } from '@/types';
+import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationAction, MutationLog, ArchiveItemType, ArchivedItem, WorkEntry, WorkStatus, WorkPayment, Partnership, PartnershipEntry, PartnershipMember } from '@/types';
 import { db } from './db';
 import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected } from './pouchdb';
 import { dispatchSyncEvent, getLastSyncEvent } from './sync-notify';
@@ -25,6 +25,9 @@ const cache: {
   adjustments: Adjustment[];
   goals: Goal[];
   todos: Todo[];
+  works: WorkEntry[];
+  partnerships: Partnership[];
+  partnershipEntries: PartnershipEntry[];
 } = {
   transactions: [],
   partners: [],
@@ -34,6 +37,9 @@ const cache: {
   adjustments: [],
   goals: [],
   todos: [],
+  works: [],
+  partnerships: [],
+  partnershipEntries: [],
 };
 
 let initialized = false;
@@ -137,6 +143,9 @@ export async function initDB() {
     cache.adjustments = await db.adjustments.toArray();
     cache.goals = await db.goals.toArray();
     cache.todos = await db.todos.toArray();
+    try { cache.works = await db.works.toArray(); } catch {}
+    try { cache.partnerships = await db.partnerships.toArray(); } catch {}
+    try { cache.partnershipEntries = await db.partnership_entries.toArray(); } catch {}
     // Deduplicate partners by name
     const deduped = deduplicatePartners(cache.partners);
     if (deduped.length < cache.partners.length) {
@@ -200,6 +209,9 @@ export async function clearAllDB(onProgress?: (label: string, done: number, tota
     ['adjustments', db.adjustments],
     ['goals', db.goals],
     ['todos', db.todos],
+    ['works', db.works],
+    ['partnerships', db.partnerships],
+    ['partnership entries', db.partnership_entries],
     ['mutation log', db.mutation_log],
   ];
   const total = tables.length + 1;
@@ -220,6 +232,9 @@ export async function clearAllDB(onProgress?: (label: string, done: number, tota
   cache.adjustments = [];
   cache.goals = [];
   cache.todos = [];
+  cache.works = [];
+  cache.partnerships = [];
+  cache.partnershipEntries = [];
   // Clear localStorage settings
   for (const k of Object.values(LS_KEYS)) {
     try { localStorage.removeItem(k); } catch {}
@@ -268,7 +283,7 @@ async function autoDeleteExpiredArchived() {
   });
 
   let changed = false;
-  for (const [key, tableName] of Object.entries({ transactions: 'transactions', partners: 'partners', recurring: 'recurring', reminders: 'reminders', budgets: 'budgets', adjustments: 'adjustments', goals: 'goals', todos: 'todos' })) {
+  for (const [key, tableName] of Object.entries({ transactions: 'transactions', partners: 'partners', recurring: 'recurring', reminders: 'reminders', budgets: 'budgets', adjustments: 'adjustments', goals: 'goals', todos: 'todos', works: 'works', partnerships: 'partnerships', partnershipEntries: 'partnership_entries' })) {
     const arr = (cache as any)[key];
     if (!arr) continue;
     const filtered = filter(arr);
@@ -329,6 +344,16 @@ export function getAllArchivedItems(): ArchivedItem[] {
   for (const t of cache.todos.filter(t => t.deletedAt)) {
     items.push(archivedItem('todo', t, t.title, `Todo · ${t.category || 'Other'}`, t.amount || 0, t.deletedAt!));
   }
+  for (const w of cache.works.filter(w => w.deletedAt)) {
+    items.push(archivedItem('work', w, `${w.crop ? w.crop + ' · ' : ''}${w.workType}`, w.direction === 'receivable' ? 'Work · To Receive' : 'Work · To Pay', workPendingAmount(w), w.deletedAt!));
+  }
+  for (const p of cache.partnerships.filter(p => p.deletedAt)) {
+    items.push(archivedItem('partnership', p, p.title, `Partnership · ${p.crop} ${p.season} ${p.year}`, 0, p.deletedAt!));
+  }
+  for (const e of cache.partnershipEntries.filter(e => e.deletedAt)) {
+    const ps = cache.partnerships.find(p => p.id === e.partnershipId);
+    items.push(archivedItem('partnership_entry', e, e.description, `Partnership · ${ps?.title || ''}`, e.amount, e.deletedAt!));
+  }
   return items.sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
 }
 
@@ -342,6 +367,9 @@ export function restoreArchivedItem(type: ArchiveItemType, id: string) {
     case 'adjustment': restoreAdjustment(id); break;
     case 'goal': restoreGoal(id); break;
     case 'todo': restoreTodo(id); break;
+    case 'work': restoreWork(id); break;
+    case 'partnership': restorePartnership(id); break;
+    case 'partnership_entry': restorePartnershipEntry(id); break;
   }
 }
 
@@ -355,6 +383,9 @@ export function permanentDeleteArchivedItem(type: ArchiveItemType, id: string) {
     case 'adjustment': permanentDeleteAdjustment(id); break;
     case 'goal': permanentDeleteGoal(id); break;
     case 'todo': permanentDeleteTodo(id); break;
+    case 'work': permanentDeleteWork(id); break;
+    case 'partnership': permanentDeletePartnership(id); break;
+    case 'partnership_entry': permanentDeletePartnershipEntry(id); break;
   }
 }
 
@@ -367,6 +398,9 @@ export async function permanentDeleteAllArchived() {
   const removedAdjustments = cache.adjustments.filter(a => a.deletedAt).map(a => a.id);
   const removedGoals = cache.goals.filter(g => g.deletedAt).map(g => g.id);
   const removedTodos = cache.todos.filter(t => t.deletedAt).map(t => t.id);
+  const removedWorks = cache.works.filter(w => w.deletedAt).map(w => w.id);
+  const removedPartnerships = cache.partnerships.filter(p => p.deletedAt).map(p => p.id);
+  const removedPEntries = cache.partnershipEntries.filter(e => e.deletedAt).map(e => e.id);
   const keepTx = cache.transactions.filter(t => !t.deletedAt);
   const keepPartners = cache.partners.filter(p => !p.deletedAt);
   const keepRecurring = cache.recurring.filter(r => !r.deletedAt);
@@ -375,6 +409,9 @@ export async function permanentDeleteAllArchived() {
   const keepAdjustments = cache.adjustments.filter(a => !a.deletedAt);
   const keepGoals = cache.goals.filter(g => !g.deletedAt);
   const keepTodos = cache.todos.filter(t => !t.deletedAt);
+  const keepWorks = cache.works.filter(w => !w.deletedAt);
+  const keepPartnerships = cache.partnerships.filter(p => !p.deletedAt);
+  const keepPEntries = cache.partnershipEntries.filter(e => !e.deletedAt);
   cache.transactions = keepTx;
   cache.partners = keepPartners;
   cache.recurring = keepRecurring;
@@ -383,6 +420,9 @@ export async function permanentDeleteAllArchived() {
   cache.adjustments = keepAdjustments;
   cache.goals = keepGoals;
   cache.todos = keepTodos;
+  cache.works = keepWorks;
+  cache.partnerships = keepPartnerships;
+  cache.partnershipEntries = keepPEntries;
   await Promise.all([
     db.transactions.bulkPut(keepTx),
     db.partners.bulkPut(keepPartners),
@@ -392,6 +432,9 @@ export async function permanentDeleteAllArchived() {
     db.adjustments.bulkPut(keepAdjustments),
     db.goals.bulkPut(keepGoals),
     db.todos.bulkPut(keepTodos),
+    db.works.bulkPut(keepWorks),
+    db.partnerships.bulkPut(keepPartnerships),
+    db.partnership_entries.bulkPut(keepPEntries),
   ]);
   await Promise.all([
     removedTx.length ? db.transactions.bulkDelete(removedTx) : Promise.resolve(),
@@ -402,6 +445,9 @@ export async function permanentDeleteAllArchived() {
     removedAdjustments.length ? db.adjustments.bulkDelete(removedAdjustments) : Promise.resolve(),
     removedGoals.length ? db.goals.bulkDelete(removedGoals) : Promise.resolve(),
     removedTodos.length ? db.todos.bulkDelete(removedTodos) : Promise.resolve(),
+    removedWorks.length ? db.works.bulkDelete(removedWorks) : Promise.resolve(),
+    removedPartnerships.length ? db.partnerships.bulkDelete(removedPartnerships) : Promise.resolve(),
+    removedPEntries.length ? db.partnership_entries.bulkDelete(removedPEntries) : Promise.resolve(),
   ]);
   await Promise.all([
     ...removedTx.map(id => syncWriteDoc('transactions', { id, deletedAt: now(), updatedAt: now() })),
@@ -412,6 +458,9 @@ export async function permanentDeleteAllArchived() {
     ...removedAdjustments.map(id => syncWriteDoc('adjustments', { id, deletedAt: now(), updatedAt: now() })),
     ...removedGoals.map(id => syncWriteDoc('goals', { id, deletedAt: now(), updatedAt: now() })),
     ...removedTodos.map(id => syncWriteDoc('todos', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedWorks.map(id => syncWriteDoc('works', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedPartnerships.map(id => syncWriteDoc('partnerships', { id, deletedAt: now(), updatedAt: now() })),
+    ...removedPEntries.map(id => syncWriteDoc('partnership_entries', { id, deletedAt: now(), updatedAt: now() })),
   ]);
 }
 
@@ -444,10 +493,12 @@ const logEntityType = (table: string): string => table === 'partners' ? 'party' 
 const entityMap: Record<string, EntityType> = {
   transactions: 'transaction', partners: 'partner', recurring: 'recurring',
   budgets: 'budget', reminders: 'reminder', adjustments: 'adjustment', goals: 'goal', todos: 'todo',
+  works: 'work', partnerships: 'partnership', partnership_entries: 'partnership_entry',
 };
 const entityTableMap: Record<EntityType, string> = {
   transaction: 'transactions', partner: 'partners', recurring: 'recurring',
   budget: 'budgets', reminder: 'reminders', adjustment: 'adjustments', goal: 'goals', todo: 'todos',
+  work: 'works', partnership: 'partnerships', partnership_entry: 'partnership_entries',
 };
 
 async function triggerSync() {
@@ -477,7 +528,7 @@ export async function processRemoteChanges() {
     const entity = (doc.entity || doc._entity) as EntityType;
     if (!entity || !doc.id) continue;
     const dexieTable = entityTableMap[entity];
-    const cacheKey = dexieTable;
+    const cacheKey = dexieTable === 'partnership_entries' ? 'partnershipEntries' : dexieTable;
     const list = (cache as any)[cacheKey];
     if (!list) continue;
     const { _entity, entity: _e, ...cleanDoc } = doc;
@@ -518,6 +569,9 @@ export async function pushAllToPouch() {
     ['adjustments', 'adjustment'],
     ['goals', 'goal'],
     ['todos', 'todo'],
+    ['works', 'work'],
+    ['partnerships', 'partnership'],
+    ['partnershipEntries', 'partnership_entry'],
   ];
   let count = 0;
   for (const [cacheKey, entity] of tables) {
@@ -546,6 +600,11 @@ export function addTransaction(tx: Omit<Transaction, 'id' | 'transitionId' | 'us
 function getPartnerName(partnerId: string): string | null {
   const partner = cache.partners.find(p => p.id === partnerId);
   return partner?.name || null;
+}
+
+export function getPartnerNameSafe(partnerId: string | undefined): string {
+  if (!partnerId) return '';
+  return getPartnerName(partnerId) || '';
 }
 
 export function updateTransaction(id: string, updates: Partial<Transaction>): Transaction | null {
@@ -1014,6 +1073,8 @@ export function completeTodo(id: string) {
 }
 
 // ─── Summary helpers ─────────────────────────────────────────
+const NON_OPERATIONAL_CATEGORIES = ['Transfer', 'Capital', 'Drawings'];
+
 function cashBankTransactions(txs: Transaction[]): Transaction[] {
   return txs.filter(t => !t.account || (t.account !== 'invest' && (t.account === 'cash' || t.account === 'bank' || t.account === 'upi')));
 }
@@ -1030,8 +1091,8 @@ export function getMonthlySummary(year: number, month: number) {
   });
   const cb = cashBankTransactions(txs);
   return {
-    income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-    expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+    income: txs.filter(t => t.type === 'income' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
+    expense: txs.filter(t => t.type === 'expense' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
     investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     total: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
     cashBankBalance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
@@ -1043,8 +1104,8 @@ export function getAggregates(since?: Date) {
   const cb = cashBankTransactions(txs);
   return {
     balance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
-    income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-    expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+    income: txs.filter(t => t.type === 'income' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
+    expense: txs.filter(t => t.type === 'expense' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
     investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     cashBankBalance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
   };
@@ -1248,4 +1309,237 @@ export async function getMutationLogByEntity(entityType: string, entityId: strin
   try {
     return await db.mutation_log.where({ entityType, entityId }).reverse().toArray();
   } catch { return []; }
+}
+
+// ─── Works (कामे) — work register with pending payments ──────
+export function getWorks(): WorkEntry[] {
+  return cache.works.filter(w => !w.deletedAt);
+}
+
+export function getWorkStatus(w: WorkEntry): WorkStatus {
+  if (w.agreedAmount > 0 && w.paidAmount >= w.agreedAmount) return 'paid';
+  if (w.paidAmount > 0) return 'partial';
+  return 'pending';
+}
+
+export function workPendingAmount(w: WorkEntry): number {
+  return Math.max(0, w.agreedAmount - w.paidAmount);
+}
+
+export function workDurationDays(w: WorkEntry): number | null {
+  if (!w.startDate || !w.endDate) return null;
+  const s = new Date(w.startDate).getTime();
+  const e = new Date(w.endDate).getTime();
+  if (!isFinite(s) || !isFinite(e) || e < s) return null;
+  return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+export function addWork(w: Omit<WorkEntry, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt' | 'paidAmount' | 'payments'>): WorkEntry {
+  const entry: WorkEntry = { ...w, paidAmount: 0, payments: [], id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
+  cache.works.push(entry);
+  db.works.put(entry).catch(() => {});
+  syncWriteDoc('works', entry);
+  logMutation('work', entry.id, entry.transitionId, 'created', `${entry.crop ? entry.crop + ' · ' : ''}${entry.workType}`);
+  return entry;
+}
+
+export function updateWork(id: string, updates: Partial<WorkEntry>): WorkEntry | null {
+  const idx = cache.works.findIndex(w => w.id === id);
+  if (idx === -1) return null;
+  const prev = cache.works[idx];
+  const tId = prev.transitionId;
+  const next: WorkEntry = { ...prev, ...updates, updatedAt: now() };
+  if (updates.payments) next.paidAmount = updates.payments.reduce((s, p) => s + p.amount, 0);
+  cache.works[idx] = next;
+  db.works.put(next).catch(() => {});
+  syncWriteDoc('works', next);
+  const action: MutationAction = updates.deletedAt ? 'deleted' : prev.deletedAt && updates.deletedAt === undefined ? 'restored' : 'updated';
+  logMutation('work', id, tId, action, `${next.crop ? next.crop + ' · ' : ''}${next.workType}`);
+  return next;
+}
+
+export function deleteWork(id: string) {
+  return updateWork(id, { deletedAt: now() });
+}
+
+export function restoreWork(id: string) {
+  return updateWork(id, { deletedAt: undefined });
+}
+
+export function permanentDeleteWork(id: string) {
+  deleteFromCacheAndWrite('works', cache.works, id);
+}
+
+// Record a payment against a work entry. Optionally mirror it into the main
+// ledger as a real Income (receivable) / Expense (payable) transaction.
+export function recordWorkPayment(workId: string, payment: { date: string; amount: number; note?: string }, opts?: { alsoLedger?: boolean }): { work: WorkEntry | null; tx: Transaction | null } {
+  const work = cache.works.find(w => w.id === workId && !w.deletedAt);
+  if (!work) return { work: null, tx: null };
+  if (typeof payment.amount !== 'number' || !isFinite(payment.amount) || payment.amount <= 0) throw new Error('Amount must be a positive number');
+  const alsoLedger = opts?.alsoLedger !== false;
+
+  let tx: Transaction | null = null;
+  if (alsoLedger) {
+    const partyName = work.partyId ? getPartnerName(work.partyId) : null;
+    const label = `${work.crop ? work.crop + ' · ' : ''}${work.workType}${partyName ? ` · ${partyName}` : ''}`;
+    tx = addTransaction({
+      type: work.direction === 'receivable' ? 'income' : 'expense',
+      category: work.direction === 'receivable' ? 'Work Payment' : 'Labor',
+      description: label,
+      date: payment.date,
+      amount: payment.amount,
+      partnerAccountId: work.partyId,
+      isRecurring: false,
+    });
+  }
+
+  const payments: WorkPayment[] = [...work.payments, { id: id(), date: payment.date, amount: payment.amount, note: payment.note, linkedTransactionId: tx?.id }];
+  const updated = updateWork(workId, { payments });
+  logMutation('work_payment', workId, updated?.transitionId || '', 'updated', `₹${payment.amount.toLocaleString('en-IN')} on ${payment.date}`);
+  return { work: updated, tx };
+}
+
+// ─── Partnership (भागीदारी) — shared crop accounting ─────────
+export function getPartnerships(): Partnership[] {
+  return cache.partnerships.filter(p => !p.deletedAt);
+}
+
+export function getPartnershipEntries(partnershipId: string): PartnershipEntry[] {
+  return cache.partnershipEntries.filter(e => e.partnershipId === partnershipId && !e.deletedAt);
+}
+
+export function getAllPartnershipEntries(): PartnershipEntry[] {
+  return cache.partnershipEntries.filter(e => !e.deletedAt);
+}
+
+export function addPartnership(p: Omit<Partnership, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Partnership {
+  const entry: Partnership = { ...p, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
+  cache.partnerships.push(entry);
+  db.partnerships.put(entry).catch(() => {});
+  syncWriteDoc('partnerships', entry);
+  logMutation('partnership', entry.id, entry.transitionId, 'created', `${p.title} · ${p.season} ${p.year}`);
+  return entry;
+}
+
+export function updatePartnership(pid: string, updates: Partial<Partnership>): Partnership | null {
+  const idx = cache.partnerships.findIndex(p => p.id === pid);
+  if (idx === -1) return null;
+  const prev = cache.partnerships[idx];
+  const tId = prev.transitionId;
+  cache.partnerships[idx] = { ...prev, ...updates, updatedAt: now() };
+  db.partnerships.put(cache.partnerships[idx]).catch(() => {});
+  syncWriteDoc('partnerships', cache.partnerships[idx]);
+  const action: MutationAction = updates.deletedAt ? 'deleted' : prev.deletedAt && updates.deletedAt === undefined ? 'restored' : 'updated';
+  logMutation('partnership', pid, tId, action, prev.title);
+  return cache.partnerships[idx];
+}
+
+export function deletePartnership(pid: string) {
+  return updatePartnership(pid, { deletedAt: now() });
+}
+
+export function restorePartnership(pid: string) {
+  return updatePartnership(pid, { deletedAt: undefined });
+}
+
+export function permanentDeletePartnership(pid: string) {
+  deleteFromCacheAndWrite('partnerships', cache.partnerships, pid);
+}
+
+// Add an income/expense entry against a partnership. Optionally mirrors it
+// into the main Income/Expense ledger so dashboard totals stay accurate.
+export function addPartnershipEntry(e: Omit<PartnershipEntry, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>, opts?: { alsoLedger?: boolean }): { entry: PartnershipEntry; tx: Transaction | null } {
+  const ps = cache.partnerships.find(p => p.id === e.partnershipId && !p.deletedAt);
+  if (!ps) throw new Error('Partnership not found');
+  const alsoLedger = opts?.alsoLedger !== false;
+
+  let tx: Transaction | null = null;
+  if (alsoLedger) {
+    tx = addTransaction({
+      type: e.type,
+      category: 'Partnership',
+      description: `${ps.title} · ${e.description}`,
+      date: e.date,
+      amount: e.amount,
+      partnerAccountId: e.type === 'expense' ? e.paidByPartyId : undefined,
+      isRecurring: false,
+    });
+  }
+
+  const entry: PartnershipEntry = { ...e, linkedTransactionId: tx?.id, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
+  cache.partnershipEntries.push(entry);
+  db.partnership_entries.put(entry).catch(() => {});
+  syncWriteDoc('partnership_entries', entry);
+  logMutation('partnership_entry', entry.id, entry.transitionId, 'created', `${e.type} ₹${e.amount.toLocaleString('en-IN')} · ${e.description}`);
+  return { entry, tx };
+}
+
+export function updatePartnershipEntry(eid: string, updates: Partial<PartnershipEntry>): PartnershipEntry | null {
+  const idx = cache.partnershipEntries.findIndex(e => e.id === eid);
+  if (idx === -1) return null;
+  const prev = cache.partnershipEntries[idx];
+  const tId = prev.transitionId;
+  cache.partnershipEntries[idx] = { ...prev, ...updates, updatedAt: now() };
+  db.partnership_entries.put(cache.partnershipEntries[idx]).catch(() => {});
+  syncWriteDoc('partnership_entries', cache.partnershipEntries[idx]);
+  const action: MutationAction = updates.deletedAt ? 'deleted' : prev.deletedAt && updates.deletedAt === undefined ? 'restored' : 'updated';
+  // Keep the mirrored ledger entry in step (amount/date/description/delete)
+  if ((updates.amount !== undefined || updates.description !== undefined || updates.date !== undefined || updates.deletedAt !== undefined) && prev.linkedTransactionId) {
+    const txUpdates: Partial<Transaction> = {};
+    if (updates.amount !== undefined) txUpdates.amount = updates.amount;
+    if (updates.date !== undefined) txUpdates.date = updates.date;
+    if (updates.description !== undefined) txUpdates.description = updates.description;
+    if (updates.deletedAt !== undefined) txUpdates.deletedAt = updates.deletedAt;
+    updateTransaction(prev.linkedTransactionId, txUpdates);
+  }
+  logMutation('partnership_entry', eid, tId, action, `₹${cache.partnershipEntries[idx].amount.toLocaleString('en-IN')}`);
+  return cache.partnershipEntries[idx];
+}
+
+export function deletePartnershipEntry(eid: string) {
+  return updatePartnershipEntry(eid, { deletedAt: now() });
+}
+
+export function restorePartnershipEntry(eid: string) {
+  return updatePartnershipEntry(eid, { deletedAt: undefined });
+}
+
+export function permanentDeletePartnershipEntry(eid: string) {
+  deleteFromCacheAndWrite('partnership_entries', cache.partnershipEntries, eid);
+}
+
+export interface PartnershipMemberRow {
+  memberId: string;
+  name: string;
+  sharePct: number;
+  incomeShare: number;
+  expenseShare: number;
+  paid: number;          // expenses this member fronted out of pocket
+  balance: number;       // + → member should receive; − → member owes the pool
+}
+
+export interface PartnershipSummary {
+  totalIncome: number;
+  totalExpense: number;
+  totalPaid: number;
+  rows: PartnershipMemberRow[];
+}
+
+// Settlement model: every member owns share% of BOTH income and expenses.
+// balance = incomeShare + (expenses they paid) − expenseShare.
+// Positive → pool owes them. Negative → they owe into the pool.
+export function getPartnershipSummary(partnershipId: string): PartnershipSummary {
+  const ps = cache.partnerships.find(p => p.id === partnershipId);
+  const entries = getPartnershipEntries(partnershipId);
+  const totalIncome = entries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const totalExpense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+  const members: PartnershipMember[] = ps?.members || [];
+  const rows: PartnershipMemberRow[] = members.map(m => {
+    const share = m.sharePct / 100;
+    const paid = entries.filter(e => e.type === 'expense' && e.paidByPartyId && e.paidByPartyId === m.partyId).reduce((s, e) => s + e.amount, 0);
+    const incomeShare = totalIncome * share;
+    const expenseShare = totalExpense * share;
+    return { memberId: m.id, name: m.name, sharePct: m.sharePct, incomeShare, expenseShare, paid, balance: incomeShare + paid - expenseShare };
+  });
+  return { totalIncome, totalExpense, totalPaid: rows.reduce((s, r) => s + r.paid, 0), rows };
 }

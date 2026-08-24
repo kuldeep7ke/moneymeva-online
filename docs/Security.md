@@ -16,7 +16,7 @@
 
 ## Cloud Auth (Supabase)
 
-- Optional: email + password via **Supabase Auth** (JWT in `mm_sb_session`)
+- Optional: email + password via **Supabase Auth** (JWT under `sb-<project-ref>-auth-token`)
 - Only used when the user enables **Multi-Device Sync**
 - Row-Level Security: every `sync_docs` row is owned by `auth.uid()`
   - Select/insert/update/delete all scoped to the signed-in user

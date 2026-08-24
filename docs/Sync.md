@@ -22,6 +22,30 @@ Device PouchDB (same account, another device)
 - **Realtime**: live subscription to `sync_docs_realtime` pushes remote changes
   into local PouchDB within seconds.
 
+## What Syncs (verified v7.2.0)
+
+One shared table (`sync_docs`), one row per entity document. Every section of the
+app writes through `syncWriteDoc()` / `putDoc()`:
+
+| EntityType | App section |
+|---|---|
+| `transaction` | Income, Expenses, Investments, Transfers, Capital/Drawings, ledger mirrors (works, partnership, recurring, reminders) |
+| `partner` | Party Accounts (पार्टी) + party field everywhere |
+| `recurring` | आवर्ती (Recurring) |
+| `budget` | Category budgets (Settings/Adjustments zone) |
+| `reminder` | Dashboard reminders ("Mark as Paid") |
+| `adjustment` | Adjustments page |
+| `goal` | Savings → Goals (ध्येय) |
+| `todo` | Legacy todos (data kept; UI removed in v7.2.0) |
+| `work` | Works कामे (incl. payment history) |
+| `partnership` | Partnership भागीदारी (members + shares) |
+| `partnership_entry` | Partnership income/expense entries |
+| `pin` | PIN batch — single `pin:batch` doc |
+
+**Local-only by design:** `mutation_log` Dexie table (per-device audit trail) and
+localStorage preferences (language, theme, quotas, dismissed notices, seen-release).
+Soft deletes push the full row; permanent deletes push an `{ id, deletedAt }` tombstone.
+
 ## Connection
 
 ```ts
@@ -35,7 +59,7 @@ ensureConnected()                             // reconnect if session exists but
 disconnectRemote()                            // stop realtime, keep local data
 ```
 
-- Auth is **Supabase Auth** (email + password, JWT session in `mm_sb_session`).
+- Auth is **Supabase Auth** (email + password; JWT session under `sb-<project-ref>-auth-token`).
 - Reconnect: 30s interval + `onRemoteChange` callback for live UI updates.
 
 ## Sync Modes
@@ -48,9 +72,9 @@ disconnectRemote()                            // stop realtime, keep local data
 
 ## Storage (localStorage)
 
-- `mm_sb_session` — Supabase auth session
-- `mm_sb_url` / `mm_sb_key` — manual URL/key overrides (defaults live obfuscated in `src/lib/env.ts`)
-- `mm_sync_urls` — last 5 URLs used (history dropdown)
+- `sb-<project-ref>-auth-token` — Supabase auth session (Supabase JS standard key)
+- `mm_pouch_url` / `mm_sync_key` — manual URL/key overrides (defaults live obfuscated in `src/lib/env.ts`)
+- `mm_pouch_urls` — last 5 URLs used (history dropdown)
 
 ## Schema & Security
 

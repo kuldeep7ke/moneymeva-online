@@ -16,7 +16,8 @@
 | `/dashboard/expenses` | `src/components/TransactionPage.tsx` | Expense list |
 | `/dashboard/investments` | `src/components/TransactionPage.tsx` | Investment list |
 | `/dashboard/savings` | `src/app/dashboard/savings/page.tsx` | Goals |
-| `/dashboard/partners` | `src/app/dashboard/partners/page.tsx` | Party management |
+| `/dashboard/partners` | `src/app/dashboard/partners/page.tsx` | Party management (+ Partnership tab) |
+| `/dashboard/works` | `src/app/dashboard/works/page.tsx` | Work register & pending payments |
 | `/dashboard/recurring` | `src/app/dashboard/recurring/page.tsx` | Recurring txns |
 | `/dashboard/accounts` | `src/app/dashboard/accounts/page.tsx` | Accounts |
 | `/dashboard/adjustments` | `src/app/dashboard/adjustments/page.tsx` | Adjustments |
@@ -38,6 +39,9 @@
 | `Reveal.tsx` | Scroll animations |
 | `LanguageSelector.tsx` | Settings, footer |
 | `InvestmentCalculator.tsx` | Investments page |
+| `PartnershipTab.tsx` | Partners page (भागीदारी tab) |
+| `popup-queue.ts` (`src/lib/`) | Sequential startup popups |
+| `defaultCategories.ts` (`src/lib/`) | Profession categories + WORK_PROFILES registry |
 | `PinPrompt.tsx` | PIN entry |
 | `PinSetupGuide.tsx` | PIN creation |
 | `DataSafetyNotice.tsx` | First-run |
@@ -67,7 +71,7 @@
 
 | File | Purpose |
 |---|---|
-| `supabase/schema.sql` | `sync_docs` table + RLS + realtime (run in Supabase SQL Editor) |
+| `supabase/schema.sql` | `sync_docs` table + RLS + realtime (run in Supabase SQL Editor); header lists all 12 synced doc types (11 entities + pin batch) |
 | `src/lib/env.ts` | Runtime config — Supabase URL/key + jsonbin Bin IDs as XOR+base64 obfuscated constants (decoded at runtime) |
 | `CLOUD-SYNC-GUIDE.md` | Owner setup + troubleshooting (includes the secret-encoder one-liner) |
 

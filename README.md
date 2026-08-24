@@ -35,7 +35,9 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
 - **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), live version + release-notes tracking status, DB stats viewer, localStorage inspector, storage usage, sync diagnostics (masked URL, sync account email, connection test, last sync event, timing hints), remote announcement diagnostics (masked Bin IDs, live bin fetch test, dismissed-pills counter + clear), raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
 - **Savings & Goals** — Dual-tab page: goals grid with contribute/withdraw + progress bars, and a finance to-do list. Goal contributions record as `expense` transactions (withdrawals as `income`).
-- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit (name, group, type, investment, description) from the partners page.
+- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit (name, group, type, investment, description) from the partners page. Includes a **Partnership (भागीदारी) tab** for shared work: members with % shares (must total 100%), shared income/expense entries with "who paid" tracking, automatic settlement balances (gets/owes), and optional mirroring into the main Income/Expense ledger.
+- **Works (कामे)** — Work register for farm jobs, labour and hired work. Each work records direction (I will receive / I will pay), trade profile with preset work types (farmer, farm services, labour, shop, contractor, transport, general), crop, season (kharif/rabi/summer/annual), year, area (acre/hectare/guntha/are), start/end dates (auto duration), party and partnership links, and an agreed amount. Record payments per work — optionally auto-creating a matching Income or Expense ledger entry — with a full payment history and progress bar. Dashboard shows a Pending Works card when receivables exist.
+- **Farmer Onboarding** — Farmer added as a profession choice during onboarding; selects farming income/expense/investment categories (Farm Sale, Seeds, Fertilizer, Diesel/Fuel…) and maps to the farmer work profile in Works.
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days. Future start/end dates allowed.
 - **Adjustments** — Balance corrections between personal and partner accounts with amount guards.
 - **Budgets** — Category-based monthly/yearly spending limits with overrun warnings at ≥80%.
@@ -61,6 +63,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 
 ### Multi-Device Sync (Supabase)
 - **PouchDB + Supabase** — a local PouchDB buffer (`mm_pouch`) syncs to a shared Supabase `sync_docs` table. Manual + live (realtime) sync. Data is stored on the cloud — it doubles as a backup.
+- **Every section syncs** — all 11 data entities (transactions, partners, recurring, budgets, reminders, adjustments, goals, todos, works, partnerships, partnership_entries) plus the PIN batch push through one doc store (`entity:id` rows). Only the device-local audit log and UI preferences stay on-device.
 - **Per-user isolation** — every row carries `user_id`; Row-Level Security guarantees no account can read or write another account's data.
 - **Email + password login** — Supabase Auth. URL + anon key are pre-configured from the build; users just enter their email + password.
 - **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device. **Google sign-in connects automatically** — no email/password needed.
@@ -168,7 +171,7 @@ signUpUser(url, key, email, password):
 connectRemote(url, key, email, password):
   init Supabase client (url + anon key)
   supabase.auth.signInWithPassword({ email, password })
-    → session stored in mm_sb_session
+    → session stored under sb-<project-ref>-auth-token (Supabase JS standard)
   pushAllToPouch()      ← push local PouchDB → sync_docs (upsert, onConflict user_id,id)
   subscribe to sync_docs_realtime (replica identity full)
   pullAll() → processRemoteChanges()   ← pull remote rows into local PouchDB

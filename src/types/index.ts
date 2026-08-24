@@ -132,7 +132,95 @@ export interface Todo {
   deletedAt?: string;
 }
 
-export type ArchiveItemType = 'transaction' | 'recurring' | 'reminder' | 'partner' | 'budget' | 'adjustment' | 'goal' | 'todo';
+export type ArchiveItemType = 'transaction' | 'recurring' | 'reminder' | 'partner' | 'budget' | 'adjustment' | 'goal' | 'todo' | 'work' | 'partnership' | 'partnership_entry';
+
+// ─── Works (कामे) — pending-payment work register ───────────
+export type WorkDirection = 'receivable' | 'payable';
+export type WorkStatus = 'pending' | 'partial' | 'paid';
+
+export interface WorkPayment {
+  id: string;
+  date: string;
+  amount: number;
+  note?: string;
+  linkedTransactionId?: string;
+}
+
+export interface WorkArea {
+  value: number;
+  unit: 'acre' | 'hectare' | 'guntha' | 'are';
+}
+
+export interface WorkEntry {
+  id: string;
+  userId: string;
+  transitionId: string;
+  direction: WorkDirection;          // receivable = my work, payment to receive; payable = hired work, I must pay
+  partyId?: string;                  // linked Party
+  partnershipId?: string;            // optional Partnership link
+  profile: string;                   // WORK_PROFILES key (farmer, farm_services…)
+  workType: string;                  // preset key or custom label
+  crop?: string;
+  season: SeasonType;                // kharif / rabi / summer / annual
+  year: number;
+  area?: WorkArea;
+  startDate: string;                 // YYYY-MM-DD
+  endDate?: string;                  // YYYY-MM-DD → durationDays computed when both set
+  agreedAmount: number;
+  paidAmount: number;                // sum of payments[]
+  payments: WorkPayment[];
+  dueDate?: string;
+  notes?: string;
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Partnership (भागीदारी) — shared crop income/expense split ──
+export type SeasonType = 'kharif' | 'rabi' | 'summer' | 'annual' | 'custom';
+
+export interface PartnershipMember {
+  id: string;
+  partyId?: string;                  // optional link to Party
+  name: string;                      // display name (from party or free text)
+  sharePct: number;                  // agreed share of income & expenses
+}
+
+export interface Partnership {
+  id: string;
+  userId: string;
+  transitionId: string;
+  title: string;                     // e.g. "Cotton Kharif 2026"
+  crop: string;
+  season: SeasonType;
+  year: number;
+  areaValue?: number;
+  areaUnit?: 'acre' | 'hectare' | 'guntha' | 'are';
+  startDate?: string;
+  endDate?: string;
+  members: PartnershipMember[];
+  notes?: string;
+  description?: string;
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnershipEntry {
+  id: string;
+  userId: string;
+  transitionId: string;
+  partnershipId: string;
+  type: 'income' | 'expense';
+  description: string;
+  amount: number;
+  date: string;                      // YYYY-MM-DD
+  paidByPartyId?: string;            // which member fronted this expense
+  linkedTransactionId?: string;      // mirror in main ledger
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface ArchivedItem {
   id: string;
@@ -156,6 +244,7 @@ export interface UserProfile {
   occupation?: string;
   business_name?: string;
   business_type?: string;
+  profession?: string;
   terms_accepted?: boolean;
 }
 

@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
 import { cn, todayStr } from '@/lib/utils';
-import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getTodos, logMutation } from '@/lib/store';
+import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getTodos, getWorks, getPartnerships, getAllPartnershipEntries, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
 import { switchUser, getAllUsers, getSession, logoutUser } from '@/lib/localAuth';
 import { useAuth } from '@/components/AuthProvider';
@@ -144,6 +144,7 @@ export default function SettingsPage() {
         ['transactions', getTransactions()], ['budgets', getBudgets()], ['goals', getGoals()],
         ['reminders', getReminders()], ['recurring', getRecurring()], ['partners', getPartners()], ['adjustments', getAdjustments()],
         ['todos', getTodos()],
+        ['works', getWorks()], ['partnerships', getPartnerships()], ['partnershipEntries', getAllPartnershipEntries()],
       ];
       const total = Math.max(tables.reduce((n, [, items]) => n + items.length, 0), 1);
       let done = 0;
@@ -1225,6 +1226,9 @@ async function doImport(data: any, currentUserId: string) {
       { key: 'partners', table: 'mm_partners', entityType: 'partner', label: 'Importing partners…' },
       { key: 'adjustments', table: 'mm_adjustments', entityType: 'adjustment', label: 'Importing adjustments…' },
       { key: 'todos', table: 'mm_todos', entityType: 'todo', label: 'Importing todos…' },
+      { key: 'works', table: 'mm_works', entityType: 'work', label: 'Importing works…' },
+      { key: 'partnerships', table: 'mm_partnerships', entityType: 'partnership', label: 'Importing partnerships…' },
+      { key: 'partnershipEntries', table: 'mm_partnership_entries', entityType: 'partnership_entry', label: 'Importing partnership entries…' },
     ];
     const total = tables.reduce((n, t) => n + (Array.isArray(data[t.key]) ? data[t.key].length : 0), 0);
     let processed = 0;

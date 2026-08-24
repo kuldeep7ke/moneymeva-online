@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, Undo2, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingDown, Bell, RotateCcw, CalendarArrowUp, Repeat, CheckCircle2, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, Undo2, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingDown, Bell, RotateCcw, CalendarArrowUp, Repeat, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { formatCurrency, cn, useSortedCategories, getSortedCategories, todayStr } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
-import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, getTodos, completeTodo, advanceRecurring } from '@/lib/store';
+import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary } from '@/lib/store';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import Reveal from '@/components/Reveal';
@@ -57,8 +57,6 @@ export default function DashboardPage() {
   const [goals, setGoals] = useState<any[]>([]);
   const [partnerInvest, setPartnerInvest] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
-  const [showTaskForm, setShowTaskForm] = useState<any>(null);
-  const [taskForm, setTaskForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: todayStr(), description: '' });
   const [showRecurringForm, setShowRecurringForm] = useState<any>(null);
   const [recurringForm, setRecurringForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: '', description: '', category: 'Other' });
   const [lastDeleted, setLastDeleted] = useState<any>(null);
@@ -94,7 +92,6 @@ export default function DashboardPage() {
   const [showAddParty, setShowAddParty] = useState(false);
   const [partyForm, setPartyForm] = useState({ name: '', group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
   const [showCalculator, setShowCalculator] = useState(false);
-  const [todos, setTodos] = useState<any[]>([]);
   const [recurringList, setRecurringList] = useState<any[]>([]);
   const [confirmTx, setConfirmTx] = useState<any>(null);
 
@@ -126,16 +123,17 @@ export default function DashboardPage() {
     return d;
   };
 
+  const firstLoadRef = useRef(true);
+
   const refreshDashboard = async () => {
     if (!isStoreReady()) return;
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 100));
+    const isFirst = firstLoadRef.current;
+    if (isFirst) setIsLoading(true);
     const since = getPeriodSince(periodRef.current);
     setAggregates(getAggregates(since));
     setCarryFwd(getCarryForward());
     loadReminders();
     setGoals(getGoals());
-    setTodos(getTodos().filter((t: any) => t.status === 'pending' && !t.deletedAt));
     setRecurringList(getRecurring().filter((r: any) => r.status === 'active' && !r.deletedAt));
     setPartnersList(getPartners());
     setPartnerInvest(getPartners().reduce((s, p) => s + (p.initialInvestment || 0), 0));
@@ -153,8 +151,11 @@ export default function DashboardPage() {
       });
     }
     setMonthlyData(months);
-    
-    setTimeout(() => setIsLoading(false), 200);
+
+    if (isFirst) {
+      firstLoadRef.current = false;
+      setIsLoading(false);
+    }
   };
 
   const periodRef = useRef(period);
@@ -331,18 +332,31 @@ export default function DashboardPage() {
   };
 
   const pSince = getPeriodSince(period);
-  const periodFiltered = (txs: any[]) => pSince ? txs.filter((t: any) => new Date(t.date) >= pSince) : txs;
-  const recentTransactions = periodFiltered(getTransactions()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-  const categoryTotals = periodFiltered(getTransactions())
+  const allTxs = isStoreReady() ? getTransactions() : [];
+  const periodTxs = useMemo(() => (pSince ? allTxs.filter((t: any) => new Date(t.date) >= pSince) : allTxs), [allTxs, period]);
+  const recentTransactions = useMemo(() =>
+    [...periodTxs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5),
+  [periodTxs]);
+  const categoryTotals = useMemo(() => periodTxs
     .filter(t => t.type === 'expense')
     .reduce((acc: Record<string, number>, t) => {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
-    }, {});
-  const pieData = Object.entries(categoryTotals)
+    }, {}), [periodTxs]);
+  const pieData = useMemo(() => Object.entries(categoryTotals)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+    .slice(0, 6), [categoryTotals]);
+
+  const accountBalances = useMemo(() => ({
+    cash: periodTxs.reduce((sum, t: any) => t.account === 'cash' ? sum + (t.type === 'income' ? t.amount : -t.amount) : sum, 0),
+    bank: periodTxs.reduce((sum, t: any) => (t.account === 'bank' || t.account === 'upi') ? sum + (t.type === 'income' ? t.amount : -t.amount) : sum, 0),
+  }), [periodTxs]);
+
+  const partnershipBalance = getPartnerships().reduce((s, ps) => {
+    const sum = getPartnershipSummary(ps.id);
+    return s + (sum.totalIncome - sum.totalExpense);
+  }, 0);
 
   const summaryCards = [
     { key: 'available', title: t('dashboard.available'), amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
@@ -350,7 +364,7 @@ export default function DashboardPage() {
     { key: 'income', title: t('dashboard.totalIncome'), amount: aggregates.income, icon: ArrowUpCircle, color: 'text-green-600', bgColor: 'bg-green-50', addPath: '/dashboard/income' },
     { key: 'expenses', title: t('dashboard.totalExpenses'), amount: aggregates.expense, icon: ArrowDownCircle, color: 'text-red-600', bgColor: 'bg-red-50', addPath: '/dashboard/expenses' },
     { key: 'investments', title: t('dashboard.investments'), amount: aggregates.investment, icon: TrendingUp, color: 'text-brand', bgColor: 'bg-brand-secondary', addPath: '/dashboard/investments' },
-    { key: 'partners', title: t('dashboard.partners'), amount: partnerInvest, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50', addPath: '/dashboard/partners' },
+    { key: 'partners', title: t('dashboard.partners'), amount: partnerInvest + partnershipBalance, icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-50', addPath: '/dashboard/partners' },
   ];
 
   return (
@@ -418,7 +432,7 @@ export default function DashboardPage() {
         </Reveal>
 
         <Reveal delay={100}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           {summaryCards.map((card) => {
             const isExpense = card.key === 'expenses';
             const isInvest = card.key === 'investments';
@@ -430,26 +444,19 @@ export default function DashboardPage() {
             const overLimit = limit > 0 && pct >= 100;
             const nearLimit = limit > 0 && pct >= 80 && pct < 100;
             
-            const periodTxs = periodFiltered(getTransactions());
-            const cashBalance = periodTxs.reduce((sum, t: any) => {
-              if (t.account === 'cash') return sum + (t.type === 'income' ? t.amount : -t.amount);
-              return sum;
-            }, 0);
-            const bankBalance = periodTxs.reduce((sum, t: any) => {
-              if (t.account === 'bank' || t.account === 'upi') return sum + (t.type === 'income' ? t.amount : -t.amount);
-              return sum;
-            }, 0);
+            const cashBalance = accountBalances.cash;
+            const bankBalance = accountBalances.bank;
             
             return (
             <div key={card.title} className={cn(
-              "bg-white dark:bg-[#2A2522] p-6 rounded-2xl shadow-sm hover:shadow-md transition-all",
+              "bg-white dark:bg-[#2A2522] p-4 rounded-2xl shadow-sm hover:shadow-md transition-all",
               overLimit ? "border-2 border-red-400 dark:border-red-500 animate-pulse" : 
               nearLimit ? "border-2 border-amber-400 dark:border-amber-500" : 
               "border border-slate-200 dark:border-brand-muted"
             )}>
-              <div className="flex items-center justify-between mb-4">
-                <div className={cn("p-3 rounded-xl", card.bgColor)}>
-                  <card.icon className={cn("h-6 w-6", card.color)} />
+              <div className="flex items-center justify-between mb-2">
+                <div className={cn("p-2 rounded-lg", card.bgColor)}>
+                  <card.icon className={cn("h-5 w-5", card.color)} />
                 </div>
                 <div className="flex items-center gap-1">
                   {overLimit && <span className="text-xs font-bold text-red-500">OVER</span>}
@@ -462,6 +469,7 @@ export default function DashboardPage() {
                       else if (path === '/dashboard/income') setShowAddTx('income');
                       else if (path === '/dashboard/expenses') setShowAddTx('expense');
                       else if (path === '/dashboard/investments') setShowAddTx('investment');
+                      else router.push(path);
                     }}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-brand-secondary dark:hover:bg-brand-muted/30 transition-colors" title={`Add ${card.title}`}>
                       <Plus className="h-4 w-4" />
@@ -469,8 +477,8 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{card.title}</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(card.amount)}</h3>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 truncate">{card.title}</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 truncate">{formatCurrency(card.amount)}</h3>
               
               {isTotalBalance && (
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-brand-muted/50 space-y-1.5">
@@ -723,49 +731,16 @@ export default function DashboardPage() {
         </Reveal>
         )}
 
-        {/* Tasks + Recurring */}
+        {/* Recurring */}
         {!isLoading && (
         <Reveal delay={500}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">Tasks</h2>
-            {todos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {todos.slice(0, 5).map((t: any) => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 dark:border-brand-muted hover:bg-slate-50 dark:hover:bg-brand-muted/30 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={cn("w-2 h-2 rounded-full shrink-0", t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-amber-500' : 'bg-slate-300')} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{t.title}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{t.dueDate} {t.category && `· ${t.category}`}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {t.important && <span className="text-[10px] font-bold text-amber-500">★</span>}
-                    {t.amount ? <span className="text-sm font-bold text-slate-700 dark:text-slate-300 mr-1">{formatCurrency(t.amount)}</span> : null}
-                    <button onClick={() => { setTaskForm({ type: 'expense', amount: String(t.amount || ''), account: 'cash', date: todayStr(), description: t.title }); setShowTaskForm(t); }} className="p-1.5 rounded-full text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors" title="Mark complete">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            ) : (
-              <div className="text-center py-8">
-                <CheckCircle2 className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No tasks yet</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add tasks from the Savings page.</p>
-              </div>
-            )}
+        <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recurring</h2>
+            <button onClick={() => router.push('/dashboard/recurring')} className="text-xs text-brand hover:underline font-medium">
+              View All
+            </button>
           </div>
-
-          <div className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm transition-all duration-500">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recurring</h2>
-              <button onClick={() => router.push('/dashboard/recurring')} className="text-xs text-brand hover:underline font-medium">
-                View All
-              </button>
-            </div>
             {recurringList.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {recurringList.slice(0, 5).map((r: any) => (
@@ -795,7 +770,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Set up recurring income or expenses.</p>
               </div>
             )}
-          </div>
         </div>
         </Reveal>
         )}
@@ -1074,68 +1048,6 @@ export default function DashboardPage() {
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setShowGoalTx(null)} type="button">Cancel</Button>
                 <Button type="submit" size="sm">{showGoalTx.type === 'contribute' ? 'Contribute' : 'Withdraw'}</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Task Transaction Modal */}
-      {showTaskForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Complete Task</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Record transaction for "{showTaskForm.title}"</p>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const amount = Number(taskForm.amount);
-              if (!amount) return;
-              const account = taskForm.account;
-              addTransaction({ amount, type: taskForm.type as 'income' | 'expense', category: showTaskForm.category || 'Other', description: taskForm.description, date: taskForm.date, partnerAccountId: undefined, account, isRecurring: false });
-              completeTodo(showTaskForm.id);
-              showConfirmTx({ type: taskForm.type, amount, category: showTaskForm.category || 'Other', date: taskForm.date, account, description: taskForm.description });
-              refreshDashboard();
-              setShowTaskForm(null);
-              setToast(`"${showTaskForm.title}" completed`);
-              setTimeout(() => setToast(null), 3000);
-            }} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Type</label>
-                  <select value={taskForm.type} onChange={e => setTaskForm({ ...taskForm, type: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Amount (₹)</label>
-                  <input required type="number" min="0" step="0.01" value={taskForm.amount} onChange={e => setTaskForm({ ...taskForm, amount: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" autoFocus />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Account</label>
-                <select value={taskForm.account} onChange={e => setTaskForm({ ...taskForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
-                  <option value="cash">Cash</option>
-                  <option value="bank">Bank</option>
-                  <option value="upi">UPI</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Date</label>
-                <input required type="date" value={taskForm.date} onChange={e => setTaskForm({ ...taskForm, date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Description</label>
-                <input value={taskForm.description} onChange={e => setTaskForm({ ...taskForm, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="What was this for?" />
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => setShowTaskForm(null)} type="button">Cancel</Button>
-                <Button type="submit" size="sm">Save & Complete</Button>
               </div>
             </form>
           </div>

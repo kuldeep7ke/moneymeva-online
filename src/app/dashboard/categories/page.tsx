@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Pencil, Trash2, X, Check, Tag, Save, ArrowUpCircle, ArrowDownCircle, TrendingUp, Pin, Shield } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Pencil, Trash2, X, Check, Tag, Save, ArrowUpCircle, ArrowDownCircle, TrendingUp, Pin, Shield, ReceiptText } from 'lucide-react';
+import { cn, formatCurrency } from '@/lib/utils';
 import { getTransactions, isStoreReady } from '@/lib/store';
+import { useTranslation } from '@/lib/i18n';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -22,6 +23,13 @@ const TYPE_ICONS: Record<CategoryType, React.ElementType> = {
   income: ArrowUpCircle,
   expense: ArrowDownCircle,
   investment: TrendingUp,
+};
+
+const ACCOUNT_BADGE: Record<string, { label: string; cls: string }> = {
+  cash: { label: 'Cash', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  bank: { label: 'Bank', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  upi: { label: 'UPI', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  invest: { label: 'Invest', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
 };
 
 const BASE_CATEGORIES: Record<CategoryType, string[]> = {
@@ -43,6 +51,7 @@ function saveCategories(type: CategoryType, cats: string[]) {
 }
 
 export default function CategoriesPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<CategoryType>('income');
   const [incomeCats, setIncomeCats] = useState<string[]>([]);
   const [expenseCats, setExpenseCats] = useState<string[]>([]);
@@ -55,6 +64,16 @@ export default function CategoriesPage() {
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [savedCats, setSavedCats] = useState<{ income: string[]; expense: string[]; investment: string[] } | null>(null);
+  const [detailCat, setDetailCat] = useState<string | null>(null);
+
+  const detailTxns = useMemo(() => {
+    if (!detailCat) return [];
+    return getTransactions()
+      .filter(tx => tx.type === tab && tx.category === detailCat && !tx.deletedAt)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [detailCat, tab]);
+
+  const detailTotal = useMemo(() => detailTxns.reduce((s, tx) => s + (Number(tx.amount) || 0), 0), [detailTxns]);
 
   const refreshTxCats = () => {
     if (!isStoreReady()) return;
@@ -137,6 +156,17 @@ export default function CategoriesPage() {
 
   const isBase = (cat: string) => BASE_CATEGORIES[tab].includes(cat);
 
+  const catCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    if (!isStoreReady()) return m;
+    for (const tx of getTransactions()) {
+      if (tx.deletedAt) continue;
+      const key = `${tx.type}::${tx.category}`;
+      m[key] = (m[key] || 0) + 1;
+    }
+    return m;
+  }, [incomeCats, expenseCats, investmentCats, detailCat]);
+
   return (
     <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-6">
@@ -181,7 +211,8 @@ export default function CategoriesPage() {
               </div>
             ) : (
               currentCats.map((cat, i) => (
-                <div key={`${cat}-${i}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-brand-muted/20 transition-colors group">
+                <div key={`${cat}-${i}`} onClick={editingIndex === i ? undefined : () => setDetailCat(cat)}
+                  className={cn("flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-brand-muted/20 transition-colors group", editingIndex !== i && "cursor-pointer")}>
                   {editingIndex === i ? (
                     <>
                       <input value={editValue} onChange={e => setEditValue(e.target.value)}
@@ -198,12 +229,17 @@ export default function CategoriesPage() {
                   ) : (
                     <>
                       <Tag className="h-4 w-4 text-slate-400 shrink-0" />
-                      <span className={cn("flex-1 text-sm", isBase(cat) ? "text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-slate-100 font-medium")}>
+                      <span className={cn("flex-1 text-sm truncate", isBase(cat) ? "text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-slate-100 font-medium")}>
                         {cat}
                         {isBase(cat) && <span className="ml-2 text-[10px] text-slate-400">default</span>}
                       </span>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setEditingIndex(i); setEditValue(cat); }} className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-brand/10">
+                      {!!catCounts[`${tab}::${cat}`] && (
+                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-brand-muted/40 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          {catCounts[`${tab}::${cat}`]}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => { setEditingIndex(i); setEditValue(cat); }} className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-brand/10" title="Edit">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         {confirmDelete === i ? (
@@ -212,7 +248,7 @@ export default function CategoriesPage() {
                             <button onClick={() => setConfirmDelete(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-brand-muted text-xs">No</button>
                           </div>
                         ) : (
-                          <button onClick={() => setConfirmDelete(i)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                          <button onClick={() => setConfirmDelete(i)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -236,6 +272,57 @@ export default function CategoriesPage() {
           </div>
         )}
       </div>
+
+      {detailCat && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl w-full max-w-md shadow-xl my-auto">
+            <div className="flex items-center gap-3 p-4 border-b border-slate-100 dark:border-brand-muted">
+              <div className="h-9 w-9 rounded-xl bg-brand/10 flex items-center justify-center shrink-0">
+                <Tag className="h-4 w-4 text-brand" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{detailCat}</p>
+                <p className="text-xs text-slate-400">
+                  {detailTxns.length} {t('cat.entries')} · {t('cat.total')} {formatCurrency(detailTotal)}
+                </p>
+              </div>
+              <button onClick={() => setDetailCat(null)} className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-brand-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100 dark:divide-brand-muted">
+              {detailTxns.length === 0 ? (
+                <div className="p-10 text-center">
+                  <ReceiptText className="h-10 w-10 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm text-slate-400">{t('cat.noEntries')}</p>
+                </div>
+              ) : (
+                detailTxns.map(tx => {
+                  const badge = tx.account ? ACCOUNT_BADGE[tx.account] : undefined;
+                  return (
+                    <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{tx.description || tx.category}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] text-slate-400">{new Date(tx.date).toLocaleDateString('en-IN')}</span>
+                          {badge && (
+                            <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-semibold", badge.cls)}>{badge.label}</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className={cn("text-sm font-bold shrink-0",
+                        tab === 'income' ? "text-emerald-600 dark:text-emerald-400" : tab === 'expense' ? "text-red-500 dark:text-red-400" : "text-violet-500 dark:text-violet-400")}>
+                        {tab === 'income' ? '+' : tab === 'expense' ? '\u2212' : ''}{formatCurrency(Number(tx.amount) || 0)}
+                      </p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <PinPrompt
         open={pinAction === 'save'}

@@ -5,13 +5,20 @@ export interface WhatsNewItem {
 }
 
 export const RELEASE_NOTES: WhatsNewItem = {
-  version: 'v7.1.1.98',
+  version: 'v7.2.0.1',
   date: '23 Aug 2026',
   items: [
-    'Startup popups now appear one at a time, in order — no more stacking',
-    'Welcome card starts its fade timer only after the announcement banner closes',
-    'Dashboard Partners card renamed to Party',
-    'Announcements load through our own server cache — faster and lighter',
+    'NEW: Works (कामे) — record farm & other jobs with pending payment tracking',
+    'Works: crop, season, area, duration, party and per-payment history',
+    'NEW: Partnership (भागीदारी) tab in Party Accounts for shared income/expense splits',
+    'Partnership: member shares must total 100% with automatic settlement balances',
+    'Partnership members: type any name or pick from your recent parties',
+    'Payments can auto-create matching Income or Expense ledger entries',
+    'Farmer added as a profession during onboarding, with farming categories',
+    'Categories page: tap any category to see all its entries with totals',
+    'Dashboard: compact single-line summary cards with combined Party totals',
+    'Performance: faster dashboard, less loading stutter',
+    'Removed Tasks section — Savings is now Goals only',
   ],
 };
 

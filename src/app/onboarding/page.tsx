@@ -40,6 +40,7 @@ const PROFESSION_OPTIONS = [
   { value: 'homemaker', label: 'Homemaker', icon: '🏠' },
   { value: 'investor', label: 'Investor / Trader', icon: '📈' },
   { value: 'retired', label: 'Retired', icon: '🏖️' },
+  { value: 'farmer', label: 'Farmer', icon: '🌾' },
   { value: 'other', label: 'Other', icon: '👤' },
 ];
 
@@ -78,6 +79,11 @@ const PROFESSION_CATEGORIES: Record<string, { income: string[]; expense: string[
     income: ['Pension', 'Interest', 'Dividends', 'Rental', 'Other'],
     expense: ['Healthcare', 'Medicine', 'Utilities', 'Household', 'Entertainment', 'Other'],
     investment: ['Fixed Deposit', 'Mutual Funds', 'Bonds', 'Gold', 'Other'],
+  },
+  farmer: {
+    income: ['Farm Sale', 'Milk & Dairy', 'Wages Earned', 'Equipment Hire', 'Work Payment', 'Other'],
+    expense: ['Seeds', 'Fertilizer', 'Pesticide', 'Diesel/Fuel', 'Labor', 'Equipment Repair', 'Irrigation & Power', 'Transport', 'Groceries', 'Bills', 'Healthcare', 'Education', 'EMI', 'Insurance', 'Other'],
+    investment: ['Land', 'Equipment', 'Fixed Deposit', 'Gold', 'Livestock', 'Other'],
   },
   other: {
     income: ['Income', 'Other'],

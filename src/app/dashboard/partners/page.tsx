@@ -12,6 +12,8 @@ import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
+import PartnershipTab from '@/components/PartnershipTab';
+import { useTranslation } from '@/lib/i18n';
 
 const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> = {
   vendor: [
@@ -46,6 +48,11 @@ const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> =
 
 export default function PartnersPage() {
   const toast = useToast();
+  const { t } = useTranslation();
+  const [pTab, setPTab] = useState<'accounts' | 'partnership'>(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'partnership') return 'partnership';
+    return 'accounts';
+  });
   const [partners, setPartners] = useState<any[]>([]);
   
   const refresh = () => {
@@ -188,6 +195,19 @@ export default function PartnersPage() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
+        {/* Accounts / Partnership segmented control */}
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-brand-muted/40 rounded-xl p-1 w-fit">
+          <button type="button" onClick={() => setPTab('accounts')}
+            className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-colors", pTab === 'accounts' ? "bg-white dark:bg-[#2A2522] text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300")}>
+            {t('ps.tabAccounts')}
+          </button>
+          <button type="button" onClick={() => setPTab('partnership')}
+            className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-colors", pTab === 'partnership' ? "bg-white dark:bg-[#2A2522] text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300")}>
+            {t('ps.tabPartnership')}
+          </button>
+        </div>
+
+        {pTab === 'accounts' && (<>
         <Reveal>
           <div className="flex items-center justify-between">
             <div>
@@ -195,9 +215,11 @@ export default function PartnersPage() {
               <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Track your joint ventures and project budgets.".split(' ').slice(0, 5).join(' ')}{"Track your joint ventures and project budgets.".split(' ').length > 5 ? '...' : ''}</p>
               <p className="text-slate-500 dark:text-slate-400 hidden md:block">Track your joint ventures and project budgets.</p>
             </div>
-            <button onClick={() => { setEditingId(null); setShowAddModal(true); }} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" type="button" title="Add Party Account">
-              <Plus className="h-5 w-5" />
-            </button>
+            {pTab === 'accounts' && (
+              <button onClick={() => { setEditingId(null); setShowAddModal(true); }} className="h-10 w-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-orange-600 transition-colors active:scale-95 shrink-0" type="button" title="Add Party Account">
+                <Plus className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </Reveal>
 
@@ -320,6 +342,9 @@ export default function PartnersPage() {
         </div>
         </Reveal>
         </Reveal>
+        </>)}
+
+        {pTab === 'partnership' && <PartnershipTab />}
       </div>
 
       {/* Add Partner Modal */}
