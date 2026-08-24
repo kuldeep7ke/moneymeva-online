@@ -49,13 +49,27 @@ export default function HomePage() {
   const [pinRemaining, setPinRemaining] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     const fromDashboard = typeof window !== 'undefined' && window.location.search.includes('from=dashboard');
-    if (!fromDashboard) {
-      const session = getSession().user;
-      if (session) {
+    if (fromDashboard) return;
+    (async () => {
+      let session = getSession().user;
+      if (!session) {
+        // Local session missing — recover it from the persisted Supabase session.
+        try {
+          const { getStoredCloudUser } = await import('@/lib/pouchdb');
+          const cloudUser = await getStoredCloudUser();
+          if (cloudUser && !cancelled) {
+            const { registerGoogleUser } = await import('@/lib/localAuth');
+            session = registerGoogleUser(cloudUser.email, cloudUser.fullName).user;
+          }
+        } catch {}
+      }
+      if (!cancelled && session) {
         router.replace(session.onboarding_completed ? '/dashboard' : '/onboarding');
       }
-    }
+    })();
+    return () => { cancelled = true; };
   }, [router]);
 
   useEffect(() => {

@@ -68,8 +68,9 @@ export default function AccountPage() {
   const handleLogout = async (clearData: boolean) => {
     if (isConnected()) {
       if (!confirm('You are connected to cloud sync. Disconnect first to avoid data conflicts?')) return;
-      disconnectRemote();
     }
+    // Always end the cloud session too, otherwise the next visit would auto-restore it.
+    disconnectRemote();
     if (clearData) {
       if (!confirm('⚠️ WARNING: This will clear ALL your local data. Make sure you have a backup and are disconnected from cloud sync.\n\nContinue?')) return;
       await clearAllDB();

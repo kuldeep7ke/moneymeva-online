@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getSession, logoutUser } from '@/lib/localAuth';
+import { disconnectRemote } from '@/lib/pouchdb';
 import { setUserId } from '@/lib/store';
 import { UserProfile } from '@/types';
 
@@ -76,6 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     logoutUser();
+    // End the cloud session too, otherwise the next visit would auto-restore it.
+    try { disconnectRemote(); } catch {}
     setUser(null);
     setProfile(null);
   }, []);

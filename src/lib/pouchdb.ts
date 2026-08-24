@@ -284,8 +284,25 @@ export function persistOAuthSession(cfg: { url: string; key: string }, params?: 
   }
 }
 
-export async function getOAuthSessionUser(url?: string): Promise<{ email: string; fullName: string } | null> {
+// Returns the signed-in cloud user from a persisted Supabase session (if any),
+// so entry points can restore a lost local session without re-running OAuth.
+export async function getStoredCloudUser(): Promise<{ email: string; fullName: string } | null> {
   const cfg = getConfig();
+  if (!cfg.url || !cfg.key) return null;
+  try {
+    const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
+    const { data } = await client.auth.getUser();
+    const user = data?.user;
+    if (!user?.email) return null;
+    const meta = user.user_metadata || {};
+    const fullName = meta.full_name || meta.name || meta.email || '';
+    return { email: user.email, fullName };
+  } catch {
+    return null;
+  }
+}
+
+export async function getOAuthSessionUser(url?: string): Promise<{ email: string; fullName: string } | null> {  const cfg = getConfig();
   if (!cfg.url || !cfg.key) return null;
   const direct = readStoredOAuthUser(cfg);
   if (direct) {

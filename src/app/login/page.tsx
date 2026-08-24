@@ -81,6 +81,28 @@ function LoginForm() {
   const [appVersion, setAppVersion] = useState('');
   const [serverHost, setServerHost] = useState('');
 
+  // Already signed in (locally or via a persisted cloud session)? Skip the form.
+  useEffect(() => {
+    let cancelled = false;
+    if (getSession().user) {
+      router.replace('/dashboard');
+      return;
+    }
+    (async () => {
+      try {
+        const { getStoredCloudUser } = await import('@/lib/pouchdb');
+        const cloudUser = await getStoredCloudUser();
+        if (!cloudUser || cancelled) return;
+        const { user } = registerGoogleUser(cloudUser.email, cloudUser.fullName);
+        if (!user || cancelled) return;
+        refreshAuth();
+        router.replace(user.onboarding_completed ? '/dashboard' : '/onboarding');
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const meta = document.querySelector('meta[name="app-version"]');
     if (meta) setAppVersion(meta.getAttribute('content') || '');
