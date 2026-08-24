@@ -62,7 +62,7 @@ Local PouchDB buffer (`mm_pouch`) + Supabase `sync_docs` table as the cloud hub 
 - **Pull**: `select` scoped by RLS (`auth.uid() = user_id`)
 - **Live updates**: realtime channel on `sync_docs_realtime` (replica identity full); 30s reconnect interval; `onRemoteChange` for UI refresh
 - **Self-healing checks**: `checkConnection()` — if session looks dead (getUser fails on expired token), recreates the client, `getSession()` auto-refreshes, re-pings, and re-subscribes instead of reporting `false`. Successful reconnects dispatch a sync event (`'complete', 'Sync reconnected'`) so Settings updates its UI live (listens via `listenSyncEvents`) — no more flicker between "Sync Now" and the create-account form on slow/flaky Android networks
-- **URL/key defaults**: baked into `src/lib/env.ts` as XOR+base64 obfuscated constants (`_K='moneymeva'`, runtime `_d()` decoder) — no plain-text secrets in shipped bundles; `.env.local` is inert (nothing reads env vars anymore). Settings can still paste a different URL + anon key at runtime (bring-your-own-Supabase); re-encode via one-liner in CLOUD-SYNC-GUIDE.md
+- **URL/key defaults**: NONE since v7.2.0.9 — repo ships cloud-free; `src/lib/env.ts` reads `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SITE_URL` from `.env.local` (owner's real values live there, gitignored) or Settings → Sync per device. jsonbin Bin IDs remain XOR+base64 obfuscated (`_K='moneymeva'`, runtime `_d()` decoder)
 - **Multi-user isolation**: verified E2E — account B sees 0 rows of account A, RLS blocks cross-account writes, realtime events never cross accounts
 
 ### 5. Local Auth with Multi-User
@@ -290,7 +290,7 @@ npm run android:apk          # build → version → gradle assembleDebug
 - Images unoptimized
 
 ### Runtime Config (env.ts)
-- `NEXT_PUBLIC_*` env vars are NOT read anywhere since v7.1.1.85 — `.env.local` is inert; all defaults live as XOR+base64 strings in `src/lib/env.ts` (`_K='moneymeva'`, `_d()` decoder)
+- `NEXT_PUBLIC_*` env vars ARE read since v7.2.0.8 (Supabase URL/key/SITE_URL overrides at build time); before v7.2.0.9 they fell back to XOR+base64 baked defaults — now defaults are EMPTY (cloud-free repo)
 - To rotate a value: encode with the node one-liner in CLOUD-SYNC-GUIDE.md, paste into env.ts, rebuild
 - Obfuscation defeats bundle grep/extraction only — network traffic still reveals runtime calls
 

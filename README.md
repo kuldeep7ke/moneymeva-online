@@ -269,7 +269,7 @@ src/
 │   ├── activityLog.ts           # Security + CRUD event history
 │   ├── export.ts                # PDF + Excel + CSV export
 │   ├── download.ts              # downloadBlob (native share sheet on Android), copyText, printHtml
-│   ├── env.ts                   # Runtime config (Supabase URL/key, site URL, jsonbin Bin IDs) — XOR-obfuscated, never plain text in the bundle
+│   ├── env.ts                   # Runtime config — Supabase URL/key empty by default (bring-your-own via NEXT_PUBLIC_* build env or Settings → Sync), jsonbin Bin IDs XOR-obfuscated
 │   ├── whats-new.ts             # Release notes + version tracking for What's New modal
 │   ├── defaultCategories.ts     # Default category seed data
 │   ├── capacitor-notifications.ts # Local notification scheduling
@@ -299,6 +299,16 @@ Cloud sync schema lives in [`supabase/schema.sql`](supabase/schema.sql). Owner s
 ---
 
 ## Commands
+
+**Double-click launchers (Windows):**
+
+| File | Description |
+|---|---|
+| `start.bat` | Production server on http://localhost:3000 — auto-installs deps, rebuilds when source is newer than `out/`, frees stale port, opens browser |
+| `start-dev.bat` | Dev server with hot reload, same auto-repairs + browser open |
+| `stop-server.bat` | Stops whatever is running on port 3000 |
+
+**npm scripts:**
 
 | Command | Description |
 |---|---|

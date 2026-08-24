@@ -72,7 +72,7 @@
 | File | Purpose |
 |---|---|
 | `supabase/schema.sql` | `sync_docs` table + RLS + realtime (run in Supabase SQL Editor); header lists all 12 synced doc types (11 entities + pin batch) |
-| `src/lib/env.ts` | Runtime config — Supabase URL/key + jsonbin Bin IDs as XOR+base64 obfuscated constants (decoded at runtime) |
+| `src/lib/env.ts` | Runtime config — Supabase URL/key empty by default (NEXT_PUBLIC_* build env or Settings → Sync), jsonbin Bin IDs XOR-obfuscated |
 | `CLOUD-SYNC-GUIDE.md` | Owner setup + troubleshooting (includes the secret-encoder one-liner) |
 
 ## Config

@@ -73,7 +73,7 @@ disconnectRemote()                            // stop realtime, keep local data
 ## Storage (localStorage)
 
 - `sb-<project-ref>-auth-token` — Supabase auth session (Supabase JS standard key)
-- `mm_pouch_url` / `mm_sync_key` — manual URL/key overrides (defaults live obfuscated in `src/lib/env.ts`)
+- `mm_pouch_url` / `mm_sync_key` — manual URL/key overrides (build-time defaults come from `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`; empty by default)
 - `mm_pouch_urls` — last 5 URLs used (history dropdown)
 
 ## Schema & Security
@@ -111,11 +111,13 @@ listenSyncEvents(fn)   // subscribe to status
 1. Create a Supabase project (free tier OK)
 2. Run `supabase/schema.sql` in SQL Editor (creates `sync_docs` + RLS + realtime)
 3. Optional: turn **OFF** "Confirm email" in Authentication → Email
-4. Bake keys into `src/lib/env.ts` (obfuscated XOR+base64 constants — see
-   CLOUD-SYNC-GUIDE.md for the encoder one-liner; users only enter email + password)
+4. Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` /
+   `NEXT_PUBLIC_SITE_URL` in `.env.local` (see `.env.example`) and rebuild —
+   users only enter email + password
 5. Users can override URL/key manually in Settings (bring-your-own-Supabase)
 
-See `CLOUD-SYNC-GUIDE.md` for the full owner walkthrough.
+See `SELF-HOSTING.md` for the full step-by-step guide and `CLOUD-SYNC-GUIDE.md`
+for the end-user sync walkthrough.
 
 ---
 

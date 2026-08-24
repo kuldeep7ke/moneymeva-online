@@ -880,7 +880,7 @@ money-meva/
 │   │   ├── export.ts           # PDF/Excel export
 │   │   ├── download.ts         # downloadBlob (native share sheet on Android), copyText, printHtml
 │   │   ├── whats-new.ts        # Release notes + localStorage version tracking for What's New modal
-│   │   ├── env.ts              # Runtime config (Supabase URL/key, jsonbin Bin IDs) as XOR+base64 obfuscated strings — decoded at runtime via _d(), never plain text in bundles
+│   │   ├── env.ts              # Runtime config — Supabase URL/key EMPTY by default (bring-your-own via NEXT_PUBLIC_* build env or Settings → Sync); jsonbin Bin IDs stay XOR+base64 obfuscated
 │   │   ├── activityLog.ts      # Activity tracking
 │   │   ├── defaultCategories.ts# Category definitions
 │   │   ├── utils.ts            # Shared utilities

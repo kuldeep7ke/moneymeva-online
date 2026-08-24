@@ -17,7 +17,7 @@ keeps it in sync across your devices — privately, per account.
 ### First time (create your account)
 
 1. Open **Settings → Multi-Device Sync**
-2. The Supabase URL and anon key are already filled in — don't change them
+2. The Supabase URL and anon key fields start empty — fill them with **your own project's** values (create one free at supabase.com; guide: [`SELF-HOSTING.md`](SELF-HOSTING.md))
 3. Enter **your email** and a **password you choose** (min 6 characters)
 4. Tap **Create account & sync**
 5. Done — your data is now backed up to the cloud
