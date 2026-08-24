@@ -96,6 +96,28 @@ Report success criteria to the user: build clean ✓ · URL in bundle ✓ · HTT
 Tell them: open the app → Settings → Multi-Device Sync → enter email/password →
 **Create account & sync** → repeat on other devices with the same account.
 
+## Step 6 — Optional: deploy the user's own web copy
+
+Only if the user asks to host the app publicly. **Never modify environment
+variables of deployments you did not create in this session** (e.g. the original
+author's `moneymevaonline.pages.dev`) — agent tooling has no dashboard access and
+each owner manages their own project's variables.
+
+1. Confirm the repo is pushed to GitHub under the **user's** account (fork is fine)
+2. Have the user create the Pages project in their dashboard:
+   Cloudflare → Workers & Pages → Create → Pages → Connect to Git —
+   build command `npm run build`, output directory `out`
+3. The user pastes the three env vars from Step 3 into
+   Settings → Environment variables (Production), with
+   `NEXT_PUBLIC_SITE_URL=https://<their-project>.pages.dev`
+4. User deploys; agent verifies:
+   ```powershell
+   Invoke-WebRequest https://<their-project>.pages.dev -UseBasicParsing -TimeoutSec 15  # expect 200
+   ```
+5. Remind the user to add the new domain in Supabase → Authentication →
+   URL Configuration (Site URL + `<domain>/**` redirect), per SELF-HOSTING.md
+6. Env vars are build-time: any change requires a redeploy
+
 ## Troubleshooting map
 
 | Symptom | Agent action |

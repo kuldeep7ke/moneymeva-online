@@ -134,7 +134,7 @@ You can also override the sync target per device later in **Settings → Multi-D
 
 > **Deploying the web app somewhere (Cloudflare Pages, Netlify…)?** Add the same
 > three values as build environment variables in that service's dashboard — remote
-> builds never see your local `.env.local`.
+> builds never see your local `.env.local`. See the next section.
 
 ---
 
@@ -160,6 +160,42 @@ npm run android:apk   # builds web → bumps version → gradle assembleDebug
 APK output: `android/app/build/outputs/apk/debug/app-debug.apk`.
 The same `.env.local` values are baked in. On devices the OAuth round-trip uses the
 `moneymeva://` deep link — no extra configuration needed beyond Step 4.
+
+---
+
+## Deploying your own web copy (Cloudflare Pages or similar)
+
+Anyone can turn their fork/copy of this repo into its own hosted web app — with
+**their own** database and **their own** environment variables. Every deployment is
+independent: you set your values in *your* project's dashboard and never touch
+another deployment's variables (and nobody can touch yours).
+
+### Cloudflare Pages
+
+1. Push your copy to GitHub (a fork works fine)
+2. Cloudflare Dashboard → **Workers & Pages → Create → Pages → Connect to Git**
+   - Build command: `npm run build`
+   - Output directory: `out`
+3. **Settings → Environment variables (Production)** → add the same three values
+   from Step 5:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SITE_URL` = `https://<your-project>.pages.dev` (no trailing slash)
+4. **Deploy**, then open `https://<your-project>.pages.dev` — your app, your cloud
+5. Back in Supabase → Authentication → URL Configuration, allow the new address:
+   - Site URL: `https://<your-project>.pages.dev`
+   - Redirect URLs: add `https://<your-project>.pages.dev/**`
+
+Notes:
+
+- Env vars are injected at **build time** — after changing them, trigger
+  **Retry deployment** / redeploy.
+- Netlify/Vercel work identically: same build command, output dir, three variables.
+- Skip the variables and your deployment builds **cloud-free**: fully offline app,
+  no Google sign-in/sync — exactly as designed.
+- The original author's live deployment (`moneymevaonline.pages.dev`) uses the
+  author's own environment variables configured privately in their dashboard; it is
+  unrelated to your copy.
 
 ---
 
