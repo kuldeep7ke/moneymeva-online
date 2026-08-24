@@ -17,6 +17,7 @@ import { clearAllDB, processRemoteChanges, pushAllToPouch } from '@/lib/store';
 import { generatePins, getPins, arePinsShown, markPinsShown, hasPins, getRemainingPins, getAutoLockMinutes, setAutoLockMinutes } from '@/lib/pinStore';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
+import CloudSetupWizard from '@/components/CloudSetupWizard';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const [syncFailCount, setSyncFailCount] = useState(0);
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
   const [syncUrlHistory, setSyncUrlHistory] = useState<string[]>([]);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   useEffect(() => {
     const existingPins = hasPins();
@@ -478,7 +480,12 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Multi-Device Sync</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Supabase cloud sync</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Supabase cloud sync ·{' '}
+                    <button onClick={() => setSetupOpen(true)} className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
+                      Setup Guide
+                    </button>
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className={cn("w-2 h-2 rounded-full", syncing ? 'bg-amber-500 animate-pulse' : syncStatus === 'connected' ? 'bg-green-500' : syncStatus === 'connecting' ? 'bg-amber-500 animate-pulse' : syncStatus === 'error' ? 'bg-red-500' : 'bg-slate-300')} />
@@ -1111,6 +1118,8 @@ export default function SettingsPage() {
         onClose={() => setShowPinSetup(null)}
         action={showPinSetup || ''}
       />
+
+      <CloudSetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} />
 
       {/* Sync Failure Popup */}
       {showSyncFailPopup && (

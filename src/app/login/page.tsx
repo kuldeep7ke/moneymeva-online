@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { loginUser, registerUser, getAllUsers, switchUser, removeUser, getSession, LocalUser, updatePassword, resetPassword, registerGoogleUser } from '@/lib/localAuth';
 import { signInWithGoogle, getOAuthSessionUser, getConfig, connectRemote, manualSync } from '@/lib/pouchdb';
 import { BASE_PATH } from '@/lib/env';
+import CloudSetupWizard from '@/components/CloudSetupWizard';
 import { validatePin, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { useAuth } from '@/components/AuthProvider';
 import { Capacitor } from '@capacitor/core';
@@ -66,6 +67,7 @@ function LoginForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [forgotStep, setForgotStep] = useState<'idle' | 'email' | 'pin' | 'reset'>('idle');
   const [forgotEmail, setForgotEmail] = useState('');
@@ -181,10 +183,16 @@ function LoginForm() {
 
   const handleGoogleLogin = async () => {
     setError('');
+    const cfg = getConfig();
+    if (!cfg.url || !cfg.key) {
+      setWizardOpen(true);
+      return;
+    }
     setSubmitting(true);
     const { ok, error, url } = await signInWithGoogle();
     if (!ok) {
       setError(error || 'Google sign-in failed');
+      if (/provider is not enabled|not configured/i.test(error || '')) setWizardOpen(true);
       setSubmitting(false);
       return;
     }
@@ -370,6 +378,9 @@ function LoginForm() {
         </div>
         </div>
       </div>
+
+      {/* Cloud Setup Wizard */}
+      <CloudSetupWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
 
       {/* Forgot Password Modal */}
       {forgotStep !== 'idle' && (
