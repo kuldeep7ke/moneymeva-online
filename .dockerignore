@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+android
+ios
+.github
+.git
+.env.local
+.env*.example
+*.log
+.server.pid
+docs
+data
