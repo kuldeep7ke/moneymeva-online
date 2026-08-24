@@ -1,9 +1,7 @@
-// Runtime config. Values are stored XOR-obfuscated + base64 so they do not appear as
-// plain-text strings in the shipped bundle (no casual grep/extraction from APK or web JS).
-// Decode happens in-memory at runtime. Note: a determined attacker monitoring network
-// traffic can still recover these — this is obfuscation, not cryptographic secrecy.
-// The Supabase anon key is a public client key by design — row-level security on the
-// database protects the actual data.
+// Runtime config. Supabase URL/key are NOT baked in — this app is offline-first and
+// cloud sync is bring-your-own: set NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
+// / NEXT_PUBLIC_SITE_URL in .env.local (see SELF-HOSTING.md) before building, or paste a
+// project in Settings → Multi-Device Sync at runtime. Announcement bins stay obfuscated.
 const _K = 'moneymeva';
 function _d(e: string): string {
   try {
@@ -18,11 +16,8 @@ function _d(e: string): string {
   }
 }
 
-export const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || _d('BRsaFQpXSlkOHx8JCBsfHBUPAAUZERgBEAYCCEEdEAkMBxcSCEENCg==');
-export const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  _d('CBYkDRsqBh8uBCUnMAMkVDgIJBwnCytYBjUoWyYFFSE7JjxYQwoXLwkOVjsIIgYkHx01Jx44ACkUPyokFj8PJwM0DDBbLBtYFAwpAQ00CzxUNF1bERgDAUY4OhdfBj4jCT8IGgYNCEAePyUoWyYDIwwPV0IIISwkFSA1NB8uBypdKj00UDglBl8jDyweLBs3WQwtLE8gDzMWIAU7HDc5NA8vNV9ASC0oKjgOHAoPLwMPNRUrNwEjCigpPwwPAAApBBMBKwY5IR09ICo+LABVOA==');
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ||
   'https://moneymevaonline.pages.dev'

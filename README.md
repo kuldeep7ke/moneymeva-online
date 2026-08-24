@@ -328,7 +328,7 @@ Cloud sync uses **Supabase** (Postgres + Auth + Realtime) — every user gets th
 3. **Get your keys** — Project Settings → API:
    - Project URL: `https://<project-ref>.supabase.co`
    - anon public key (starts with `eyJ…`)
-4. **Keys are pre-baked, overridable** — defaults live obfuscated in [`src/lib/env.ts`](src/lib/env.ts) (XOR + base64). To point at a different project set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SITE_URL` in `.env.local` (see `.env.example`) and rebuild; end users can also paste their own URL + key in Settings at runtime.
+4. **Keys are NOT baked in** — the repo ships cloud-free. For sync/Google login, create `.env.local` from [`.env.example`](.env.example) with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` and rebuild (full walkthrough: [SELF-HOSTING.md](SELF-HOSTING.md)). End users can also paste a project URL + key per device in Settings at runtime.
 5. **In-app** — Settings → Multi-Device Sync:
    - **New user:** enter an email + a **password you choose** (min 6 characters — this is your *cloud account* password, unrelated to the app unlock password or your Google password) → tap **Create account & sync**
    - **Existing user:** enter the same email + password → tap **Connect**

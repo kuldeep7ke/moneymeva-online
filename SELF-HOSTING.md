@@ -1,13 +1,16 @@
 # Self-Hosting Guide (Money Meva)
 
 Money Meva is **offline-first**: every feature works with zero cloud setup and all
-data lives on your device (IndexedDB). This guide is for people who want to run
-their **own private copy** of the app with **their own database** — for online
-backup and multi-device sync — instead of using the built-in default project.
+data lives on your device (IndexedDB). This guide is for people who want **online
+backup and multi-device sync** through **their own private Supabase project**.
+The app ships with **no cloud credentials** — you create the database, you own the data.
 
 > **TL;DR** — clone → `npm install` → app already works offline.
-> Want cloud sync? Create a free Supabase project, paste 3 values into `.env.local`,
-> rebuild. Details below.
+> Want sync? Create a free Supabase project, run one SQL file, put 3 values in
+> `.env.local`, rebuild. Details below.
+>
+> **Using opencode or another AI agent?** Open it in this folder and say:
+> *"Read OPENCODE-SYNC-SETUP.md and follow it to connect my Supabase project."*
 
 ---
 
@@ -102,6 +105,9 @@ Skip this step to use only email+password accounts. For "Continue with Google":
 
 ## Step 5 — Point the app at YOUR project
 
+This step is **required for any cloud feature** (sync and Google sign-in). Without
+it the app stays fully offline and Google sign-in will say cloud isn't configured.
+
 Copy `.env.example` → `.env.local` and fill in:
 
 ```ini
@@ -124,7 +130,11 @@ npm run build
 
 That's it — Google sign-in now creates users in **your** project and every device
 that signs in syncs through **your** `sync_docs` table automatically.
-You can still override the sync target per device later in **Settings → Multi-Device Sync**.
+You can also override the sync target per device later in **Settings → Multi-Device Sync**.
+
+> **Deploying the web app somewhere (Cloudflare Pages, Netlify…)?** Add the same
+> three values as build environment variables in that service's dashboard — remote
+> builds never see your local `.env.local`.
 
 ---
 

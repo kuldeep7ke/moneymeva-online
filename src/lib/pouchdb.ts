@@ -185,7 +185,7 @@ export async function signUpUser(url: string, key: string, email: string, passwo
 export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string; url?: string }> {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) {
-    return { ok: false, error: 'Cloud sync is not configured — set the Supabase URL and anon key first (Settings → Multi-Device Sync)' };
+    return { ok: false, error: 'Cloud sync is not configured yet. Create your own free Supabase project (guide: SELF-HOSTING.md in the repo) and connect it in Settings → Multi-Device Sync.' };
   }
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
