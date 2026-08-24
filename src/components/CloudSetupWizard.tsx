@@ -6,6 +6,7 @@ import {
   Check, ChevronRight, Circle, Copy, ExternalLink, Loader2, RefreshCw, X,
 } from 'lucide-react';
 import { CLOUD_SETUP_SQL } from '@/lib/cloud-setup-schema';
+import { BASE_PATH } from '@/lib/env';
 
 const LS_DRAFT = 'mm_setup_draft';
 const LS_REDIRECT_OK = 'mm_setup_redirect_ok';
@@ -108,7 +109,7 @@ export default function CloudSetupWizard({ open, onClose }: { open: boolean; onC
   const ref = projectRef(draft.url);
   const isNative = Capacitor.isNativePlatform();
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const redirectWeb = `${origin}/login`;
+  const redirectWeb = `${origin}${BASE_PATH}/login`;
   const doneCount = Object.values(states).filter(s => s === 'done').length + (redirectOk ? 1 : 0);
   const allDone = states.project === 'done' && states.schema === 'done' && states.google === 'done' && redirectOk;
 
