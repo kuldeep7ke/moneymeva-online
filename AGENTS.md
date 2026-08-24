@@ -159,3 +159,5 @@ npm run android:apk         # Full build → version → gradle assembleDebug
 | `src/lib/pouchdb.ts` | PouchDB remote connection and sync logic |
 | `src/lib/sync-notify.ts` | Sync event dispatch system |
 | `src/components/InvestmentCalculator.tsx` | FD/SIP/RD/PPF investment calculator |
+| `SELF-HOSTING.md` | Self-host guide: own Supabase project via `.env.local` overrides (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY/SITE_URL), Google OAuth setup, multi-device sync |
+| `src/lib/env.ts` | Runtime config: Supabase URL/key (XOR-obfuscated, overridable via NEXT_PUBLIC_* env vars at build time), SITE_URL, jsonbin bin IDs |

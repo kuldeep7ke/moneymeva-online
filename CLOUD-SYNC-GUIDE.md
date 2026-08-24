@@ -4,6 +4,8 @@ Cloud sync backs up your Money Meva data to a shared cloud database (Supabase) a
 keeps it in sync across your devices — privately, per account.
 
 > **Users:** see the full manual in [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md).
+> **Self-hosting?** To run the app against **your own** Supabase project with your
+> own Google login and database, follow **[SELF-HOSTING.md](SELF-HOSTING.md)**.
 > This file is the sync-specific reference, including owner/developer setup.
 
 ---

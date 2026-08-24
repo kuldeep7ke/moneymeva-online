@@ -18,9 +18,15 @@ function _d(e: string): string {
   }
 }
 
-export const SUPABASE_URL = _d('BRsaFQpXSlkOHx8JCBsfHBUPAAUZERgBEAYCCEEdEAkMBxcSCEENCg==');
-export const SUPABASE_ANON_KEY = _d('CBYkDRsqBh8uBCUnMAMkVDgIJBwnCytYBjUoWyYFFSE7JjxYQwoXLwkOVjsIIgYkHx01Jx44ACkUPyokFj8PJwM0DDBbLBtYFAwpAQ00CzxUNF1bERgDAUY4OhdfBj4jCT8IGgYNCEAePyUoWyYDIwwPV0IIISwkFSA1NB8uBypdKj00UDglBl8jDyweLBs3WQwtLE8gDzMWIAU7HDc5NA8vNV9ASC0oKjgOHAoPLwMPNRUrNwEjCigpPwwPAAApBBMBKwY5IR09ICo+LABVOA==');
-export const SITE_URL = 'https://moneymevaonline.pages.dev';
+export const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || _d('BRsaFQpXSlkOHx8JCBsfHBUPAAUZERgBEAYCCEEdEAkMBxcSCEENCg==');
+export const SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  _d('CBYkDRsqBh8uBCUnMAMkVDgIJBwnCytYBjUoWyYFFSE7JjxYQwoXLwkOVjsIIgYkHx01Jx44ACkUPyokFj8PJwM0DDBbLBtYFAwpAQ00CzxUNF1bERgDAUY4OhdfBj4jCT8IGgYNCEAePyUoWyYDIwwPV0IIISwkFSA1NB8uBypdKj00UDglBl8jDyweLBs3WQwtLE8gDzMWIAU7HDc5NA8vNV9ASC0oKjgOHAoPLwMPNRUrNwEjCigpPwwPAAApBBMBKwY5IR09ICo+LABVOA==');
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  'https://moneymevaonline.pages.dev'
+).replace(/\/$/, '');
 
 // jsonbin.io Bin IDs (broadcast & banner — edit via jsonbin.io dashboard, see docs/BROADCAST-GUIDE.md)
 export const BROADCAST_BIN_ID = _d('Ww5WXB9dVk4HWAlaBB9YAERYXlldBk5U');

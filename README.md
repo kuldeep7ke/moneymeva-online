@@ -320,12 +320,15 @@ Cloud sync schema lives in [`supabase/schema.sql`](supabase/schema.sql). Owner s
 
 Cloud sync uses **Supabase** (Postgres + Auth + Realtime) — every user gets their own private data space with email + password login.
 
+> **Self-hosting the app with your own database and Google login?**
+> Follow the step-by-step guide: **[SELF-HOSTING.md](SELF-HOSTING.md)** — clone → create a free Supabase project → run `supabase/schema.sql` → fill 3 values in `.env.local` → rebuild. Offline-first by default; cloud sync is optional.
+
 1. **Create a Supabase project** at https://supabase.com (free tier is enough)
 2. **Create the sync table** — open SQL Editor, run the contents of [`supabase/schema.sql`](supabase/schema.sql)
 3. **Get your keys** — Project Settings → API:
    - Project URL: `https://<project-ref>.supabase.co`
    - anon public key (starts with `eyJ…`)
-4. **Keys are pre-baked** — the URL + anon key live obfuscated in [`src/lib/env.ts`](src/lib/env.ts) (XOR + base64, decoded at runtime — no plain-text secrets in shipped bundles). To point at a different project, edit that file and rebuild; end users can also paste their own URL + key in Settings at runtime.
+4. **Keys are pre-baked, overridable** — defaults live obfuscated in [`src/lib/env.ts`](src/lib/env.ts) (XOR + base64). To point at a different project set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SITE_URL` in `.env.local` (see `.env.example`) and rebuild; end users can also paste their own URL + key in Settings at runtime.
 5. **In-app** — Settings → Multi-Device Sync:
    - **New user:** enter an email + a **password you choose** (min 6 characters — this is your *cloud account* password, unrelated to the app unlock password or your Google password) → tap **Create account & sync**
    - **Existing user:** enter the same email + password → tap **Connect**
