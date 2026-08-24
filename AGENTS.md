@@ -17,6 +17,14 @@ npm run lint
 npm run android:apk         # Full build → version → gradle assembleDebug
 ```
 
+## Local Server Launchers (double-click)
+
+- `start.bat` — production server on http://localhost:3000 (auto-repairs: installs deps, rebuilds when src/ is newer than out/, frees stale port 3000, opens browser)
+- `start-dev.bat` — dev server with HMR on http://localhost:3000 (same auto-repair + browser open)
+- `stop-server.bat` — kills whatever listens on port 3000
+- `scripts/serve.cjs` — static file server for out/ with clean URLs (/dashboard → dashboard.html), writes `.server.pid`
+- Logs: `.server.log` / `.dev-server.log` at repo root (gitignored)
+
 ## Architecture
 
 - Next.js 16.2.9 App Router (static export, `'use client'` everywhere)
