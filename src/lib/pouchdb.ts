@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SITE_URL } from '@/lib/env';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, BASE_PATH } from '@/lib/env';
 import { dispatchSyncEvent } from './sync-notify';
 
 const LS_URL = 'mm_pouch_url';
@@ -190,8 +190,9 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; error?: string;
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
     const isNative = Capacitor.isNativePlatform();
-    const siteUrl = (SITE_URL || window.location.origin).replace(/\/$/, '');
-    const redirectTo = isNative ? 'moneymeva://login' : `${siteUrl}/login`;
+    // Return to the SAME site the user is on (Cloudflare, GitHub Pages, localhost…)
+    // so the cloud session is stored on the right origin and survives reloads.
+    const redirectTo = isNative ? 'moneymeva://login' : `${window.location.origin}${BASE_PATH}/login`;
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
