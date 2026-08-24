@@ -161,3 +161,4 @@ npm run android:apk         # Full build → version → gradle assembleDebug
 | `src/components/InvestmentCalculator.tsx` | FD/SIP/RD/PPF investment calculator |
 | `SELF-HOSTING.md` | Self-host guide: own Supabase project via `.env.local` overrides (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY/SITE_URL), Google OAuth setup, multi-device sync |
 | `src/lib/env.ts` | Runtime config: Supabase URL/key EMPTY by default (bring-your-own via NEXT_PUBLIC_* env vars or Settings → Sync), SITE_URL, jsonbin bin IDs |
+| `.github/workflows/deploy-gh-pages.yml` | GitHub Pages deploy: builds with `DEPLOY_TARGET=gh-pages` → basePath `/moneymeva-online` (next.config.ts), Pages source must be "GitHub Actions" |

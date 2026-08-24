@@ -163,7 +163,7 @@ The same `.env.local` values are baked in. On devices the OAuth round-trip uses 
 
 ---
 
-## Deploying your own web copy (Cloudflare Pages or similar)
+## Deploying your own web copy (Cloudflare Pages, GitHub Pages or similar)
 
 Anyone can turn their fork/copy of this repo into its own hosted web app — with
 **their own** database and **their own** environment variables. Every deployment is
@@ -186,7 +186,29 @@ another deployment's variables (and nobody can touch yours).
    - Site URL: `https://<your-project>.pages.dev`
    - Redirect URLs: add `https://<your-project>.pages.dev/**`
 
+### GitHub Pages
+
+The repo ships a ready-made workflow (`.github/workflows/deploy-gh-pages.yml`)
+that publishes your copy to `https://<your-username>.github.io/moneymeva-online/`:
+
+1. Fork/push the repo, then open **Settings → Pages → Build and deployment →
+   Source** and select **GitHub Actions** (the workflow deploys automatically on
+   every push to `master`, or via **Run workflow**)
+2. Optional — for Google sign-in/sync on your copy, add repo variables/secrets
+   (**Settings → Secrets and variables → Actions**):
+   - Secret `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (your project's values from Step 5)
+   - Variable `NEXT_PUBLIC_SITE_URL` = `https://<your-username>.github.io/moneymeva-online`
+3. Re-run the workflow after adding them (build-time injection), then in Supabase
+   → Authentication → URL Configuration add:
+   - Redirect URL: `https://<your-username>.github.io/moneymeva-online/**`
+
 Notes:
+
+- Without secrets the Pages copy builds **cloud-free** (offline app) — same as any other host.
+- First deploy can take a few minutes; check the **Actions** tab for progress.
+- Skip this by disabling the workflow or leaving Pages source as "Deploy from a branch".
+
+Notes (all hosts):
 
 - Env vars are injected at **build time** — after changing them, trigger
   **Retry deployment** / redeploy.
