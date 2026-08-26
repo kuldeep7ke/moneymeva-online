@@ -17,12 +17,21 @@ npm run lint
 npm run android:apk         # Full build → version → gradle assembleDebug
 ```
 
-## Local Server Launchers (double-click)
+## Local Server Launchers
 
+**Windows:**
 - `start.bat` — production server on http://localhost:3000 (auto-repairs: installs deps, rebuilds when src/ is newer than out/, frees stale port 3000, opens browser)
 - `start-dev.bat` — dev server with HMR on http://localhost:3000 (same auto-repair + browser open)
 - `stop-server.bat` — kills whatever listens on port 3000
+
+**Mac / Linux:**
+- `start.sh` — same as start.bat, cross-platform (uses lsof/fuser for port cleanup, xdg-open/open for browser)
+- `start-dev.sh` — same as start-dev.bat
+- `stop-server.sh` — same as stop-server.bat
+
+**Shared:**
 - `scripts/serve.cjs` — static file server for out/ with clean URLs (/dashboard → dashboard.html), writes `.server.pid`
+- `scripts/fresh-check.cjs` — checks if src/ is newer than out/ (used by launchers to decide rebuild)
 - Logs: `.server.log` / `.dev-server.log` at repo root (gitignored)
 
 ## Architecture
@@ -153,12 +162,18 @@ npm run android:apk         # Full build → version → gradle assembleDebug
 | `src/components/LanguageSelector.tsx` | Language dropdown with portal |
 | `src/components/TransactionPage.tsx` | Shared income/expenses/investments page with party field |
 | `src/app/dashboard/partners/page.tsx` | Partner management page |
-| `src/lib/store.ts` | Data layer (Dexie + cache + PouchDB) |
+| `src/lib/store.ts` | Data layer (Dexie + cache + PouchDB + audit log sync) |
 | `src/components/DashboardLayout.tsx` | Sidebar nav + layout |
 | `src/components/Reveal.tsx` | Scroll-reveal animation wrapper |
 | `src/lib/pouchdb.ts` | PouchDB remote connection and sync logic |
 | `src/lib/sync-notify.ts` | Sync event dispatch system |
 | `src/components/InvestmentCalculator.tsx` | FD/SIP/RD/PPF investment calculator |
+| `src/lib/activityLog.ts` | Security + CRUD event history (localStorage) |
+| `src/lib/db.ts` | Dexie schema (all 12 tables including mutation_log) |
+| `src/app/dashboard/ledger/page.tsx` | Audit Ledger — full mutation log with filters |
+| `src/app/dashboard/accounts/page.tsx` | Bank/cash/revenue/expenses accounts with month filter |
+| `src/components/CloudSetupWizard.tsx` | Cloud sync setup wizard (auto-checking 4 steps) |
+| `scripts/serve.cjs` | Cross-platform static file server for out/ |
 | `SELF-HOSTING.md` | Self-host guide: own Supabase project via `.env.local` overrides (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY/SITE_URL), Google OAuth setup, multi-device sync |
 | `src/lib/env.ts` | Runtime config: Supabase URL/key EMPTY by default (bring-your-own via NEXT_PUBLIC_* env vars or Settings → Sync), SITE_URL, jsonbin bin IDs |
 | `.github/workflows/deploy-gh-pages.yml` | GitHub Pages deploy: builds with `DEPLOY_TARGET=gh-pages` → basePath `/moneymeva-online` (next.config.ts), Pages source must be "GitHub Actions" |

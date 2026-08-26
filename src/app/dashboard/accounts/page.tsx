@@ -3,24 +3,27 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Wallet, Landmark, ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown, PiggyBank, Plus, X } from 'lucide-react';
+import { Wallet, Landmark, ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown, PiggyBank, Plus, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getTransactions, isStoreReady, addTransaction } from '@/lib/store';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
 
-const PERIODS = ['1W', '1M', '3M', '6M', '1Y', 'ALL'] as const;
-type PeriodKey = typeof PERIODS[number];
-
 const NON_OP = ['Transfer', 'Capital', 'Drawings'];
 
-function periodSince(p: PeriodKey): Date | undefined {
-  if (p === 'ALL') return undefined;
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function currentYM(): string {
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  const map: Record<string, number> = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
-  d.setDate(d.getDate() - (map[p] || 30));
-  return d;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthRange(ym: string): { start: string; end: string } {
+  const [y, m] = ym.split('-').map(Number);
+  const start = `${y}-${String(m).padStart(2, '0')}-01`;
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  return { start, end };
 }
 
 interface CardTx {
@@ -96,7 +99,7 @@ function AccountCard({ icon: Icon, accentCls, title, subtitle, balance, balanceC
 
 export default function AccountsPage() {
   const toast = useToast();
-  const [period, setPeriod] = useState<PeriodKey>('1M');
+  const [selectedMonth, setSelectedMonth] = useState(currentYM());
   const [cashBalance, setCashBalance] = useState(0);
   const [bankBalance, setBankBalance] = useState(0);
   const [cashTxs, setCashTxs] = useState<CardTx[]>([]);
@@ -124,8 +127,8 @@ export default function AccountsPage() {
     setCashTxs([...cash].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
     setBankTxs([...bank].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
 
-    const since = periodSince(period);
-    const ptxs = since ? active.filter(t => new Date(t.date) >= since) : active;
+    const { start, end } = monthRange(selectedMonth);
+    const ptxs = active.filter(t => t.date >= start && t.date <= end);
     const revTxs = ptxs.filter(t => t.type === 'income' && !NON_OP.includes(t.category));
     const expTxs = ptxs.filter(t => t.type === 'expense' && !NON_OP.includes(t.category));
     setRevenueTotal(revTxs.reduce((s, t) => s + t.amount, 0));
@@ -147,7 +150,7 @@ export default function AccountsPage() {
     return () => window.removeEventListener('store-ready', refresh);
   }, []);
 
-  useEffect(() => { refresh(); }, [period]);
+  useEffect(() => { refresh(); }, [selectedMonth]);
 
   const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,17 +204,33 @@ export default function AccountsPage() {
           </div>
         </Reveal>
 
-        {/* Period selector for Revenue / Expenses */}
+        {/* Month selector for Revenue / Expenses */}
         <Reveal delay={50}>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-medium text-slate-400 mr-1">Revenue &amp; Expenses:</span>
-            {PERIODS.map(p => (
-              <button key={p} onClick={() => setPeriod(p)}
-                className={cn("px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                  period === p ? "bg-brand text-white" : "bg-white dark:bg-[#2A2522] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-brand-muted hover:text-brand")}>
-                {p}
+          <div className="flex items-center gap-1.5">
+            <CalendarDays className="h-4 w-4 text-slate-400 mr-1" />
+            <button onClick={() => {
+              const [y, m] = selectedMonth.split('-').map(Number);
+              const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+              setSelectedMonth(prev);
+            }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-brand-muted/30 text-slate-500 dark:text-slate-400 transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 min-w-[100px] text-center">
+              {MONTH_NAMES[Number(selectedMonth.split('-')[1]) - 1]} {selectedMonth.split('-')[0]}
+            </span>
+            <button onClick={() => {
+              const [y, m] = selectedMonth.split('-').map(Number);
+              const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+              setSelectedMonth(next);
+            }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-brand-muted/30 text-slate-500 dark:text-slate-400 transition-colors">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            {selectedMonth !== currentYM() && (
+              <button onClick={() => setSelectedMonth(currentYM())}
+                className="px-2.5 py-1 rounded-full text-xs font-medium bg-brand/10 text-brand hover:bg-brand/20 transition-colors ml-1">
+                Today
               </button>
-            ))}
+            )}
           </div>
         </Reveal>
 
@@ -296,7 +315,7 @@ export default function AccountsPage() {
             icon={TrendingUp}
             accentCls="bg-green-50 dark:bg-green-900/20 [&_svg]:text-green-600"
             title="Revenue"
-            subtitle={`Income this period (${period})`}
+            subtitle={`Income in ${MONTH_NAMES[Number(selectedMonth.split('-')[1]) - 1]} ${selectedMonth.split('-')[0]}`}
             balance={revenueTotal}
             balanceCls="text-slate-900 dark:text-slate-100"
             txs={incomeTxs}
@@ -310,7 +329,7 @@ export default function AccountsPage() {
             icon={TrendingDown}
             accentCls="bg-red-50 dark:bg-red-900/20 [&_svg]:text-red-600"
             title="Expenses"
-            subtitle={`Spending this period (${period})`}
+            subtitle={`Spending in ${MONTH_NAMES[Number(selectedMonth.split('-')[1]) - 1]} ${selectedMonth.split('-')[0]}`}
             balance={expenseTotal}
             balanceCls="text-slate-900 dark:text-slate-100"
             txs={expenseTxs}

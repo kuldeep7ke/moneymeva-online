@@ -3,9 +3,9 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.1.1.91** — A minimalistic, local-first personal finance companion.
+**v7.2.0.21** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
-Made in India.
+Made in India. Runs on Windows, Mac, Linux, Docker, and Android.
 
 ---
 
@@ -63,7 +63,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 
 ### Multi-Device Sync (Supabase)
 - **PouchDB + Supabase** — a local PouchDB buffer (`mm_pouch`) syncs to a shared Supabase `sync_docs` table. Manual + live (realtime) sync. Data is stored on the cloud — it doubles as a backup.
-- **Every section syncs** — all 11 data entities (transactions, partners, recurring, budgets, reminders, adjustments, goals, todos, works, partnerships, partnership_entries) plus the PIN batch push through one doc store (`entity:id` rows). Only the device-local audit log and UI preferences stay on-device.
+- **Every section syncs** — all 11 data entities (transactions, partners, recurring, budgets, reminders, adjustments, goals, todos, works, partnerships, partnership_entries) plus the audit trail (mutation_log) push through one doc store (`entity:id` rows). UI preferences stay on-device.
 - **Per-user isolation** — every row carries `user_id`; Row-Level Security guarantees no account can read or write another account's data.
 - **Email + password login** — Supabase Auth. URL + anon key are pre-configured from the build; users just enter their email + password.
 - **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device. **Google sign-in connects automatically** — no email/password needed.
@@ -156,6 +156,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 Write path:  Cache → Dexie → Mutation Log → PouchDB ──→ Supabase (fire-and-forget)
 Read path:   Cache ← Dexie (hydration on load)
 Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
+Audit sync:  Mutation Log → PouchDB (audit entries pushed with last-write timestamp)
 ```
 
 Every entity carries: `id`, `transitionId`, `userId`, `createdAt`, `updatedAt`, `deletedAt`.
@@ -300,13 +301,15 @@ Cloud sync schema lives in [`supabase/schema.sql`](supabase/schema.sql). Owner s
 
 ## Commands
 
-**Double-click launchers (Windows):**
+**Cross-platform launchers:**
 
-| File | Description |
-|---|---|
-| `start.bat` | Production server on http://localhost:3000 — auto-installs deps, rebuilds when source is newer than `out/`, frees stale port, opens browser |
-| `start-dev.bat` | Dev server with hot reload, same auto-repairs + browser open |
-| `stop-server.bat` | Stops whatever is running on port 3000 |
+| Platform | Production | Dev | Stop |
+|---|---|---|---|
+| Windows | `start.bat` | `start-dev.bat` | `stop-server.bat` |
+| Mac / Linux | `./start.sh` | `./start-dev.sh` | `./stop-server.sh` |
+| Any OS | `npm run build && npx serve out` | `npm run dev` | Kill port 3000 |
+
+All launchers auto-install deps, rebuild when src/ is newer than out/, and open the browser. See [CROSS-PLATFORM.md](CROSS-PLATFORM.md) for OS-specific setup and troubleshooting.
 
 **npm scripts:**
 

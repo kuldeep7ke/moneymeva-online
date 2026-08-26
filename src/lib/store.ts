@@ -499,6 +499,7 @@ const entityTableMap: Record<EntityType, string> = {
   transaction: 'transactions', partner: 'partners', recurring: 'recurring',
   budget: 'budgets', reminder: 'reminders', adjustment: 'adjustments', goal: 'goals', todo: 'todos',
   work: 'works', partnership: 'partnerships', partnership_entry: 'partnership_entries',
+  audit: 'mutation_log',
 };
 
 async function triggerSync() {
@@ -528,10 +529,18 @@ export async function processRemoteChanges() {
     const entity = (doc.entity || doc._entity) as EntityType;
     if (!entity || !doc.id) continue;
     const dexieTable = entityTableMap[entity];
+    const { _entity, entity: _e, ...cleanDoc } = doc;
+    if (entity === 'audit') {
+      const existing = await db.mutation_log.get(cleanDoc.id).catch(() => null);
+      if (!existing) {
+        try { await db.mutation_log.put(cleanDoc); } catch {}
+        updated++;
+      }
+      continue;
+    }
     const cacheKey = dexieTable === 'partnership_entries' ? 'partnershipEntries' : dexieTable;
     const list = (cache as any)[cacheKey];
     if (!list) continue;
-    const { _entity, entity: _e, ...cleanDoc } = doc;
     if (doc.deletedAt) {
       const idx = list.findIndex((x: any) => x.id === cleanDoc.id);
       if (idx >= 0) {
@@ -581,6 +590,16 @@ export async function pushAllToPouch() {
       await putDoc(entity, item);
       count++;
     }
+  }
+  const lastAuditPush = localStorage.getItem('mm_last_audit_push') || '';
+  const newLogs = await db.mutation_log.where('timestamp').above(lastAuditPush).toArray();
+  for (const entry of newLogs) {
+    if (!entry.id) continue;
+    await putDoc('audit' as EntityType, entry);
+    count++;
+  }
+  if (newLogs.length > 0) {
+    localStorage.setItem('mm_last_audit_push', newLogs[newLogs.length - 1].timestamp);
   }
   return count;
 }

@@ -40,7 +40,8 @@ export default function AboutPage() {
             Money Meva is a personal finance management application designed to help you track 
             your expenses, income, savings, and investments. Built with simplicity and minimalism 
             in mind, it provides powerful insights through visual analytics while keeping your 
-            financial data private and stored locally on your device.
+            financial data private and stored locally on your device. Optional multi-device sync 
+            via Supabase lets you access your data across phones, tablets, and computers.
           </p>
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div className="bg-brand-light dark:bg-brand-muted p-4 rounded-xl">
@@ -56,8 +57,22 @@ export default function AboutPage() {
               <p className="text-lg font-bold text-slate-900 dark:text-slate-100">IndexedDB (Local)</p>
             </div>
             <div className="bg-brand-light dark:bg-brand-muted p-4 rounded-xl">
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium">Cloud Sync</p>
+              <p className="text-lg font-bold text-slate-900 dark:text-slate-100">Optional</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            <div className="bg-brand-light dark:bg-brand-muted p-3 rounded-xl text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium">Platform</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Web + Android</p>
+            </div>
+            <div className="bg-brand-light dark:bg-brand-muted p-3 rounded-xl text-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium">Languages</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">mr / hi / en</p>
+            </div>
+            <div className="bg-brand-light dark:bg-brand-muted p-3 rounded-xl text-center">
               <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-medium">Privacy</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-slate-100">100% Private</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">100%</p>
             </div>
           </div>
         </div>
@@ -163,10 +178,10 @@ export default function AboutPage() {
               &copy; {new Date().getFullYear()} Money Meva. All rights reserved.
             </p>
             <p className="text-sm text-slate-400 dark:text-slate-500">
-              Built with Next.js, TypeScript, Tailwind CSS & Dexie.js &middot; Data stored locally
+              Built with Next.js, TypeScript, Tailwind CSS, Dexie.js, PouchDB &amp; Supabase
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500">
-              🔒 All your financial data stays on this device. Nothing is sent to the cloud.
+              Your financial data stays on this device. Cloud sync is optional and bring-your-own.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 mt-4 justify-center">

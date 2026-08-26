@@ -42,6 +42,8 @@ Your device                    Your Supabase project
 | Supabase account | — | https://supabase.com (free tier is enough) |
 | Google Cloud account | only for Google sign-in | https://console.cloud.google.com |
 
+**Linux / Mac users:** see [CROSS-PLATFORM.md](CROSS-PLATFORM.md) for OS-specific Node.js install commands (Ubuntu, Debian, Fedora, RHEL, Mint, Arch, macOS).
+
 ---
 
 ## Step 1 — Run the app offline (no cloud needed)
@@ -51,7 +53,7 @@ git clone https://github.com/kuldeep7ke/moneymeva-online.git
 cd moneymeva-online
 npm install
 npm run build        # static export → out/
-npx serve out        # or double-click start.bat on Windows
+npx serve out        # or ./start.sh (Mac/Linux) / start.bat (Windows)
 ```
 
 Open http://localhost:3000. Create an **email + password account** inside the app —

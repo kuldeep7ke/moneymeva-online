@@ -20,7 +20,10 @@ import {
   Bell,
   SlidersHorizontal,
   Target,
-  ListTodo
+  ListTodo,
+  Briefcase,
+  Handshake,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getMutationLog, getMutationLogByTransitionId } from '@/lib/store';
@@ -38,6 +41,10 @@ const ENTITY_ICONS: Record<string, LucideIcon> = {
   adjustment: SlidersHorizontal,
   goal: Target,
   todo: ListTodo,
+  work: Briefcase,
+  work_payment: Briefcase,
+  partnership: Handshake,
+  partnership_entry: FileText,
 };
 
 const ACTION_COLORS: Record<MutationAction, string> = {
@@ -58,21 +65,11 @@ function formatEntityType(type: string): string {
 
 function entityIcon(type: string): LucideIcon {
   if (type === 'partner') return Users;
-  const map: Record<string, LucideIcon> = {
-    transaction: ArrowUpCircle,
-    party: Users,
-    recurring: Calendar,
-    budget: Landmark,
-    reminder: Bell,
-    adjustment: SlidersHorizontal,
-    goal: Target,
-    todo: ListTodo,
-  };
-  return map[type] || ScrollText;
+  return ENTITY_ICONS[type] || ScrollText;
 }
 
 function entityOpts(): { value: string; label: string }[] {
-  const types = ['transaction', 'party', 'recurring', 'budget', 'reminder', 'adjustment', 'goal', 'todo'];
+  const types = ['transaction', 'party', 'recurring', 'budget', 'reminder', 'adjustment', 'goal', 'todo', 'work', 'work_payment', 'partnership', 'partnership_entry'];
   return types.map(t => ({ value: t, label: formatEntityType(t) }));
 }
 
@@ -82,6 +79,7 @@ export default function LedgerPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [chain, setChain] = useState<MutationLog[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [logLimit, setLogLimit] = useState(500);
   
   // Filters
   const [entityFilter, setEntityFilter] = useState('all');
@@ -91,12 +89,12 @@ export default function LedgerPage() {
   useEffect(() => {
     async function loadLogs() {
       setLoading(true);
-      const data = await getMutationLog(500);
+      const data = await getMutationLog(logLimit);
       setLogs(data);
       setLoading(false);
     }
     loadLogs();
-  }, []);
+  }, [logLimit]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
@@ -299,6 +297,14 @@ export default function LedgerPage() {
                   </div>
                 );
               })}
+              {logs.length >= logLimit && (
+                <button
+                  onClick={() => setLogLimit(prev => prev + 500)}
+                  className="w-full py-2 text-xs font-medium text-brand dark:text-brand-light hover:bg-slate-100 dark:hover:bg-brand-muted/30 rounded-lg transition-colors"
+                >
+                  Load more (showing {logs.length.toLocaleString()} of {logs.length.toLocaleString()}+)
+                </button>
+              )}
             </div>
           )}
         </Reveal>

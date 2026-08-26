@@ -18,7 +18,8 @@ import { generatePins, getPins, arePinsShown, markPinsShown, hasPins, getRemaini
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import CloudSetupWizard from '@/components/CloudSetupWizard';
-import { logActivity } from '@/lib/activityLog';
+import { logActivity, getActivityLog } from '@/lib/activityLog';
+import { db } from '@/lib/db';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
@@ -139,7 +140,7 @@ export default function SettingsPage() {
   const doExportBackup = async () => {
     const overlay = createProgressOverlay('Preparing export…');
     try {
-      const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '4.0.1';
+      const version = document.querySelector('meta[name="app-version"]')?.getAttribute('content') || '7.2.0';
       const session = getSession().user;
       const profile: any = session ? { ...session, password: undefined } : {};
       const tables: [string, any[]][] = [
@@ -157,6 +158,8 @@ export default function SettingsPage() {
           exportedBy: session?.full_name || session?.email || 'unknown',
         },
         profile,
+        _audit_log: await db.mutation_log.toArray(),
+        _activity_log: getActivityLog(),
       };
       for (const [name, items] of tables) {
         done += items.length;
@@ -680,7 +683,7 @@ export default function SettingsPage() {
             </label>
             <p className="text-xs text-slate-400 dark:text-slate-500 pt-2">Headers: date, amount, category, description, type (income/expense/investment)</p>
               <Button variant="ghost" size="sm" className="text-xs text-brand dark:text-brand-secondary" onClick={() => {
-                const csv = 'date,amount,category,description,type\n2024-01-15,5000,Salary,January salary,income\n2024-01-16,200,Groceries,Weekly groceries,expense';
+                const csv = 'date,amount,category,description,type\n2026-01-15,5000,Salary,January salary,income\n2026-01-16,200,Groceries,Weekly groceries,expense';
                 downloadFile(csv, 'money-meva-template.csv', 'text/csv');
               }}>Download Template</Button>
           </div>
@@ -712,12 +715,12 @@ export default function SettingsPage() {
         {/* Full JSON Backup */}
         <Reveal delay={400}>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Full Data Backup</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-6">Export or restore all your data including profile, budgets, goals, partners, and transactions</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-6">Export or restore all your data including profile, transactions, budgets, goals, partners, audit trail, and activity log</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white dark:bg-[#2A2522] p-8 rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 shadow-sm text-center space-y-4">
             <Download className="h-12 w-12 text-emerald-500 mx-auto" />
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Export Full Backup (JSON)</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Download everything — profile, transactions, budgets, goals, partners, reminders, recurring, adjustments</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Download everything — profile, transactions, budgets, goals, partners, reminders, recurring, adjustments, works, partnerships, audit trail, activity log</p>
               <Button variant="primary" className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => {
                 if (hasPins()) { setPinAction('export'); } else { setShowPinSetup('export your data'); }
             }}><Download className="h-4 w-4" /> Export JSON</Button>
@@ -1131,7 +1134,7 @@ export default function SettingsPage() {
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Sync Unavailable</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                We were unable to establish a connection to the sync server. This may be due to a temporary outage or your monthly synchronization quota has been exhausted.
+                We were unable to establish a connection to the sync server. This may be due to a temporary network issue, incorrect credentials, or your Supabase project's free tier limits.
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
                 Please verify your server credentials or try again later. <Link href="/dashboard/support" className="text-sky-600 font-medium hover:underline">Contact support</Link> if the issue persists.
@@ -1278,6 +1281,24 @@ async function doImport(data: any, currentUserId: string) {
 
     for (const t of tables) {
       await merge(t.table, data[t.key], t.entityType, t.label);
+    }
+
+    if (Array.isArray(data._audit_log) && data._audit_log.length > 0) {
+      overlay.update('Merging audit trail…', processed, total);
+      const existingIds = new Set((await db.mutation_log.toArray()).map((e: any) => e.id));
+      const newEntries = data._audit_log.filter((e: any) => e.id && !existingIds.has(e.id));
+      if (newEntries.length > 0) {
+        try { await db.mutation_log.bulkPut(newEntries); imported += newEntries.length; } catch {}
+      }
+    }
+
+    if (Array.isArray(data._activity_log) && data._activity_log.length > 0) {
+      const existing: any[] = JSON.parse(localStorage.getItem('mm_activity_log') || '[]');
+      const existingTs = new Set(existing.map((e: any) => e.timestamp + (e.detail || '')));
+      const merged = [...data._activity_log.filter((e: any) => !existingTs.has(e.timestamp + (e.detail || ''))), ...existing];
+      merged.sort((a: any, b: any) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+      if (merged.length > 200) merged.length = 200;
+      localStorage.setItem('mm_activity_log', JSON.stringify(merged));
     }
 
     logActivity('entry_imported', `Full JSON backup — ${imported} items`);

@@ -15,7 +15,7 @@ let channel: any = null;
 let reconnectTimer: any = null;
 let changeListeners: Array<() => void> = [];
 
-export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'todo' | 'work' | 'partnership' | 'partnership_entry';
+export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'todo' | 'work' | 'partnership' | 'partnership_entry' | 'audit';
 
 async function ensurePouch() {
   if (_PouchDB) return _PouchDB;
