@@ -11,6 +11,7 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
+import SwipeCard from '@/components/SwipeCard';
 
 export default function RecurringPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -111,57 +112,103 @@ export default function RecurringPage() {
             <Button onClick={() => setShowAddModal(true)}>Create First Automation</Button>
           </div>
         ) : (
-          <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm overflow-x-auto">
-            <table className="w-full text-left table-auto">
-              <thead className="bg-slate-50 dark:bg-brand-muted border-b border-slate-200 dark:border-brand-muted">
-                <tr>
-                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Transaction</th>
-                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right">Amount</th>
-                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 hidden md:table-cell">Frequency</th>
-                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Next Date</th>
-                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 hidden md:table-cell">Status</th>
-                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {items.map(item => (
-                  <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <td className="px-3 md:px-6 py-4">
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{item.category}</p>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 text-right"><p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(item.amount)}</p></td>
-                    <td className="px-3 md:px-6 py-4 hidden md:table-cell">
-                      <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"><Repeat className="h-4 w-4" />{item.frequency}</div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"><Calendar className="h-4 w-4" />{item.nextDate}</div>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 hidden md:table-cell">
-                      <span className={cn("px-2 py-1 rounded-full text-xs font-medium", item.status === 'active' ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-400")}>{item.status}</span>
-                    </td>
-                    <td className="px-3 md:px-6 py-4 text-right">
-                      <div className="flex justify-end gap-1 md:gap-2">
-                        <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-brand dark:hover:text-brand-secondary" onClick={() => toggleStatus(item.id, item.status)}>
-                          {item.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        </Button>
-                        {confirmDelete === item.id ? (
-                          <div className="flex gap-0.5 items-center">
-                            <Button size="sm" variant="danger" className="h-6 px-1.5 text-xs min-w-0" onClick={() => handleDelete(item.id)}>Yes</Button>
-                            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs min-w-0" onClick={() => setConfirmDelete(null)}>No</Button>
-                          </div>
-                        ) : (
-                          <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 gap-1" onClick={() => setConfirmDelete(item.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+          <>
+            {/* Mobile: Swipe Cards */}
+            <div className="md:hidden space-y-3">
+              {items.map(item => (
+                <SwipeCard
+                  key={item.id}
+                  actions={
+                    <>
+                      <button
+                        onClick={() => toggleStatus(item.id, item.status)}
+                        className="flex-1 flex items-center justify-center bg-amber-500 text-white active:bg-amber-600 transition-colors"
+                      >
+                        {item.status === 'active' ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="flex-1 flex items-center justify-center bg-red-500 text-white active:bg-red-600 transition-colors"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </>
+                  }
+                >
+                  <div className="p-4 border border-slate-200 dark:border-brand-muted">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{item.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{item.category}</p>
                       </div>
-                    </td>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300 shrink-0">{formatCurrency(item.amount)}</p>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2.5 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1"><Repeat className="h-3 w-3" />{item.frequency}</span>
+                      <span className="text-slate-300 dark:text-slate-600">·</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{item.nextDate}</span>
+                      <span className="text-slate-300 dark:text-slate-600">·</span>
+                      <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", item.status === 'active' ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-400")}>{item.status}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-2 italic">swipe left for actions</p>
+                  </div>
+                </SwipeCard>
+              ))}
+            </div>
+
+            {/* Desktop: Table */}
+            <div className="hidden md:block bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm overflow-x-auto">
+              <table className="w-full text-left table-auto">
+                <thead className="bg-slate-50 dark:bg-brand-muted border-b border-slate-200 dark:border-brand-muted">
+                  <tr>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Transaction</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right">Amount</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Frequency</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Next Date</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Status</th>
+                    <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {items.map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{item.category}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right"><p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(item.amount)}</p></td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"><Repeat className="h-4 w-4" />{item.frequency}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"><Calendar className="h-4 w-4" />{item.nextDate}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={cn("px-2 py-1 rounded-full text-xs font-medium", item.status === 'active' ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-400")}>{item.status}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-brand dark:hover:text-brand-secondary" onClick={() => toggleStatus(item.id, item.status)}>
+                            {item.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          {confirmDelete === item.id ? (
+                            <div className="flex gap-0.5 items-center">
+                              <Button size="sm" variant="danger" className="h-6 px-1.5 text-xs min-w-0" onClick={() => handleDelete(item.id)}>Yes</Button>
+                              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs min-w-0" onClick={() => setConfirmDelete(null)}>No</Button>
+                            </div>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 gap-1" onClick={() => setConfirmDelete(item.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Reveal>
       </div>
