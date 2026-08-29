@@ -7,8 +7,8 @@ android {
         applicationId "com.moneymeva.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 702000029
-        versionName "7.2.0.29"
+        versionCode 702000033
+        versionName "7.2.0.33"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
