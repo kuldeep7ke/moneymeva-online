@@ -112,36 +112,36 @@ export default function RecurringPage() {
           </div>
         ) : (
           <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm overflow-x-auto">
-            <table className="w-full text-left table-fixed">
+            <table className="w-full text-left table-auto">
               <thead className="bg-slate-50 dark:bg-brand-muted border-b border-slate-200 dark:border-brand-muted">
                 <tr>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 w-[30%]">Transaction</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 w-[15%]">Amount</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 w-[15%]">Frequency</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 w-[15%]">Next Date</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 w-[10%]">Status</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right w-[15%]">Actions</th>
+                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Transaction</th>
+                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right">Amount</th>
+                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 hidden md:table-cell">Frequency</th>
+                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Next Date</th>
+                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 hidden md:table-cell">Status</th>
+                  <th className="px-3 md:px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {items.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-3 md:px-6 py-4">
                       <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">{item.category}</p>
                     </td>
-                    <td className="px-6 py-4"><p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(item.amount)}</p></td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 md:px-6 py-4 text-right"><p className="text-sm font-bold text-slate-700 dark:text-slate-300">{formatCurrency(item.amount)}</p></td>
+                    <td className="px-3 md:px-6 py-4 hidden md:table-cell">
                       <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"><Repeat className="h-4 w-4" />{item.frequency}</div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 md:px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400"><Calendar className="h-4 w-4" />{item.nextDate}</div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 md:px-6 py-4 hidden md:table-cell">
                       <span className={cn("px-2 py-1 rounded-full text-xs font-medium", item.status === 'active' ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" : "bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-400")}>{item.status}</span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
+                    <td className="px-3 md:px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1 md:gap-2">
                         <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-brand dark:hover:text-brand-secondary" onClick={() => toggleStatus(item.id, item.status)}>
                           {item.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         </Button>
@@ -153,7 +153,6 @@ export default function RecurringPage() {
                         ) : (
                           <Button variant="ghost" size="sm" className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 gap-1" onClick={() => setConfirmDelete(item.id)}>
                             <Trash2 className="h-4 w-4" />
-                            <span className="hidden md:inline text-xs">Delete</span>
                           </Button>
                         )}
                       </div>
