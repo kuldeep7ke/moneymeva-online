@@ -77,16 +77,20 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 - **Investment Calculator** — FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF.
   Shows maturity amount, total returns, year-wise breakdown. "Use this amount" fills the
   add form.
-- **Savings & Goals** — goals grid with contribute/withdraw + progress bars, finance
-  to-do list. Goal contributions record as transactions.
+- **Savings & Goals** — goals grid with contribute/withdraw + progress bars.
+  Goal contributions record as transactions.
 
 ### Partners & Work
 - **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment
   tracking, portfolio value, dual-entry transactions, mini ledger modal per party.
 - **Partnership (भागीदारी)** — shared work: members with % shares (must total 100%),
   shared income/expense entries with "who paid" tracking, automatic settlement balances.
-- **Works (कामे)** — work register for farm jobs, labour, hired work. Records direction,
-  trade profile, crop, season, year, area, dates, party and partnership links, agreed
+- **Works (कामे)** — work register for farm jobs, labour, hired work. Profession-driven:
+  each onboarding profession maps to a matching work profile (Employee, Employer,
+  Freelancer, Student, Homemaker, Investor, Retired, Shop/Business, Farmer, General),
+  so a salaried user adds a Salary-style work, not a farmer default. Farmer-specific
+  fields (crop, season, year, area) appear only for the farmer/farm-services profiles.
+  Records direction, profile, work type, dates, party and partnership links, agreed
   amount. Payment tracking with full history and progress bar.
 
 ### Automation
@@ -108,14 +112,14 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 - **Export / Import** — CSV, PDF (jsPDF), Excel (SheetJS), full JSON backup/restore
   with cross-user detection and reassignment. Audit trail + activity log included in
   backups and restored on import.
-- **Cloud Sync** — PouchDB → Supabase sync_docs. Manual + live (realtime). All 11 data
+- **Cloud Sync** — PouchDB → Supabase sync_docs. Manual + live (realtime). All 10 data
   entities + audit log sync across devices. Per-user isolation via row-level security.
 - **Cloud Setup Wizard** — auto-checking 4-step wizard (project, schema, Google
   provider, redirect URL) with live validation.
 
 ### Developer Tools
 - **Developer Zone** — hidden diagnostic page with session timer, live version +
-  release-notes tracking, DB stats (all 12 tables), localStorage inspector, storage
+  release-notes tracking, DB stats (all 11 tables), localStorage inspector, storage
   usage, sync diagnostics, remote announcement diagnostics, raw JSON export/import,
   brand switcher, PIN viewer, danger zone for full data wipe.
 
@@ -169,22 +173,37 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 - **Audit trail sync** — mutation_log now syncs across devices via PouchDB
 - **Audit trail in backups** — JSON export/import includes full audit + activity log
 - **Calendar month filter** — Accounts page uses proper month picker (not rolling window)
-- **GitHub Pages hosting** — deployed at moneymevaonline.pages.dev
+- **GitHub Pages hosting** — static export deployed at `/moneymeva-online`
+  (`https://kuldeep7ke.github.io/moneymeva-online/`)
+- **Cloudflare Pages hosting** — Cloudflare project `moneymevaonline`
+  (`https://moneymevaonline.pages.dev`); its workflow is gated on
+  `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` repo secrets, which are unset, so
+  it currently reports success without uploading
 - **Docker image** — published to ghcr.io on every version tag
 - **Cloud Setup Wizard** — auto-checking 4-step wizard for new users
 - **Session auto-restore** — landing page restores cloud session, skips to dashboard
 - **OAuth redirect fix** — Google login returns to correct origin (not hardcoded)
 - **Cross-platform scripts** — .sh launchers for Mac/Linux alongside Windows .bat
-- **Ledger filter completeness** — all 12 entity types filterable in Audit Ledger
+- **Ledger filter completeness** — all 11 entity types filterable in Audit Ledger
+- **Todos removed** — the to-do list feature was deleted end-to-end (types, db, store,
+  sync, pages); savings & goals now own the savings experience
+- **Profession-driven Works** — each onboarding profession gets a matching work profile
+  (Employee/Employer/Freelancer/…), farmer-form fields restricted to farmer profiles
+- **Full data-clear wipes cloud session** — settings + developer clear-all now sign out
+  of Supabase, strip `sb-` tokens and hard-nav to login so no stuck overlay
+- **In-app confirm modals** — native `confirm()`/`alert()` replaced by the app's own
+  themed modals and toasts
 
 ---
 
 ## The Numbers
 
-- **12 Dexie tables** — transactions, partners, recurring, budgets, reminders,
-  adjustments, goals, todos, works, partnerships, partnership_entries, mutation_log
+- **11 Dexie tables** — transactions, partners, recurring, budgets, reminders,
+  adjustments, goals, works, partnerships, partnership_entries, mutation_log
 - **1 Supabase table** — sync_docs (composite PK: user_id + entity:id)
-- **11 synced entity types** — all data entities + audit entries
+- **10 synced data entities + audit entries** — transactions, partners, recurring,
+  budgets, reminders, adjustments, goals, works, partnerships, partnership_entries
+  all push through one doc store, plus the mutation_log audit trail
 - **3 languages** — Marathi, Hindi, English
 - **3 brand colors** — Orange, Blue, Green
 - **10 one-time PINs** — for sensitive operations

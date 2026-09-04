@@ -79,7 +79,6 @@ Define all data entities. Key types:
 - **`Reminder`** — id, userId, transitionId, title, description, dueDate, category, amount, frequency, status, deletedAt?, createdAt
 - **`Adjustment`** — id, userId, transitionId, amount, accountType ('personal'|'partner'), partnerAccountId?, notes, date, deletedAt?, createdAt
 - **`Goal`** — id, userId, transitionId, name, target, saved, deletedAt?, createdAt
-- **`Todo`** — id, userId, transitionId, title, description, dueDate, category, amount?, priority, important, status, completedAt?, deletedAt?, createdAt
 - **`MutationLog`** — id, transitionId, entityType, entityId, action, timestamp, userId, detail?
 - **`WorkEntry`** — id, userId, transitionId, direction ('receivable'|'payable'), partyId?, partnershipId?, profile (WORK_PROFILES key), workType, crop?, season ('kharif'|'rabi'|'summer'|'annual'), year, area? {value, unit}, startDate, endDate?, agreedAmount, paidAmount, payments[] {id, date, amount, note?, linkedTransactionId?}, dueDate?, notes?, deletedAt?, createdAt, updatedAt
 - **`Partnership`** — id, userId, transitionId, title, crop, season, year, members[] {id, partyId?, name, sharePct}, notes?, description?, deletedAt?, createdAt, updatedAt
@@ -87,7 +86,7 @@ Define all data entities. Key types:
 - **`ArchivedItem`** — id, type, label, subtitle, amount, deletedAt, original
 - **`UserProfile`** — id, full_name, currency, onboarding_completed, email?, phone?, monthly_income?, etc.
 
-Use `TransactionType = 'income' | 'expense' | 'investment'`, `ReminderFrequency`, `TodoPriority`, `MutationAction`, `ArchiveItemType`.
+Use `TransactionType = 'income' | 'expense' | 'investment'`, `ReminderFrequency`, `MutationAction`, `ArchiveItemType`.
 
 > **Note:** There is no `saving` transaction type. Savings goals track their own `saved` balance; goal contributions are recorded as `expense` transactions and withdrawals as `income`. Categories are kept separate per type (`mm_income_categories`, `mm_expense_categories`, `mm_investment_categories`) — they are never merged across types.
 
@@ -106,7 +105,6 @@ class MoneyMevaDB extends Dexie {
   reminders!: Table<Reminder, string>;
   adjustments!: Table<Adjustment, string>;
   goals!: Table<Goal, string>;
-  todos!: Table<Todo, string>;
   works!: Table<WorkEntry, string>;
   partnerships!: Table<Partnership, string>;
   partnership_entries!: Table<PartnershipEntry, string>;
@@ -114,7 +112,9 @@ class MoneyMevaDB extends Dexie {
 }
 ```
 
-**Schema (version 4):**
+**Schema (version 5)** — two migrations:
+
+`version(4)` — core tables:
 | Table | Indexes |
 |---|---|
 | transactions | id, type, date, category, userId, deletedAt, account, transitionId |
@@ -124,10 +124,8 @@ class MoneyMevaDB extends Dexie {
 | reminders | id, status, userId, deletedAt, transitionId |
 | adjustments | id, accountType, userId, deletedAt, transitionId |
 | goals | id, name, userId, deletedAt, transitionId |
-| todos | id, status, category, priority, important, userId, deletedAt, transitionId |
 | mutation_log | id, transitionId, entityType, entityId, action, timestamp, userId |
 
-**Schema version 5 adds:**
 | Table | Indexes |
 |---|---|
 | works | id, direction, partyId, partnershipId, profile, crop, status, userId, deletedAt, transitionId |
@@ -190,7 +188,6 @@ function transitionId() { return 'tr_' + Date.now().toString(36) + Math.random()
 | `addReminder()` / `completeAndRescheduleReminder()` | Reminders with frequency |
 | `addAdjustment()` / `deleteAdjustment()` | Balance corrections |
 | `addGoal()` / `updateGoal()` | Savings goals |
-| `addTodo()` / `completeTodo()` / `toggleTodoImportant()` | Task management |
 | `getAggregates()` / `getMonthlySummary()` / `getCarryForward()` | Dashboard calculations |
 | `getAllNotifications()` | Combined notifications |
 | `getAllArchivedItems()` / `restoreArchivedItem()` / `permanentDeleteAllArchived()` | Archive |
@@ -344,12 +341,12 @@ src/app/
 ├── auth/callback/page.tsx  # Auth callback (legacy, kept for compatibility)
 │
 └── dashboard/
-    ├── page.tsx            # Dashboard: summary cards, charts, recent txns, 2-col Tasks+Recurring grid, goals
+    ├── page.tsx            # Dashboard: summary cards, charts, recent txns, recurring grid, goals
     ├── layout.tsx          # DashboardLayout wrapper (see below)
     ├── income/page.tsx     # Income CRUD (wraps TransactionPage)
     ├── expenses/page.tsx   # Expenses CRUD (wraps TransactionPage)
     ├── investments/page.tsx# Investments CRUD (wraps TransactionPage)
-    ├── savings/page.tsx    # Goals + Tasks (dual-tab: goals grid / to-do list)
+    ├── savings/page.tsx    # Goals (goals grid with contribute/withdraw + progress)
     ├── partners/page.tsx   # Party accounts with P&L, mini-ledger modal, edit support + Partnership (भागीदारी) tab
     ├── works/page.tsx      # Work register (कामे): direction, crop/season/area, pending payments, payment history
     ├── accounts/page.tsx   # Account overview
@@ -402,7 +399,7 @@ A reusable CRUD page used by Income, Expenses, and Investments.
 - Archive view with restore permanent delete
 - **30-day default date filter** (`filterDateFrom` = local-tz date − 30 days on init; "Clear Filters" resets to show all)
 
-**Future-date guard:** Income/expense/investment entries cannot be dated in the future. Date inputs use `max={today}`, and submit handlers validate with a warning toast (a shared `todayStr()` helper in each file). Recurring start/end dates, task/todo due dates, and investment maturity dates are exempt.
+**Future-date guard:** Income/expense/investment entries cannot be dated in the future. Date inputs use `max={today}`, and submit handlers validate with a warning toast (a shared `todayStr()` helper in each file). Recurring start/end dates and investment maturity dates are exempt.
 
 **Empty states:** When no transactions exist, mobile/desktop views and the archive show an icon + heading + hint ("Click + Add to record your first ...") instead of bare text. Ledger uses animated skeleton rows while loading.
 
@@ -432,6 +429,22 @@ Per-profession categories:
 | Medical | Consultation, Procedure, Hospital, Refund | Equipment + shared |
 
 All sets get "Other" appended.
+
+`src/lib/defaultCategories.ts` also defines the **work profiles** (`WORK_PROFILES`) that drive the Works page. Each onboarding profession maps to a matching work profile (via `profileForProfession`, with `workProfilesForProfession` surfacing the user's profiles first):
+
+| Onboarding profession | Default work profile | Work-type examples |
+|---|---|---|
+| `salaried` | employee | Salary, Overtime, Commission, Bonus, Advance, Reimbursement |
+| `business` | shop (+ employer) | Supply Order, Delivery, Installation, Repair Job |
+| `freelancer` | freelancer | Project Work, Consulting, Retainer, Royalty, Hourly Work |
+| `student` | student | Part-time Job, Internship, Tuition, Freelance Help |
+| `homemaker` | homemaker | Household Work, Rental Income, Catering, Handicraft Sale |
+| `investor` | investor | Trading, Dividend Income, Capital Gains, Interest Income |
+| `retired` | retired | Pension, Part-time Work, Consulting, Rental Income |
+| `farmer` | farmer | Land Prep, Sowing, Spraying, Harvesting, Produce Sale… |
+| `other` | general | Freelance Task, Commission Work, Home Repair |
+
+`employer` (Payroll, Contractor Payment, Material Purchase, Invoice Out, Labour) is offered to both `salaried` and `business` users. In the Works add-form the farmer-specific fields (crop, season, year, area) render **only** for the `farmer` / `farm_services` profiles.
 
 ---
 
@@ -463,14 +476,15 @@ Every Dexie entity syncs to the single `sync_docs` table as a JSON document. Doc
 | reminders | reminder | `reminder:<id>` | add, update, complete+reschedule, delete/restore |
 | adjustments | adjustment | `adjustment:<id>` | add, update, soft-delete/restore |
 | goals | goal | `goal:<id>` | add, contribute/update, delete/restore |
-| todos | todo | `todo:<id>` | add, toggle/edit, delete/restore, complete |
 | works | work | `work:<id>` | addWork, updateWork (incl. payments), delete/restore |
 | partnerships | partnership | `partnership:<id>` | addPartnership, updatePartnership, delete/restore |
 | partnership_entries | partnership_entry | `partnership_entry:<id>` | add/delete/restore entry |
+| mutation_log | mutation_log | `mutation_log:<id>` | audit entry push with transitionId
 
 - **Soft deletes** push the full updated row (`deletedAt` set). **Permanent deletes** push a tombstone `{ id, deletedAt }` via `putDoc` in `deleteFromCacheAndWrite`.
 - **PINs** sync as one doc: `pin:batch` (`entity: 'pin'`) via `writePins()` / `pullPinsFromRemote()`.
-- **Local-only by design**: `mutation_log` table (per-device activity log) and localStorage preferences (language, theme, quotas, dismissed notices, seen-release marker).
+- **Audit sync**: `mutation_log` entries are pushed to PouchDB and sync across devices as `mutation_log:<id>` docs (last-write-wins by timestamp), so the ledger is consistent on every device.
+- **Local-only by design**: localStorage preferences (language, theme, quotas, dismissed notices, seen-release marker).
 - Supabase-side schema comment lists these entities too — see `supabase/schema.sql`.
 
 ### Key Functions
@@ -734,8 +748,7 @@ DashboardPage mounts
     → getMonthlySummary() → chart data
     → getCarryForward() → rollover balance
     → getGoals() → progress bars
-    → getTodos() → pending todos (2-col card)
-    → getRecurring() → active recurring (2-col card)
+    → getRecurring() → active recurring (2-col card) + advance modal
     → getAllNotifications() → notification panel
   → Action buttons open modals (type/amount/account/date) before writing to ledger
   → All reads are from in-memory cache (instant)
@@ -745,11 +758,10 @@ DashboardPage mounts
 
 ## 19. Key Implementation Details
 
-### Dashboard Card Action Modals
-Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writing to the ledger:
-- **Task modal**: User selects income/expense type, fills amount, account, date, description → "Save & Complete" creates transaction + marks todo done
+### Recurring Card Action Modal
+Recurring 🔄 buttons open a modal form instead of directly writing to the ledger:
 - **Recurring modal**: Pre-filled with recurring data (type, amount, date, description) — user confirms/modifies → "Save & Advance" creates transaction + advances nextDate
-- Both modals use the same pattern: `addTransaction()` → entity action (`completeTodo()` / `advanceRecurring()`) → `refreshDashboard()`
+- Pattern: `addTransaction()` → `advanceRecurring()` → `refreshDashboard()`
 
 ### Recurring Transaction Advancement
 `advanceRecurring(id)`:
@@ -791,11 +803,11 @@ Tasks ✅ and Recurring 🔄 buttons open a modal form instead of directly writi
 
 ### Works Module (कामे)
 - **Page**: `/dashboard/works` (`src/app/dashboard/works/page.tsx`). Nav item sits after Party Accounts; included in mobile floating nav.
-- **Work profiles**: `WORK_PROFILES` registry in `defaultCategories.ts` (farmer🌾, farm_services🚜, labor👷, shop🏪, contractor📋, transport🚛, general👤). Each profile lists preset work types (i18n keys under `works.types.*`). `profileForProfession()` maps onboarding profession → default profile. Work type field is free text with a datalist of presets; the chosen label is stored verbatim.
+- **Profession-driven profiles**: `WORK_PROFILES` registry in `defaultCategories.ts` is now keyed to onboarding professions — farmer🌾, employee💼, employer🏢, freelancer💻, student🎓, homemaker🏠, investor📈, retired🏖️, farm_services🚜, labor👷, shop🏪, contractor📋, transport🚛, general👤. Each profile lists preset work types (i18n keys under `works.types.*`). `profileForProfession()` maps onboarding profession → default profile; `workProfilesForProfession()` returns the user's matching profile(s) first so the add-form selector surfaces what's relevant (e.g. a salaried user sees Employee + Employer at the top, not a farmer default). `employer` is offered to both `salaried` and `business` users. Switching the profile selector resets the work type and toggles farmer-only fields.
+- **Farmer-only fields**: crop, season, year, area render (and the season chip on the card shows) **only** when the selected profile is `farmer` or `farm_services`. Other profiles get a minimal amount/party/dates form.
 - **Direction model**: `receivable` = my work / payment to receive (auto-ledger entry becomes Income, category "Work Payment"); `payable` = hired work / I must pay (auto-ledger entry becomes Expense, category "Labor").
 - **Status derivation**: `getWorkStatus(w)` → paid when `paidAmount >= agreedAmount > 0`; partial when any payment exists; otherwise pending.
 - **Payments**: `recordWorkPayment(workId, { date, amount, note }, { alsoLedger })` appends to `payments[]`, recomputes `paidAmount`, and optionally creates the mirrored ledger transaction (checkbox default ON). Payment rows store `linkedTransactionId` for traceability.
-- **Dashboard cards**: 6 compact summary cards in one row — Available, Balance (cash/bank split), Income, Expenses, Investments, Parties (partner investments + partnership net combined). Pending Works card was removed in v7.2.0.
 
 ### Partnership Module (भागीदारी)
 - **Placement**: tab inside the Party Accounts page (`Accounts | भागीदारी` segmented control) — component `src/components/PartnershipTab.tsx`.
@@ -812,7 +824,7 @@ All income/expense/investment entry points block future dates:
 - `TransactionPage` add + edit modals
 - Dashboard quick-add modal
 - Partners page transaction modal
-Implementation: `max={todayStr()}` on `<input type="date">` + submit-time string comparison `date > todayStr()` → warning toast. Exempt: recurring dates, task/todo due dates, investment maturity dates.
+Implementation: `max={todayStr()}` on `<input type="date">` + submit-time string comparison `date > todayStr()` → warning toast. Exempt: recurring dates, investment maturity dates.
 
 ### Mobile Responsiveness
 - Desktop: sidebar nav + full table views
@@ -824,7 +836,7 @@ Implementation: `max={todayStr()}` on `<input type="date">` + submit-time string
 
 ## 20. Version File
 
-`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.1.1.33`).
+`VERSION` contains the current version string: `v{major}.{minor}.{patch}.{build}` (e.g., `v7.2.0.47`).
 
 The build number (4th component) is incremented on each `npm run build` via the `prebuild` script. On CI, this bumps locally in the runner; the repo isn't modified.
 

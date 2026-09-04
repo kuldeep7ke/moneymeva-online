@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.2.0.21** — A minimalistic, local-first personal finance companion.
+**v7.2.0.47** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India. Runs on Windows, Mac, Linux, Docker, and Android.
 
@@ -11,7 +11,7 @@ Made in India. Runs on Windows, Mac, Linux, Docker, and Android.
 
 ## Memory Capsule
 
-This README is a memory capsule — a snapshot of the project's philosophy, architecture, and soul. It exists so that years from now, the intent behind every line of code is knowable.
+This README documents the project surface — features, architecture, setup, and runbooks. For the deeper philosophical snapshot — *why* every decision was made — see **[MEMORY-CAPSULE.md](MEMORY-CAPSULE.md)**.
 
 ---
 
@@ -34,9 +34,9 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
 - **Developer Zone** — Hidden diagnostic page with session timer (auto-expires), live version + release-notes tracking status, DB stats viewer, localStorage inspector, storage usage, sync diagnostics (masked URL, sync account email, connection test, last sync event, timing hints), remote announcement diagnostics (masked Bin IDs, live bin fetch test, dismissed-pills counter + clear), raw JSON export/import, quick brand switcher, PIN viewer, and danger zone for full data wipe.
-- **Savings & Goals** — Dual-tab page: goals grid with contribute/withdraw + progress bars, and a finance to-do list. Goal contributions record as `expense` transactions (withdrawals as `income`).
+- **Savings & Goals** — goals page with contribute/withdraw + progress bars. Goal contributions record as `expense` transactions (withdrawals as `income`).
 - **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit (name, group, type, investment, description) from the partners page. Includes a **Partnership (भागीदारी) tab** for shared work: members with % shares (must total 100%), shared income/expense entries with "who paid" tracking, automatic settlement balances (gets/owes), and optional mirroring into the main Income/Expense ledger.
-- **Works (कामे)** — Work register for farm jobs, labour and hired work. Each work records direction (I will receive / I will pay), trade profile with preset work types (farmer, farm services, labour, shop, contractor, transport, general), crop, season (kharif/rabi/summer/annual), year, area (acre/hectare/guntha/are), start/end dates (auto duration), party and partnership links, and an agreed amount. Record payments per work — optionally auto-creating a matching Income or Expense ledger entry — with a full payment history and progress bar. Dashboard shows a Pending Works card when receivables exist.
+- **Works (कामे)** — Work register for farm jobs, labour and hired work. **Profession-driven:** each onboarding profession maps to a matching work profile — Salaried → Employee + Employer, Freelancer, Student, Homemaker, Investor/Trader, Retired, Business → Shop (+ Employer), Farmer, Other → General (plus trade profiles: farm services, labour, contractor, transport). The add-form surfaces the user's profile first, and switching profile swaps the work-type list. Farmer-specific fields (crop, season, area) appear **only** for the farmer/farm-services profiles. Each work records direction (I will receive / I will pay), a preset work type or free-text, start/end dates (auto duration), party and partnership links, and an agreed amount. Record payments per work — optionally auto-creating a matching Income or Expense ledger entry — with a full payment history and progress bar.
 - **Farmer Onboarding** — Farmer added as a profession choice during onboarding; selects farming income/expense/investment categories (Farm Sale, Seeds, Fertilizer, Diesel/Fuel…) and maps to the farmer work profile in Works.
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days. Future start/end dates allowed.
 - **Adjustments** — Balance corrections between personal and partner accounts with amount guards.
@@ -398,30 +398,48 @@ A GitHub Actions workflow also builds the APK automatically on every push to mas
 - **English footer**: Copyright always `© 2026 Money Meva.` in all languages
 
 ### Nav Item Labels — Marathi (mr)
-| English | Marathi | | English | Marathi |
-|---|---|---|---|---|
-| Dashboard | डॅशबोर्ड | Adjustments | एडजस्टमेंट |
-| Income | उत्पन्न | Summary | सारांश |
-| Expenses | खर्च | Ledger | लेजर |
-| Savings | ध्येय | Archive | आर्काइव्ह |
-| Investments | गुंतवणूक | Settings | सेटिंग्ज |
-| Partners | पार्टी | About | माहिती |
-| Recurring | आवर्ती | Support | मदत |
-| Accounts | खाती | Categories | वर्ग |
-| Terms | अटी | Privacy | गोपनीयता |
+| English | Marathi |
+|---|---|
+| Dashboard | डॅशबोर्ड |
+| Income | उत्पन्न |
+| Expenses | खर्च |
+| Savings | ध्येय |
+| Investments | गुंतवणूक |
+| Partners | पार्टी |
+| Recurring | आवर्ती |
+| Accounts | खाती |
+| Adjustments | एडजस्टमेंट |
+| Summary | सारांश |
+| Ledger | लेजर |
+| Archive | आर्काइव्ह |
+| Settings | सेटिंग्ज |
+| Categories | वर्ग |
+| About | माहिती |
+| Support | मदत |
+| Terms | अटी |
+| Privacy | गोपनीयता |
 
 ### Nav Item Labels — Hindi (hi)
-| English | Hindi | | English | Hindi |
-|---|---|---|---|---|
-| Dashboard | डैशबोर्ड | Adjustments | एडजस्टमेंट |
-| Income | कमाई | Summary | सारांश |
-| Expenses | खर्च | Ledger | लेजर |
-| Savings | बचत | Archive | आर्काइव्ह |
-| Investments | निवेश | Settings | सेटिंग्स |
-| Partners | पार्टी | About | जानकारी |
-| Recurring | आवर्ती | Support | मदद |
-| Accounts | खाते | Categories | वर्ग |
-| Terms | शर्तें | Privacy | गोपनीयता |
+| English | Hindi |
+|---|---|
+| Dashboard | डैशबोर्ड |
+| Income | कमाई |
+| Expenses | खर्च |
+| Savings | बचत |
+| Investments | निवेश |
+| Partners | पार्टी |
+| Recurring | आवर्ती |
+| Accounts | खाते |
+| Adjustments | एडजस्टमेंट |
+| Summary | सारांश |
+| Ledger | लेजर |
+| Archive | आर्काइव्ह |
+| Settings | सेटिंग्स |
+| Categories | वर्ग |
+| About | जानकारी |
+| Support | मदद |
+| Terms | शर्तें |
+| Privacy | गोपनीयता |
 
 ---
 
