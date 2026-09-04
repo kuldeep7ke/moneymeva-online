@@ -83,6 +83,9 @@ export default function DeveloperPage() {
       overlay.update('Clearing local database…', 2, 3);
       const { clearAllDB } = await import('@/lib/store');
       await clearAllDB((label, done, total) => overlay.update(label, done, total));
+      // Wipe any persisted Supabase auth token too, so "clear all data" is complete
+      // and the cloud session can't auto-restore on the next reload.
+      Object.keys(localStorage).filter(k => k.startsWith('sb-')).forEach(k => localStorage.removeItem(k));
       setClearing(false);
       setCleared(true);
       overlay.finish('All data cleared — reloading', () => window.location.reload());

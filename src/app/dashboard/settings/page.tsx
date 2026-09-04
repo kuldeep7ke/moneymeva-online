@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, Download, Trash2, AlertTriangle, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
 import { cn, todayStr } from '@/lib/utils';
@@ -20,6 +19,7 @@ import PinSetupGuide from '@/components/PinSetupGuide';
 import CloudSetupWizard from '@/components/CloudSetupWizard';
 import { logActivity, getActivityLog } from '@/lib/activityLog';
 import { db } from '@/lib/db';
+import { BASE_PATH } from '@/lib/env';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
@@ -31,7 +31,6 @@ export default function SettingsPage() {
   const toast = useToast();
   const { refreshAuth } = useAuth();
   const { brand, setBrand } = useTheme();
-  const router = useRouter();
 
   const [clearStep, setClearStep] = useState<'idle' | 'captcha' | 'confirm'>('idle');
   const [clearMode, setClearMode] = useState<'user-data' | 'all-data'>('all-data');
@@ -251,7 +250,10 @@ export default function SettingsPage() {
         setClearStep('idle');
         setCaptchaAnswer('');
         refreshAuth();
-        router.replace('/login');
+        // Hard navigation: fully reload into the login page. A full reload is
+        // required (not router.replace) so the raw progress overlay is removed
+        // and the dashboard auth guard can't bounce us straight back.
+        window.location.href = `${BASE_PATH}/login`;
       });
     };
 
@@ -259,12 +261,15 @@ export default function SettingsPage() {
       if (clearMode === 'user-data') {
         await clearAllDB((label, d, t) => overlay.update(label, d, t));
         logoutUser();
+        disconnectRemote();
         finish();
       } else {
         await clearAllDB((label, d, t) => overlay.update(label, d, t));
-        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('mm_') || k.startsWith('money_meva_'));
+        const allKeys = Object.keys(localStorage).filter(k => k.startsWith('mm_') || k.startsWith('money_meva_') || k.startsWith('sb-'));
         allKeys.forEach(k => localStorage.removeItem(k));
         overlay.update('Clearing browser storage…', 1, 1);
+        logoutUser();
+        disconnectRemote();
         finish();
       }
     } catch {
