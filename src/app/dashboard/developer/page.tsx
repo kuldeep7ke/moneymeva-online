@@ -40,6 +40,7 @@ export default function DeveloperPage() {
   const [annTest, setAnnTest] = useState<string | null>(null);
   const [annTesting, setAnnTesting] = useState(false);
   const [dismissedCount, setDismissedCount] = useState(0);
+  const [confirmBox, setConfirmBox] = useState<{ mode: 'clear' | 'clearRemote'; stage: number } | null>(null);
 
   useEffect(() => {
     const m = document.querySelector('meta[name="app-version"]');
@@ -73,8 +74,6 @@ export default function DeveloperPage() {
   const brands = getBrands();
 
   const handleClear = async () => {
-    if (!confirm('Delete ALL data? This cannot be undone.')) return;
-    if (!confirm('Are you absolutely sure? Everything will be erased.')) return;
     setClearing(true);
     const overlay = createProgressOverlay('Clearing data…');
     try {
@@ -93,6 +92,21 @@ export default function DeveloperPage() {
       setClearing(false);
       overlay.error('Failed to clear data', () => window.location.reload());
     }
+  };
+
+  const handleClearRemote = async () => {
+    setStatus('Clearing remote...');
+    await clearRemote();
+    setStatus('Remote cleared');
+  };
+
+  const confirmPrimary = () => {
+    if (!confirmBox) return;
+    if (confirmBox.stage === 1) { setConfirmBox({ ...confirmBox, stage: 2 }); return; }
+    const mode = confirmBox.mode;
+    setConfirmBox(null);
+    if (mode === 'clear') handleClear();
+    else if (mode === 'clearRemote') handleClearRemote();
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -357,7 +371,7 @@ export default function DeveloperPage() {
                 <Button variant="outline" onClick={testSync} disabled={syncing} className="w-full text-xs">
                   {syncing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Connection'}
                 </Button>
-                <Button variant="outline" onClick={async () => { if (!confirm('Delete ALL remote Supabase data? Local data stays untouched.')) return; setStatus('Clearing remote...'); await clearRemote(); setStatus('Remote cleared'); }} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
                   Clear Remote Data
                 </Button>
               </>
@@ -423,15 +437,58 @@ export default function DeveloperPage() {
             <h2 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Danger Zone</h2>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">Wipes all data from local storage, IndexedDB, and your cloud sync rows (Supabase).</p>
-          {cleared ? (
+{cleared ? (
             <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-700 dark:text-amber-300">Data cleared. Refresh the app.</div>
           ) : (
-            <Button variant="danger" onClick={handleClear} disabled={clearing} className="w-full">
-              {clearing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Clearing...</> : 'Clear All Data'}
+<Button variant="danger" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing} className="w-full">
+                  {clearing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Clearing...</> : 'Clear All Data'}
             </Button>
           )}
         </div>
       </div>
+
+      {confirmBox && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border-2 border-red-400 dark:border-red-600 overflow-hidden my-4">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 text-center">
+              <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+                <Trash2 className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                {confirmBox.mode === 'clear'
+                  ? (confirmBox.stage === 1 ? 'Clear All Data' : 'Are you absolutely sure?')
+                  : 'Clear Remote Data'}
+              </h3>
+              <p className="text-sm text-red-100 mt-1">This action cannot be undone</p>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="bg-red-50 dark:bg-red-950/40 rounded-xl p-4 border border-red-200 dark:border-red-800 space-y-2">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                  {confirmBox.mode === 'clear' ? (
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                      {confirmBox.stage === 1
+                        ? 'Delete ALL data? This cannot be undone.'
+                        : 'Are you absolutely sure? Everything will be erased.'}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                      Delete ALL remote Supabase data? Local data stays untouched.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setConfirmBox(null)}>Cancel</Button>
+                <Button variant="danger" size="sm" className="gap-1.5" onClick={confirmPrimary}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {confirmBox.mode === 'clear' && confirmBox.stage === 1 ? 'Continue' : 'Yes, Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

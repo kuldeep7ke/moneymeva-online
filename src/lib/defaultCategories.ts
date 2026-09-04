@@ -64,16 +64,86 @@ export const WORK_PROFILES: WorkProfile[] = [
     icon: '🌾',
     professions: ['farmer'],
     workTypes: [
-      { value: 'land_prep', key: 'land_prep' },       // मशागत
-      { value: 'sowing', key: 'sowing' },             // पेरणी
-      { value: 'fertilizing', key: 'fertilizing' },   // खत देणे
-      { value: 'weeding', key: 'weeding' },           // निंदण / तण
-      { value: 'spraying', key: 'spraying' },         // फवारण
-      { value: 'irrigation', key: 'irrigation' },     // पाणी / सिंचन
-      { value: 'harvesting', key: 'harvesting' },     // काढणी
-      { value: 'threshing', key: 'threshing' },       // मळणी
-      { value: 'transport', key: 'transport' },       // वाहतूक
-      { value: 'produce_sale', key: 'produce_sale' }, // उत्पादन विक्री
+      { value: 'land_prep', key: 'land_prep' },
+      { value: 'sowing', key: 'sowing' },
+      { value: 'fertilizing', key: 'fertilizing' },
+      { value: 'weeding', key: 'weeding' },
+      { value: 'spraying', key: 'spraying' },
+      { value: 'irrigation', key: 'irrigation' },
+      { value: 'harvesting', key: 'harvesting' },
+      { value: 'threshing', key: 'threshing' },
+      { value: 'transport', key: 'transport' },
+      { value: 'produce_sale', key: 'produce_sale' },
+    ],
+  },
+  {
+    value: 'employee',
+    icon: '💼',
+    professions: ['salaried'],
+    workTypes: [
+      { value: 'salary', key: 'salary' },
+      { value: 'overtime', key: 'overtime' },
+      { value: 'commission', key: 'commission' },
+      { value: 'bonus', key: 'bonus' },
+      { value: 'advance', key: 'advance' },
+      { value: 'reimbursement', key: 'reimbursement' },
+    ],
+  },
+  {
+    value: 'freelancer',
+    icon: '💻',
+    professions: ['freelancer'],
+    workTypes: [
+      { value: 'project_work', key: 'project_work' },
+      { value: 'consulting', key: 'consulting' },
+      { value: 'retainer', key: 'retainer' },
+      { value: 'royalty', key: 'royalty' },
+      { value: 'hourly_work', key: 'hourly_work' },
+    ],
+  },
+  {
+    value: 'student',
+    icon: '🎓',
+    professions: ['student'],
+    workTypes: [
+      { value: 'part_time_job', key: 'part_time_job' },
+      { value: 'internship', key: 'internship' },
+      { value: 'tuition', key: 'tuition' },
+      { value: 'freelance_help', key: 'freelance_help' },
+    ],
+  },
+  {
+    value: 'homemaker',
+    icon: '🏠',
+    professions: ['homemaker'],
+    workTypes: [
+      { value: 'household_work', key: 'household_work' },
+      { value: 'rental_income', key: 'rental_income' },
+      { value: 'catering', key: 'catering' },
+      { value: 'handicraft_sale', key: 'handicraft_sale' },
+    ],
+  },
+  {
+    value: 'investor',
+    icon: '📈',
+    professions: ['investor'],
+    workTypes: [
+      { value: 'trading', key: 'trading' },
+      { value: 'dividend_income', key: 'dividend_income' },
+      { value: 'capital_gains', key: 'capital_gains' },
+      { value: 'interest_income', key: 'interest_income' },
+      { value: 'rental_income', key: 'rental_income' },
+    ],
+  },
+  {
+    value: 'retired',
+    icon: '🏖️',
+    professions: ['retired'],
+    workTypes: [
+      { value: 'pension', key: 'pension' },
+      { value: 'part_time_work', key: 'part_time_work' },
+      { value: 'consulting', key: 'consulting' },
+      { value: 'rental_income', key: 'rental_income' },
     ],
   },
   {
@@ -113,6 +183,18 @@ export const WORK_PROFILES: WorkProfile[] = [
     ],
   },
   {
+    value: 'employer',
+    icon: '🏢',
+    professions: ['salaried', 'business'],
+    workTypes: [
+      { value: 'payroll', key: 'payroll' },
+      { value: 'contractor_payment', key: 'contractor_payment' },
+      { value: 'material_purchase', key: 'material_purchase' },
+      { value: 'invoice_out', key: 'invoice_out' },
+      { value: 'labour', key: 'labour' },
+    ],
+  },
+  {
     value: 'contractor',
     icon: '📋',
     professions: [],
@@ -135,7 +217,7 @@ export const WORK_PROFILES: WorkProfile[] = [
   {
     value: 'general',
     icon: '👤',
-    professions: ['salaried', 'freelancer', 'student', 'homemaker', 'retired', 'investor', 'medical', 'other'],
+    professions: ['other'],
     workTypes: [
       { value: 'freelance_task', key: 'freelance_task' },
       { value: 'commission_work', key: 'commission_work' },
@@ -147,7 +229,16 @@ export const WORK_PROFILES: WorkProfile[] = [
 export const AREA_UNITS = ['acre', 'hectare', 'guntha', 'are'] as const;
 
 export function getWorkProfile(value: string | undefined | null): WorkProfile {
-  return WORK_PROFILES.find(p => p.value === value) || WORK_PROFILES[WORK_PROFILES.length - 1];
+  const hit = WORK_PROFILES.find(p => p.value === value);
+  return hit || WORK_PROFILES.find(p => p.value === 'general') || WORK_PROFILES[0];
+}
+
+// Onboarding profession → its matching work profile(s), ordered most-relevant first.
+// Used by the Works add-form to surface the user's profession-specific options on top.
+export function workProfilesForProfession(profession: string | undefined | null): WorkProfile[] {
+  const matches = WORK_PROFILES.filter(p => profession && p.professions.includes(profession));
+  const rest = WORK_PROFILES.filter(p => !profession || !p.professions.includes(profession));
+  return [...matches, ...rest];
 }
 
 // Map an onboarding profession → default work profile (first match wins)

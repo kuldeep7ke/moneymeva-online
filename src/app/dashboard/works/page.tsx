@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Sprout, ArrowDownLeft, ArrowUpRight, Trash2, X, Pencil, IndianRupee, Clock } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getWorks, getWorkStatus, workPendingAmount, workDurationDays, addWork, updateWork, deleteWork, recordWorkPayment, getPartnerNameSafe, getPartnerships, getPartners, getTransactions, addPartner, isStoreReady } from '@/lib/store';
-import { WORK_PROFILES, AREA_UNITS, getWorkProfile, profileForProfession } from '@/lib/defaultCategories';
+import { AREA_UNITS, getWorkProfile, profileForProfession, workProfilesForProfession } from '@/lib/defaultCategories';
 import type { WorkEntry, WorkDirection, SeasonType } from '@/types';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
@@ -53,6 +53,9 @@ export default function WorksPage() {
   const emptyForm = { direction: 'receivable' as WorkDirection, profile: defaultProfile, workType: '', crop: '', season: 'kharif', year: String(new Date().getFullYear()), partyId: '', partnershipId: '', agreedAmount: '', startDate: todayStr(), endDate: '', areaValue: '', areaUnit: 'acre', notes: '' };
   const [form, setForm] = useState(emptyForm);
   const [payForm, setPayForm] = useState({ amount: '', date: todayStr(), note: '', alsoLedger: true });
+
+  const orderedProfiles = workProfilesForProfession(profile?.profession);
+  const isFarmProfile = form.profile === 'farmer' || form.profile === 'farm_services';
 
   const [typeSearch, setTypeSearch] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
@@ -358,7 +361,7 @@ export default function WorksPage() {
                           {w.partyId && <span>{getPartnerNameSafe(w.partyId)}</span>}
                           {dur !== null && <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" /> {dur} {t('works.days')}</span>}
                           {w.area && <span>{w.area.value} {w.area.unit}</span>}
-                          <span className="capitalize">{t(`works.season.${w.season}`)} {w.year}</span>
+                          {(w.profile === 'farmer' || w.profile === 'farm_services') && <span className="capitalize">{t(`works.season.${w.season}`)} {w.year}</span>}
                         </div>
                       </div>
                     </div>
@@ -441,9 +444,9 @@ export default function WorksPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.profile')}</label>
-                  <select value={form.profile} onChange={e => setForm({ ...form, profile: e.target.value })}
+                  <select value={form.profile} onChange={e => setForm({ ...form, profile: e.target.value, workType: '', crop: '', areaValue: '' })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
-                    {WORK_PROFILES.map(p => (
+                    {orderedProfiles.map(p => (
                       <option key={p.value} value={p.value}>{p.icon} {t(`works.profile.${p.value}`)}</option>
                     ))}
                   </select>
@@ -490,25 +493,27 @@ export default function WorksPage() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.crop')}</label>
-                  <input value={form.crop} onChange={e => setForm({ ...form, crop: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder={t('works.cropPlaceholder')} />
+              {isFarmProfile && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.crop')}</label>
+                    <input value={form.crop} onChange={e => setForm({ ...form, crop: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder={t('works.cropPlaceholder')} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.season')}</label>
+                    <select value={form.season} onChange={e => setForm({ ...form, season: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
+                      {SEASONS.map(s => <option key={s} value={s}>{t(`works.season.${s}`)}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.year')}</label>
+                    <input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.season')}</label>
-                  <select value={form.season} onChange={e => setForm({ ...form, season: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
-                    {SEASONS.map(s => <option key={s} value={s}>{t(`works.season.${s}`)}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.year')}</label>
-                  <input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" />
-                </div>
-              </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.party')}</label>
@@ -579,6 +584,7 @@ export default function WorksPage() {
                   <input required type="number" min="0" step="0.01" value={form.agreedAmount} onChange={e => setForm({ ...form, agreedAmount: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="₹ 0" />
                 </div>
+                {isFarmProfile && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.area')}</label>
@@ -593,6 +599,7 @@ export default function WorksPage() {
                     </select>
                   </div>
                 </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
