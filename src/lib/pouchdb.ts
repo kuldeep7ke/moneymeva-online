@@ -15,7 +15,7 @@ let channel: any = null;
 let reconnectTimer: any = null;
 let changeListeners: Array<() => void> = [];
 
-export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'todo' | 'work' | 'partnership' | 'partnership_entry' | 'audit';
+export type EntityType = 'transaction' | 'partner' | 'recurring' | 'budget' | 'reminder' | 'adjustment' | 'goal' | 'work' | 'partnership' | 'partnership_entry' | 'audit';
 
 async function ensurePouch() {
   if (_PouchDB) return _PouchDB;
@@ -91,7 +91,7 @@ function notifyChange() {
 
 const ENTITY_PREFIXES: Record<string, EntityType> = {
   transaction: 'transaction', partner: 'partner', recurring: 'recurring',
-  budget: 'budget', reminder: 'reminder', adjustment: 'adjustment', goal: 'goal', todo: 'todo',
+  budget: 'budget', reminder: 'reminder', adjustment: 'adjustment', goal: 'goal',
   work: 'work', partnership: 'partnership', partnership_entry: 'partnership_entry',
 };
 

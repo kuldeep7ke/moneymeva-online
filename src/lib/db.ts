@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Transaction, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationLog, WorkEntry, Partnership, PartnershipEntry } from '@/types';
+import type { Transaction, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, MutationLog, WorkEntry, Partnership, PartnershipEntry } from '@/types';
 
 export class MoneyMevaDB extends Dexie {
   transactions!: Table<Transaction, string>;
@@ -9,7 +9,6 @@ export class MoneyMevaDB extends Dexie {
   reminders!: Table<Reminder, string>;
   adjustments!: Table<Adjustment, string>;
   goals!: Table<Goal, string>;
-  todos!: Table<Todo, string>;
   works!: Table<WorkEntry, string>;
   partnerships!: Table<Partnership, string>;
   partnership_entries!: Table<PartnershipEntry, string>;
@@ -25,7 +24,6 @@ export class MoneyMevaDB extends Dexie {
       reminders: 'id, status, userId, deletedAt, transitionId',
       adjustments: 'id, accountType, userId, deletedAt, transitionId',
       goals: 'id, name, userId, deletedAt, transitionId',
-      todos: 'id, status, category, priority, important, userId, deletedAt, transitionId',
       mutation_log: 'id, transitionId, entityType, entityId, action, timestamp, userId',
     });
     this.version(5).stores({

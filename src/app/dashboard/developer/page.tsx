@@ -112,13 +112,13 @@ export default function DeveloperPage() {
       const tableMap: Record<string, string> = {
         transactions: 'transactions', partners: 'partners', recurring: 'recurring',
         budgets: 'budgets', reminders: 'reminders', adjustments: 'adjustments',
-        goals: 'goals', todos: 'todos', mutation_log: 'mutation_log',
+        goals: 'goals', mutation_log: 'mutation_log',
         works: 'works', partnerships: 'partnerships', partnershipEntries: 'partnership_entries',
         _audit_log: 'mutation_log',
       };
       const entries = Object.entries(tableMap).filter(([key]) => Array.isArray(importData[key]) && importData[key].length > 0);
       const actLog = Array.isArray(importData._activity_log) ? importData._activity_log : [];
-      const total = entries.reduce((n, [, table]) => n + importData[table].length, 0) + actLog.length;
+      const total = entries.reduce((n, [key]) => n + importData[key].length, 0) + actLog.length;
       let done = 0;
       for (const [key, tableName] of entries) {
         const items = importData[key];
@@ -145,7 +145,7 @@ export default function DeveloperPage() {
 
   const loadDbStats = async () => {
     setDbStats(null);
-    const tables = ['transactions','partners','recurring','budgets','reminders','adjustments','goals','todos','mutation_log','works','partnerships','partnership_entries'] as const;
+    const tables = ['transactions','partners','recurring','budgets','reminders','adjustments','goals','mutation_log','works','partnerships','partnership_entries'] as const;
     const stats: Record<string, number> = {};
     for (const t of tables) {
       try { stats[t] = await (db[t] as any).count(); } catch { stats[t] = -1; }
@@ -211,7 +211,7 @@ export default function DeveloperPage() {
   };
 
   const handleExportRaw = async () => {
-    const tables = ['transactions','partners','recurring','budgets','reminders','adjustments','goals','todos','mutation_log','works','partnerships','partnership_entries'] as const;
+    const tables = ['transactions','partners','recurring','budgets','reminders','adjustments','goals','mutation_log','works','partnerships','partnership_entries'] as const;
     const overlay = createProgressOverlay('Exporting raw data…');
     const data: Record<string, any> = {};
     const total = tables.length;

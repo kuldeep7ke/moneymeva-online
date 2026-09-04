@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
-import { ArrowRight, ArrowUpCircle, ArrowDownCircle, PiggyBank, Wallet, Clock, TrendingUp, Share2, Pencil, Lock, Unlock } from 'lucide-react';
+import { ArrowRight, Wallet, Clock, TrendingUp, Pencil, Lock, Unlock } from 'lucide-react';
 import ShareButton from '@/components/ShareButton';
 import { BASE_PATH } from '@/lib/env';
 import LanguageSelector from '@/components/LanguageSelector';

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getTransactions } from './store';
@@ -74,7 +74,11 @@ export function getSortedCategories(baseCategories: string[], type?: string): st
 export function useSortedCategories(baseCategories: string[], type?: string): string[] {
   const [categories, setCategories] = useState(baseCategories);
   useEffect(() => {
-    setCategories(getSortedCategories(baseCategories, type));
+    const compute = () => setCategories(getSortedCategories(baseCategories, type));
+    compute();
+    window.addEventListener('store-ready', compute);
+    return () => window.removeEventListener('store-ready', compute);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return categories;
 }

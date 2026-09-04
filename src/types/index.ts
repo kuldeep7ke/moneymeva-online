@@ -112,27 +112,7 @@ export interface Goal {
   updatedAt: string;
 }
 
-export type TodoPriority = 'low' | 'medium' | 'high';
-
-export interface Todo {
-  id: string;
-  userId: string;
-  transitionId: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  category: string;
-  amount?: number;
-  priority: TodoPriority;
-  important: boolean;
-  status: 'pending' | 'completed';
-  completedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-}
-
-export type ArchiveItemType = 'transaction' | 'recurring' | 'reminder' | 'partner' | 'budget' | 'adjustment' | 'goal' | 'todo' | 'work' | 'partnership' | 'partnership_entry';
+export type ArchiveItemType = 'transaction' | 'recurring' | 'reminder' | 'partner' | 'budget' | 'adjustment' | 'goal' | 'work' | 'partnership' | 'partnership_entry';
 
 // ─── Works (कामे) — pending-payment work register ───────────
 export type WorkDirection = 'receivable' | 'payable';

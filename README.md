@@ -63,7 +63,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 
 ### Multi-Device Sync (Supabase)
 - **PouchDB + Supabase** — a local PouchDB buffer (`mm_pouch`) syncs to a shared Supabase `sync_docs` table. Manual + live (realtime) sync. Data is stored on the cloud — it doubles as a backup.
-- **Every section syncs** — all 11 data entities (transactions, partners, recurring, budgets, reminders, adjustments, goals, todos, works, partnerships, partnership_entries) plus the audit trail (mutation_log) push through one doc store (`entity:id` rows). UI preferences stay on-device.
+- **Every section syncs** — all 10 data entities (transactions, partners, recurring, budgets, reminders, adjustments, goals, works, partnerships, partnership_entries) plus the audit trail (mutation_log) push through one doc store (`entity:id` rows). UI preferences stay on-device.
 - **Per-user isolation** — every row carries `user_id`; Row-Level Security guarantees no account can read or write another account's data.
 - **Email + password login** — Supabase Auth. URL + anon key are pre-configured from the build; users just enter their email + password.
 - **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device. **Google sign-in connects automatically** — no email/password needed.

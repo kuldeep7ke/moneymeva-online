@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, Download, Trash2, AlertTriangle, Database, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, Send, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
+import { Upload, Download, Trash2, AlertTriangle, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
 import { cn, todayStr } from '@/lib/utils';
-import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getTodos, getWorks, getPartnerships, getAllPartnershipEntries, logMutation } from '@/lib/store';
+import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getWorks, getPartnerships, getAllPartnershipEntries, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
 import { switchUser, getAllUsers, getSession, logoutUser } from '@/lib/localAuth';
 import { useAuth } from '@/components/AuthProvider';
@@ -22,7 +22,7 @@ import { logActivity, getActivityLog } from '@/lib/activityLog';
 import { db } from '@/lib/db';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
 import { dispatchSyncEvent, listenSyncEvents } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
 import { createProgressOverlay } from '@/lib/progressOverlay';
@@ -87,7 +87,13 @@ export default function SettingsPage() {
     if (cfg.url) {
       setSyncUrl(cfg.url);
       setSyncKey(cfg.key);
-      checkConnection().then(ok => {
+      // Restore a live connection if a cloud session exists (e.g. signed in via Google),
+      // so the panel reflects Connected instead of showing "Create account & sync".
+      checkConnection().then(async ok => {
+        if (!ok) {
+          await ensureConnected();
+          ok = await checkConnection();
+        }
         setSyncConnected(ok);
         setSyncStatus(ok ? 'connected' : 'idle');
       });
@@ -146,7 +152,6 @@ export default function SettingsPage() {
       const tables: [string, any[]][] = [
         ['transactions', getTransactions()], ['budgets', getBudgets()], ['goals', getGoals()],
         ['reminders', getReminders()], ['recurring', getRecurring()], ['partners', getPartners()], ['adjustments', getAdjustments()],
-        ['todos', getTodos()],
         ['works', getWorks()], ['partnerships', getPartnerships()], ['partnershipEntries', getAllPartnershipEntries()],
       ];
       const total = Math.max(tables.reduce((n, [, items]) => n + items.length, 0), 1);
@@ -209,7 +214,7 @@ export default function SettingsPage() {
         const backupId = data.profile?.id || 'unknown';
         const backupUser = data.profile?.full_name || data._metadata.exportedBy || 'Unknown';
         let itemCount = 0;
-        ['transactions', 'budgets', 'goals', 'reminders', 'recurring', 'partners', 'adjustments', 'todos'].forEach(k => {
+        ['transactions', 'budgets', 'goals', 'reminders', 'recurring', 'partners', 'adjustments'].forEach(k => {
           if (data[k]?.length) itemCount += data[k].length;
         });
         const isFresh = !localStorage.getItem('mm_transactions') ||
@@ -1237,7 +1242,6 @@ async function doImport(data: any, currentUserId: string) {
       { key: 'recurring', table: 'mm_recurring', entityType: 'recurring', label: 'Importing recurring…' },
       { key: 'partners', table: 'mm_partners', entityType: 'partner', label: 'Importing partners…' },
       { key: 'adjustments', table: 'mm_adjustments', entityType: 'adjustment', label: 'Importing adjustments…' },
-      { key: 'todos', table: 'mm_todos', entityType: 'todo', label: 'Importing todos…' },
       { key: 'works', table: 'mm_works', entityType: 'work', label: 'Importing works…' },
       { key: 'partnerships', table: 'mm_partnerships', entityType: 'partnership', label: 'Importing partnerships…' },
       { key: 'partnershipEntries', table: 'mm_partnership_entries', entityType: 'partnership_entry', label: 'Importing partnership entries…' },

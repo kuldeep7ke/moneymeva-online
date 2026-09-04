@@ -22,6 +22,11 @@ export default function RecurringPage() {
 
   useEffect(() => { setItems(getRecurring()); }, []);
 
+  const [catSearch, setCatSearch] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [catHighlightIdx, setCatHighlightIdx] = useState(-1);
+  const categoryRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) setShowCategoryDropdown(false);
@@ -29,11 +34,6 @@ export default function RecurringPage() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
-  const [catSearch, setCatSearch] = useState('');
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [catHighlightIdx, setCatHighlightIdx] = useState(-1);
-  const categoryRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     title: '', amount: '', category: '', txType: 'expense' as const, frequency: 'monthly' as const,

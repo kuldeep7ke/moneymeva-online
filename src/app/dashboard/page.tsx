@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, Undo2, Archive, SlidersHorizontal, CalendarDays, Pencil, TrendingDown, Bell, RotateCcw, CalendarArrowUp, Repeat, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, RotateCcw, CalendarArrowUp, Repeat, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { formatCurrency, cn, useSortedCategories, getSortedCategories, todayStr } from '@/lib/utils';
+import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
-import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getReminders, getRecurring, addReminder, completeAndRescheduleReminder, deleteReminder, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary } from '@/lib/store';
+import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getRecurring, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary } from '@/lib/store';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import Reveal from '@/components/Reveal';
-import { checkConnection, getConfig, manualSync, connected as pouchConnected } from '@/lib/pouchdb';
+import { checkConnection, getConfig, manualSync } from '@/lib/pouchdb';
 import { pushAllToPouch, processRemoteChanges } from '@/lib/store';
 import { useTranslation } from '@/lib/i18n';
 import { logActivity } from '@/lib/activityLog';
@@ -51,15 +51,12 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('mm_dash_period') as any) || '1M' : '1M'));
   const [aggregates, setAggregates] = useState({ balance: 0, income: 0, expense: 0, investment: 0, cashBankBalance: 0 });
   const [carryFwd, setCarryFwd] = useState({ lastMonthCarry: 0, currentStart: 0, currentBalance: 0 });
-  const [reminders, setReminders] = useState<any[]>([]);
-  const [allReminders, setAllReminders] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
   const [partnerInvest, setPartnerInvest] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [showRecurringForm, setShowRecurringForm] = useState<any>(null);
   const [recurringForm, setRecurringForm] = useState({ type: 'expense', amount: '', account: 'cash' as 'cash' | 'bank' | 'upi', date: '', description: '', category: 'Other' });
-  const [lastDeleted, setLastDeleted] = useState<any>(null);
   const [editGoal, setEditGoal] = useState<any | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: '', target: '', saved: '' });
   const [confirmDeleteGoal, setConfirmDeleteGoal] = useState<string | null>(null);
@@ -97,23 +94,6 @@ export default function DashboardPage() {
 
   const refreshGoals = () => { setGoals(getGoals()); };
 
-  const loadReminders = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const manual = getReminders().filter(r => r.status === 'pending' && r.dueDate <= today).map(r => ({
-      ...r,
-      _type: 'reminder',
-      _icon: Bell,
-    }));
-    const now = new Date();
-    const recurring = getRecurring().filter(r => r.status === 'active').map(r => {
-      const nextDate = new Date(r.nextDate);
-      const diffDays = Math.ceil((nextDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return { ...r, _type: 'recurring', _icon: Repeat, _diffDays: diffDays };
-    }).filter(r => r._diffDays >= 0 && r._diffDays <= r.reminderDays).slice(0, 3);
-    setReminders([...recurring, ...manual].slice(0, 5));
-    setAllReminders(getReminders().filter(r => r.status === 'pending'));
-  };
-
   const getPeriodSince = (p: string) => {
     if (p === 'ALL') return undefined;
     const d = new Date();
@@ -132,7 +112,6 @@ export default function DashboardPage() {
     const since = getPeriodSince(periodRef.current);
     setAggregates(getAggregates(since));
     setCarryFwd(getCarryForward());
-    loadReminders();
     setGoals(getGoals());
     setRecurringList(getRecurring().filter((r: any) => r.status === 'active' && !r.deletedAt));
     setPartnersList(getPartners());
@@ -220,27 +199,6 @@ export default function DashboardPage() {
       if (investQuotaFromStorage) setInvestQuota(Number(investQuotaFromStorage));
     }
   }, []);
-
-  const handleDone = (id: string) => {
-    const rem = allReminders.find(r => r.id === id);
-    if (!rem) return;
-    const amount = rem.amount || 0;
-    if (!(amount > 0)) return;
-    addTransaction({
-      amount,
-      type: 'expense',
-      category: rem.category || 'Other',
-      description: `Paid: ${rem.title}`,
-      date: todayStr(),
-      partnerAccountId: undefined,
-      isRecurring: false,
-    });
-    completeAndRescheduleReminder(rem.id);
-    loadReminders();
-    refreshDashboard();
-    setToast(`"${rem.title}" added to expenses`);
-    setTimeout(() => setToast(null), 3500);
-  };
 
   const BASE_CATEGORIES: Record<string, string[]> = {
     income: ['Salary', 'Freelance', 'Business', 'Interest', 'Dividends', 'Rental', 'Other'],
@@ -849,21 +807,6 @@ export default function DashboardPage() {
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-xl shadow-2xl text-sm font-medium animate-in slide-in-from-bottom-2">
           <span>{toast}</span>
-          {lastDeleted && (
-            <button onClick={() => {
-              if (lastDeleted._restoreType === 'reminder') {
-                addReminder({ title: lastDeleted.title, description: lastDeleted.description || '', amount: lastDeleted.amount, category: lastDeleted.category || 'Other', dueDate: lastDeleted.dueDate, frequency: lastDeleted.frequency, status: 'pending' });
-                loadReminders();
-              } else {
-                addTransaction(lastDeleted);
-              }
-              setLastDeleted(null);
-              setToast('Restored');
-              setTimeout(() => setToast(null), 2000);
-            }} className="flex items-center gap-1 text-brand-secondary dark:text-brand hover:underline font-bold">
-              <Undo2 className="h-3.5 w-3.5" /> Undo
-            </button>
-          )}
         </div>
       )}
 

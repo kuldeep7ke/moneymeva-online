@@ -1,4 +1,4 @@
-import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, Todo, MutationAction, MutationLog, ArchiveItemType, ArchivedItem, WorkEntry, WorkStatus, WorkPayment, Partnership, PartnershipEntry, PartnershipMember } from '@/types';
+import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, MutationAction, MutationLog, ArchiveItemType, ArchivedItem, WorkEntry, WorkStatus, WorkPayment, Partnership, PartnershipEntry, PartnershipMember } from '@/types';
 import { db } from './db';
 import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected } from './pouchdb';
 import { dispatchSyncEvent, getLastSyncEvent } from './sync-notify';
@@ -24,7 +24,6 @@ const cache: {
   reminders: Reminder[];
   adjustments: Adjustment[];
   goals: Goal[];
-  todos: Todo[];
   works: WorkEntry[];
   partnerships: Partnership[];
   partnershipEntries: PartnershipEntry[];
@@ -36,7 +35,6 @@ const cache: {
   reminders: [],
   adjustments: [],
   goals: [],
-  todos: [],
   works: [],
   partnerships: [],
   partnershipEntries: [],
@@ -78,13 +76,12 @@ function localStorageKey(name: string): string {
     reminders: 'mm_reminders',
     adjustments: 'mm_adjustments',
     goals: 'mm_goals',
-    todos: 'mm_todos',
   };
   return map[name] || `mm_${name}`;
 }
 
 async function migrateFromLocalStorage() {
-  for (const key of ['transactions', 'partners', 'recurring', 'budgets', 'reminders', 'adjustments', 'goals', 'todos']) {
+  for (const key of ['transactions', 'partners', 'recurring', 'budgets', 'reminders', 'adjustments', 'goals']) {
     try {
       const raw = localStorage.getItem(localStorageKey(key));
       if (!raw) continue;
@@ -97,16 +94,6 @@ async function migrateFromLocalStorage() {
       }
       localStorage.removeItem(localStorageKey(key));
     } catch { /* skip */     }
-  }
-}
-
-async function autoCleanupCompletedTodos() {
-  const cut = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const toRemove = cache.todos.filter(t => t.status === 'completed' && new Date(t.completedAt || t.createdAt).getTime() < cut);
-  if (toRemove.length === 0) return;
-  cache.todos = cache.todos.filter(t => !toRemove.includes(t));
-  for (const item of toRemove) {
-    try { await db.todos.delete(item.id); } catch {}
   }
 }
 
@@ -142,7 +129,6 @@ export async function initDB() {
     cache.reminders = await db.reminders.toArray();
     cache.adjustments = await db.adjustments.toArray();
     cache.goals = await db.goals.toArray();
-    cache.todos = await db.todos.toArray();
     try { cache.works = await db.works.toArray(); } catch {}
     try { cache.partnerships = await db.partnerships.toArray(); } catch {}
     try { cache.partnershipEntries = await db.partnership_entries.toArray(); } catch {}
@@ -154,7 +140,6 @@ export async function initDB() {
       await db.partners.bulkPut(deduped);
     }
     await autoDeleteExpiredArchived();
-    await autoCleanupCompletedTodos();
   } catch (e) {
     console.warn('[Store] initDB failed — continuing with empty cache:', e);
   }
@@ -208,7 +193,6 @@ export async function clearAllDB(onProgress?: (label: string, done: number, tota
     ['reminders', db.reminders],
     ['adjustments', db.adjustments],
     ['goals', db.goals],
-    ['todos', db.todos],
     ['works', db.works],
     ['partnerships', db.partnerships],
     ['partnership entries', db.partnership_entries],
@@ -231,7 +215,6 @@ export async function clearAllDB(onProgress?: (label: string, done: number, tota
   cache.reminders = [];
   cache.adjustments = [];
   cache.goals = [];
-  cache.todos = [];
   cache.works = [];
   cache.partnerships = [];
   cache.partnershipEntries = [];
@@ -283,7 +266,7 @@ async function autoDeleteExpiredArchived() {
   });
 
   let changed = false;
-  for (const [key, tableName] of Object.entries({ transactions: 'transactions', partners: 'partners', recurring: 'recurring', reminders: 'reminders', budgets: 'budgets', adjustments: 'adjustments', goals: 'goals', todos: 'todos', works: 'works', partnerships: 'partnerships', partnershipEntries: 'partnership_entries' })) {
+  for (const [key, tableName] of Object.entries({ transactions: 'transactions', partners: 'partners', recurring: 'recurring', reminders: 'reminders', budgets: 'budgets', adjustments: 'adjustments', goals: 'goals', works: 'works', partnerships: 'partnerships', partnershipEntries: 'partnership_entries' })) {
     const arr = (cache as any)[key];
     if (!arr) continue;
     const filtered = filter(arr);
@@ -341,9 +324,6 @@ export function getAllArchivedItems(): ArchivedItem[] {
   for (const g of cache.goals.filter(g => g.deletedAt)) {
     items.push(archivedItem('goal', g, g.name, `Goal · ₹${g.target.toLocaleString('en-IN')}`, g.saved, g.deletedAt!));
   }
-  for (const t of cache.todos.filter(t => t.deletedAt)) {
-    items.push(archivedItem('todo', t, t.title, `Todo · ${t.category || 'Other'}`, t.amount || 0, t.deletedAt!));
-  }
   for (const w of cache.works.filter(w => w.deletedAt)) {
     items.push(archivedItem('work', w, `${w.crop ? w.crop + ' · ' : ''}${w.workType}`, w.direction === 'receivable' ? 'Work · To Receive' : 'Work · To Pay', workPendingAmount(w), w.deletedAt!));
   }
@@ -366,7 +346,6 @@ export function restoreArchivedItem(type: ArchiveItemType, id: string) {
     case 'budget': restoreBudget(id); break;
     case 'adjustment': restoreAdjustment(id); break;
     case 'goal': restoreGoal(id); break;
-    case 'todo': restoreTodo(id); break;
     case 'work': restoreWork(id); break;
     case 'partnership': restorePartnership(id); break;
     case 'partnership_entry': restorePartnershipEntry(id); break;
@@ -382,7 +361,6 @@ export function permanentDeleteArchivedItem(type: ArchiveItemType, id: string) {
     case 'budget': permanentDeleteBudget(id); break;
     case 'adjustment': permanentDeleteAdjustment(id); break;
     case 'goal': permanentDeleteGoal(id); break;
-    case 'todo': permanentDeleteTodo(id); break;
     case 'work': permanentDeleteWork(id); break;
     case 'partnership': permanentDeletePartnership(id); break;
     case 'partnership_entry': permanentDeletePartnershipEntry(id); break;
@@ -397,7 +375,6 @@ export async function permanentDeleteAllArchived() {
   const removedBudgets = cache.budgets.filter(b => b.deletedAt).map(b => b.id);
   const removedAdjustments = cache.adjustments.filter(a => a.deletedAt).map(a => a.id);
   const removedGoals = cache.goals.filter(g => g.deletedAt).map(g => g.id);
-  const removedTodos = cache.todos.filter(t => t.deletedAt).map(t => t.id);
   const removedWorks = cache.works.filter(w => w.deletedAt).map(w => w.id);
   const removedPartnerships = cache.partnerships.filter(p => p.deletedAt).map(p => p.id);
   const removedPEntries = cache.partnershipEntries.filter(e => e.deletedAt).map(e => e.id);
@@ -408,7 +385,6 @@ export async function permanentDeleteAllArchived() {
   const keepBudgets = cache.budgets.filter(b => !b.deletedAt);
   const keepAdjustments = cache.adjustments.filter(a => !a.deletedAt);
   const keepGoals = cache.goals.filter(g => !g.deletedAt);
-  const keepTodos = cache.todos.filter(t => !t.deletedAt);
   const keepWorks = cache.works.filter(w => !w.deletedAt);
   const keepPartnerships = cache.partnerships.filter(p => !p.deletedAt);
   const keepPEntries = cache.partnershipEntries.filter(e => !e.deletedAt);
@@ -419,7 +395,6 @@ export async function permanentDeleteAllArchived() {
   cache.budgets = keepBudgets;
   cache.adjustments = keepAdjustments;
   cache.goals = keepGoals;
-  cache.todos = keepTodos;
   cache.works = keepWorks;
   cache.partnerships = keepPartnerships;
   cache.partnershipEntries = keepPEntries;
@@ -431,7 +406,6 @@ export async function permanentDeleteAllArchived() {
     db.budgets.bulkPut(keepBudgets),
     db.adjustments.bulkPut(keepAdjustments),
     db.goals.bulkPut(keepGoals),
-    db.todos.bulkPut(keepTodos),
     db.works.bulkPut(keepWorks),
     db.partnerships.bulkPut(keepPartnerships),
     db.partnership_entries.bulkPut(keepPEntries),
@@ -444,7 +418,6 @@ export async function permanentDeleteAllArchived() {
     removedBudgets.length ? db.budgets.bulkDelete(removedBudgets) : Promise.resolve(),
     removedAdjustments.length ? db.adjustments.bulkDelete(removedAdjustments) : Promise.resolve(),
     removedGoals.length ? db.goals.bulkDelete(removedGoals) : Promise.resolve(),
-    removedTodos.length ? db.todos.bulkDelete(removedTodos) : Promise.resolve(),
     removedWorks.length ? db.works.bulkDelete(removedWorks) : Promise.resolve(),
     removedPartnerships.length ? db.partnerships.bulkDelete(removedPartnerships) : Promise.resolve(),
     removedPEntries.length ? db.partnership_entries.bulkDelete(removedPEntries) : Promise.resolve(),
@@ -457,7 +430,6 @@ export async function permanentDeleteAllArchived() {
     ...removedBudgets.map(id => syncWriteDoc('budgets', { id, deletedAt: now(), updatedAt: now() })),
     ...removedAdjustments.map(id => syncWriteDoc('adjustments', { id, deletedAt: now(), updatedAt: now() })),
     ...removedGoals.map(id => syncWriteDoc('goals', { id, deletedAt: now(), updatedAt: now() })),
-    ...removedTodos.map(id => syncWriteDoc('todos', { id, deletedAt: now(), updatedAt: now() })),
     ...removedWorks.map(id => syncWriteDoc('works', { id, deletedAt: now(), updatedAt: now() })),
     ...removedPartnerships.map(id => syncWriteDoc('partnerships', { id, deletedAt: now(), updatedAt: now() })),
     ...removedPEntries.map(id => syncWriteDoc('partnership_entries', { id, deletedAt: now(), updatedAt: now() })),
@@ -492,12 +464,12 @@ const logEntityType = (table: string): string => table === 'partners' ? 'party' 
 // ─── PouchDB Sync Helpers ─────────────────────────────────────
 const entityMap: Record<string, EntityType> = {
   transactions: 'transaction', partners: 'partner', recurring: 'recurring',
-  budgets: 'budget', reminders: 'reminder', adjustments: 'adjustment', goals: 'goal', todos: 'todo',
+  budgets: 'budget', reminders: 'reminder', adjustments: 'adjustment', goals: 'goal',
   works: 'work', partnerships: 'partnership', partnership_entries: 'partnership_entry',
 };
 const entityTableMap: Record<EntityType, string> = {
   transaction: 'transactions', partner: 'partners', recurring: 'recurring',
-  budget: 'budgets', reminder: 'reminders', adjustment: 'adjustments', goal: 'goals', todo: 'todos',
+  budget: 'budgets', reminder: 'reminders', adjustment: 'adjustments', goal: 'goals',
   work: 'works', partnership: 'partnerships', partnership_entry: 'partnership_entries',
   audit: 'mutation_log',
 };
@@ -577,7 +549,6 @@ export async function pushAllToPouch() {
     ['reminders', 'reminder'],
     ['adjustments', 'adjustment'],
     ['goals', 'goal'],
-    ['todos', 'todo'],
     ['works', 'work'],
     ['partnerships', 'partnership'],
     ['partnershipEntries', 'partnership_entry'],
@@ -1016,79 +987,6 @@ export function restoreGoal(id: string) {
 
 export function permanentDeleteGoal(id: string) {
   deleteFromCacheAndWrite('goals', cache.goals, id);
-}
-
-// ─── Todos ────────────────────────────────────────────────────
-export function getTodos(): Todo[] {
-  return cache.todos.filter(t => !t.deletedAt);
-}
-
-export function addTodo(t: Omit<Todo, 'id' | 'transitionId' | 'userId' | 'createdAt' | 'updatedAt'>): Todo {
-  const todo: Todo = { ...t, id: id(), transitionId: transitionId(), userId: uid(), createdAt: now(), updatedAt: now() };
-  cache.todos.push(todo);
-  db.todos.put(todo).catch(() => {});
-  syncWriteDoc('todos', todo);
-  logMutation('todo', todo.id, todo.transitionId, 'created', t.title);
-  return todo;
-}
-
-export function updateTodo(id: string, updates: Partial<Todo>) {
-  const idx = cache.todos.findIndex(t => t.id === id);
-  if (idx === -1) return null;
-  const prev = cache.todos[idx];
-  const tId = prev.transitionId;
-  cache.todos[idx] = { ...prev, ...updates, updatedAt: now() };
-  db.todos.put(cache.todos[idx]).catch(() => {});
-  syncWriteDoc('todos', cache.todos[idx]);
-  const action: MutationAction = updates.deletedAt ? 'deleted' : updates.deletedAt === undefined && prev.deletedAt ? 'restored' : 'updated';
-  logMutation('todo', id, tId, action, cache.todos[idx].title);
-  return cache.todos[idx];
-}
-
-export function deleteTodo(id: string) {
-  const idx = cache.todos.findIndex(t => t.id === id);
-  if (idx === -1) return;
-  const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], deletedAt: now(), updatedAt: now() };
-  db.todos.put(cache.todos[idx]).catch(() => {});
-  syncWriteDoc('todos', cache.todos[idx]);
-  logMutation('todo', id, tId, 'deleted', cache.todos[idx].title);
-}
-
-export function restoreTodo(id: string) {
-  const idx = cache.todos.findIndex(t => t.id === id);
-  if (idx === -1) return;
-  const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], deletedAt: undefined, updatedAt: now() };
-  db.todos.put(cache.todos[idx]).catch(() => {});
-  syncWriteDoc('todos', cache.todos[idx]);
-  logMutation('todo', id, tId, 'restored', cache.todos[idx].title);
-}
-
-export function permanentDeleteTodo(id: string) {
-  deleteFromCacheAndWrite('todos', cache.todos, id);
-}
-
-export function toggleTodoImportant(id: string) {
-  const idx = cache.todos.findIndex(t => t.id === id);
-  if (idx === -1) return null;
-  const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], important: !cache.todos[idx].important, updatedAt: now() };
-  db.todos.put(cache.todos[idx]).catch(() => {});
-  syncWriteDoc('todos', cache.todos[idx]);
-  logMutation('todo', id, tId, 'toggled', `${cache.todos[idx].title} → important: ${cache.todos[idx].important}`);
-  return cache.todos[idx];
-}
-
-export function completeTodo(id: string) {
-  const idx = cache.todos.findIndex(t => t.id === id);
-  if (idx === -1) return null;
-  const tId = cache.todos[idx].transitionId;
-  cache.todos[idx] = { ...cache.todos[idx], status: 'completed', completedAt: now(), updatedAt: now() };
-  db.todos.put(cache.todos[idx]).catch(() => {});
-  syncWriteDoc('todos', cache.todos[idx]);
-  logMutation('todo', id, tId, 'completed', cache.todos[idx].title);
-  return cache.todos[idx];
 }
 
 // ─── Summary helpers ─────────────────────────────────────────

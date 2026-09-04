@@ -20,7 +20,6 @@ import {
   Bell,
   SlidersHorizontal,
   Target,
-  ListTodo,
   Briefcase,
   Handshake,
   FileText
@@ -40,7 +39,6 @@ const ENTITY_ICONS: Record<string, LucideIcon> = {
   reminder: Bell,
   adjustment: SlidersHorizontal,
   goal: Target,
-  todo: ListTodo,
   work: Briefcase,
   work_payment: Briefcase,
   partnership: Handshake,
@@ -69,7 +67,7 @@ function entityIcon(type: string): LucideIcon {
 }
 
 function entityOpts(): { value: string; label: string }[] {
-  const types = ['transaction', 'party', 'recurring', 'budget', 'reminder', 'adjustment', 'goal', 'todo', 'work', 'work_payment', 'partnership', 'partnership_entry'];
+  const types = ['transaction', 'party', 'recurring', 'budget', 'reminder', 'adjustment', 'goal', 'work', 'work_payment', 'partnership', 'partnership_entry'];
   return types.map(t => ({ value: t, label: formatEntityType(t) }));
 }
 
@@ -302,7 +300,7 @@ export default function LedgerPage() {
                   onClick={() => setLogLimit(prev => prev + 500)}
                   className="w-full py-2 text-xs font-medium text-brand dark:text-brand-light hover:bg-slate-100 dark:hover:bg-brand-muted/30 rounded-lg transition-colors"
                 >
-                  Load more (showing {logs.length.toLocaleString()} of {logs.length.toLocaleString()}+)
+                  Load more (showing first {logLimit.toLocaleString()} entries)
                 </button>
               )}
             </div>

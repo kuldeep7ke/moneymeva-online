@@ -6,7 +6,7 @@
 -- The app syncs its local data as JSON documents in this table.
 --   id         = "<entity>:<item-id>" (e.g. "transaction:ab12cd")
 --   entity     = transaction | partner | recurring | budget | reminder | adjustment |
---                goal | todo | work | partnership | partnership_entry | pin | audit
+--                goal | work | partnership | partnership_entry | pin | audit
 --   data       = the full document (jsonb)
 --   updated_at = last write time (used for conflict resolution, newer wins)
 --   deleted_at = set when a document is permanently deleted on another device

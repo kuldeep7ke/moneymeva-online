@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Target, Download, Clock, Trash2, X } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Target, Download, Clock, Trash2 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getMonthlySummary, getTransactions, getGoals, getAllArchivedItems } from '@/lib/store';
@@ -23,7 +23,6 @@ export default function SummaryPage() {
   const [pinAction, setPinAction] = useState<string | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [showFullModal, setShowFullModal] = useState(false);
 
   const sysActivity = useMemo(() => systemActivity.map(e => ({
     _type: 'system' as const, _key: `sys-${e.timestamp}-${e.type}`, _ts: e.timestamp,
@@ -252,59 +251,6 @@ export default function SummaryPage() {
         </Reveal>
 
         {/* Full History Modal */}
-        {showFullModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-2xl w-full p-6 shadow-2xl my-4 max-h-[85vh] flex flex-col">
-              <div className="flex items-center justify-between mb-4 shrink-0">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Activity History</h2>
-                <Button variant="ghost" size="sm" className="p-1 h-auto" onClick={() => setShowFullModal(false)}><X className="h-5 w-5" /></Button>
-              </div>
-              <div className="overflow-y-auto flex-1 space-y-4">
-                {groupedDays.map(({ dateLabel, entries }) => (
-                  <div key={dateLabel}>
-                    <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mb-2 sticky top-0 bg-white dark:bg-[#2A2522] py-1">{dateLabel}</p>
-                    <div className="space-y-1">
-                      {entries.map(item => {
-                        const isSystem = item._type === 'system';
-                        return (
-                          <div key={item._key} className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-lg text-xs",
-                            isSystem ? 'bg-slate-50 dark:bg-brand-muted/20' : 'bg-white dark:bg-transparent'
-                          )}>
-                            <span className="text-slate-400 dark:text-slate-500 font-mono w-16 shrink-0">
-                              {new Date(item._ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            {isSystem ? (
-                              <>
-                                <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium uppercase shrink-0",
-                                  item.type === 'pin_used' ? 'bg-brand-secondary dark:bg-brand-muted/30 text-brand dark:text-brand-secondary' :
-                                  item.type === 'login' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
-                                  item.type === 'login_failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' :
-                                  item.type === 'logout' ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400' :
-                                  item.type === 'session_lock' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
-                                  item.type === 'session_unlock' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' :
-                                  item.type === 'register' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
-                                  item.type === 'auto_lock_off' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
-                                  'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                )}>{item.type.replace(/_/g, ' ')}</span>
-                                <span className="text-slate-500 dark:text-slate-400 truncate min-w-0">{item.detail}</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-slate-500 dark:text-slate-400 truncate min-w-0">{item.action}: {item.label}</span>
-                                <span className="text-slate-500 dark:text-slate-400 shrink-0 font-semibold">{formatCurrency(item.amount || 0)}</span>
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         <PinPrompt
           open={pinAction !== null}

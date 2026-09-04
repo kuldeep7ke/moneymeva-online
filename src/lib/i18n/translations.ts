@@ -412,6 +412,11 @@ const mr: Record<string, string> = {
   'savings.target': 'लक्ष्य रक्कम',
   'savings.saved': 'जमा झाले',
   'savings.deadline': 'शेवटची तारीख',
+  'savings.subtitle': 'तुमच्या बचतीची प्रगती ट्रॅक करा.',
+  'savings.createFirst': 'पहिले ध्येय तयार करा',
+  'savings.createGoal': 'ध्येय तयार करा',
+  'savings.achieved': '{pct}% पूर्ण झाले',
+  'savings.savedSoFar': 'आतापर्यंत जमा',
 };
 
 const hi: Record<string, string> = {
@@ -814,6 +819,11 @@ const hi: Record<string, string> = {
   'savings.target': 'लक्ष्य रकम',
   'savings.saved': 'जमा हुआ',
   'savings.deadline': 'आखिरी तारीख',
+  'savings.subtitle': 'अपनी बचत की प्रगति ट्रैक करें.',
+  'savings.createFirst': 'पहला गोल बनाएं',
+  'savings.createGoal': 'गोल बनाएं',
+  'savings.achieved': '{pct}% पूरा हुआ',
+  'savings.savedSoFar': 'अब तक जमा',
 };
 
 const en: Record<string, string> = {
@@ -1216,6 +1226,11 @@ const en: Record<string, string> = {
   'savings.target': 'Target Amount',
   'savings.saved': 'Saved',
   'savings.deadline': 'Deadline',
+  'savings.subtitle': 'Track your savings goals and progress.',
+  'savings.createFirst': 'Create First Goal',
+  'savings.createGoal': 'Create Goal',
+  'savings.achieved': '{pct}% achieved',
+  'savings.savedSoFar': 'Saved so far',
 };
 
 export const translations: Record<Language, Record<string, string>> = { mr, hi, en };

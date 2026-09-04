@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Wallet, TrendingUp, TrendingDown, MoreVertical, Trash2, X, Undo2, AlertTriangle, Pencil } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, Trash2, X, AlertTriangle, Pencil } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';

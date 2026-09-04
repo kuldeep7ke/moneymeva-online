@@ -33,7 +33,36 @@ export default function BannerModal() {
   const [ready, setReady] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
 
+  // Show ONLY on a genuine refresh (F5 / full reload). Suppresses the modal on
+  // the initial visit (navigate), in-app SPA navigation, and back/forward
+  // (back_forward / bfcache restore) — so it never re-appears on revisit.
+  const [enabled] = useState(() => {
+    try {
+      const nav = performance.getEntriesByType('navigation');
+      if (nav.length > 0 && (nav[0] as PerformanceNavigationTiming).type !== 'reload') return false;
+    } catch {}
+    return true;
+  });
+
+  const dismiss = useCallback(() => {
+    setData(null);
+    setReady(false);
+    setCountdown(null);
+    notifyBannerDone();
+  }, []);
+
+  // bfcache safety net: if the page is restored from the back/forward cache
+  // after the modal had been dismissed, keep it closed.
   useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) dismiss();
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, [dismiss]);
+
+  useEffect(() => {
+    if (!enabled) { setLoading(false); notifyBannerDone(); return; }
     if (bannerShownThisLoad) { setLoading(false); notifyBannerDone(); return; }
     // Primary: edge-cached proxy (quota-friendly). Fallback: direct jsonbin.
     const fetchJson = async (): Promise<any | null> => {
@@ -61,7 +90,7 @@ export default function BannerModal() {
       })
       .catch(() => { notifyBannerDone(); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [enabled]);
 
   // No image → banner is fully rendered as soon as data paints
   useEffect(() => {
@@ -85,13 +114,6 @@ export default function BannerModal() {
     if (el && el.complete && el.naturalWidth > 0) setReady(true);
   }, []);
   const onImgDone = useCallback(() => setReady(true), []);
-
-  const dismiss = useCallback(() => {
-    setData(null);
-    setReady(false);
-    setCountdown(null);
-    notifyBannerDone();
-  }, []);
 
   if (loading) {
     return (

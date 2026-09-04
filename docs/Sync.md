@@ -36,7 +36,6 @@ app writes through `syncWriteDoc()` / `putDoc()`:
 | `reminder` | Dashboard reminders ("Mark as Paid") |
 | `adjustment` | Adjustments page |
 | `goal` | Savings → Goals (ध्येय) |
-| `todo` | Legacy todos (data kept; UI removed in v7.2.0) |
 | `work` | Works कामे (incl. payment history) |
 | `partnership` | Partnership भागीदारी (members + shares) |
 | `partnership_entry` | Partnership income/expense entries |
