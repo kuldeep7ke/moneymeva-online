@@ -42,30 +42,32 @@ export async function exportCustomDataExcel(opts: {
     const investRows = sections.includes('investments') ? txsInRange.filter(t => t.type === 'investment') : [];
     let categoriesCount = 0;
 
-    // JSON mode emits a raw table map that the developer-page Import can restore.
+    // Raw table map (keeps original ids) so the export can be imported back into the app.
+    const data: Record<string, any[]> = {};
+    // Income/expenses/investments/categories/accounts all come from the transactions table.
+    const txIncluded = ['income', 'expenses', 'investments', 'categories', 'accounts'].some(s => sections.includes(s as CustomExportSection));
+    if (txIncluded) {
+      const wantType = (ty: string) =>
+        (ty === 'income' && sections.includes('income')) ||
+        (ty === 'expense' && sections.includes('expenses')) ||
+        (ty === 'investment' && sections.includes('investments')) ||
+        ((ty === 'income' || ty === 'expense') && sections.includes('categories')) ||
+        sections.includes('accounts');
+      data.transactions = txsInRange.filter(t => wantType(t.type));
+    }
+    if (sections.includes('parties')) data.partners = partners;
+    if (sections.includes('recurring')) data.recurring = recInRange;
+    if (sections.includes('works')) data.works = worksInRange;
+    if (sections.includes('goals')) data.goals = getGoals();
+    if (sections.includes('partnership')) {
+      data.partnerships = getPartnerships();
+      data.partnershipEntries = getPartnerships().flatMap(p => getPartnershipEntries(p.id).filter(e => inRange(e.date)));
+    }
+    if (Object.keys(data).length === 0) throw new Error('No data to export for the selected sections.');
+
+    // JSON mode emits the raw table map directly — the developer-page Import restores it.
     if (format === 'json') {
       onProgress?.('Building JSON data…', 30);
-      const data: Record<string, any[]> = {};
-      // Income/expenses/investments/categories/accounts all come from the transactions table.
-      const txIncluded = ['income', 'expenses', 'investments', 'categories', 'accounts'].some(s => sections.includes(s as CustomExportSection));
-      if (txIncluded) {
-        const wantType = (ty: string) =>
-          (ty === 'income' && sections.includes('income')) ||
-          (ty === 'expense' && sections.includes('expenses')) ||
-          (ty === 'investment' && sections.includes('investments')) ||
-          ((ty === 'income' || ty === 'expense') && sections.includes('categories')) ||
-          sections.includes('accounts');
-        data.transactions = txsInRange.filter(t => wantType(t.type));
-      }
-      if (sections.includes('parties')) data.partners = partners;
-      if (sections.includes('recurring')) data.recurring = recInRange;
-      if (sections.includes('works')) data.works = worksInRange;
-      if (sections.includes('goals')) data.goals = getGoals();
-      if (sections.includes('partnership')) {
-        data.partnerships = getPartnerships();
-        data.partnershipEntries = getPartnerships().flatMap(p => getPartnershipEntries(p.id).filter(e => inRange(e.date)));
-      }
-      if (Object.keys(data).length === 0) throw new Error('No data to export for the selected sections.');
       onProgress?.('Generating file…', 90);
       const stamp = new Date().toISOString().split('T')[0];
       const range = `[${from || 'all'}]-[${to || 'all'}]`.replace(/[^a-z0-9_[\]]/gi, '-');
@@ -215,6 +217,25 @@ export async function exportCustomDataExcel(opts: {
       ...(sections.includes('partnership') ? [{ Section: 'Partnership', Rows: getPartnerships().length, Amount: 0 }] : []),
     ];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sumRows), 'Summary');
+
+    // Embed the raw table arrays (with original ids) as hidden "_mm_" sheets so the
+    // developer-page Import can load them back exactly like a JSON export.
+    // Normalize nested objects/arrays so spreadsheet cells stay lossless for the importer.
+    const sheetSafe = (rows: any[]) => rows.map(r => {
+      const row: Record<string, any> = {};
+      for (const [k, v] of Object.entries(r)) row[k] = v !== null && typeof v === 'object' ? JSON.stringify(v) : v;
+      return row;
+    });
+    const hiddenSheets: string[] = [];
+    for (const [key, rows] of Object.entries(data)) {
+      if (!rows.length) continue;
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheetSafe(rows)), `_mm_${key}`);
+      hiddenSheets.push(`_mm_${key}`);
+    }
+    if (hiddenSheets.length) {
+      wb.Workbook = wb.Workbook || {};
+      wb.Workbook.Sheets = wb.SheetNames.map(n => ({ Name: n, Hidden: hiddenSheets.includes(n) ? 1 : 0 }));
+    }
 
     onProgress?.('Generating file…', 90);
     const stamp = new Date().toISOString().split('T')[0];

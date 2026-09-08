@@ -18,6 +18,7 @@ import { getLastSyncEvent } from '@/lib/sync-notify';
 import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API, BASE_PATH } from '@/lib/env';
 import { RELEASE_NOTES, getLastSeenVersion } from '@/lib/whats-new';
 import { exportCustomDataExcel, type CustomExportSection } from '@/lib/export';
+import * as XLSX from 'xlsx';
 
 const mask = (s: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
 
@@ -120,12 +121,38 @@ export default function DeveloperPage() {
     if (!file) return;
     setImportFileName(file.name);
     try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (typeof parsed !== 'object' || parsed === null) { setStatus('Invalid file format: expected JSON object with table arrays.'); return; }
-      setImportData(parsed as Record<string, any[]>);
-      setStatus(`Loaded ${file.name} — ${Object.keys(parsed).length} tables found`);
-    } catch { setStatus('Failed to parse file. Ensure it is a valid JSON export.'); }
+      const isExcel = /\.(xlsx|xls|csv)$/i.test(file.name);
+      if (isExcel) {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf);
+        const parsed: Record<string, any[]> = {};
+        for (const name of wb.SheetNames) {
+          if (!name.startsWith('_mm_')) continue;
+          const key = name.slice(4);
+          const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '' });
+          parsed[key] = rows.map(r => {
+            const row: Record<string, any> = {};
+            for (const [k, v] of Object.entries(r as Record<string, any>)) {
+              let val = v;
+              if (typeof v === 'string' && (v.startsWith('[') || v.startsWith('{'))) {
+                try { const p = JSON.parse(v); if (p !== null && typeof p === 'object') val = p; } catch { /* keep raw string */ }
+              }
+              row[k] = val;
+            }
+            return row;
+          });
+        }
+        if (!Object.keys(parsed).length) { setStatus('No importable sheets found in the workbook. Use the app\'s Custom Export (XLSX) or JSON.'); return; }
+        setImportData(parsed);
+        setStatus(`Loaded ${file.name} — ${Object.keys(parsed).length} tables found (XLSX)`);
+      } else {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (typeof parsed !== 'object' || parsed === null) { setStatus('Invalid file format: expected JSON object with table arrays.'); return; }
+        setImportData(parsed as Record<string, any[]>);
+        setStatus(`Loaded ${file.name} — ${Object.keys(parsed).length} tables found`);
+      }
+    } catch { setStatus('Failed to parse file. Ensure it is a valid JSON or XLSX export.'); }
   };
 
   const handleFileImport = async () => {
@@ -312,8 +339,8 @@ export default function DeveloperPage() {
 
         {/* Import from File */}
         <Section icon={FileUp} title="Import from File" iconColor="text-brand">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Select a JSON export file to preview and import.</p>
-          <input ref={fileInputRef} type="file" accept=".json" onChange={handleFileSelect} className="hidden" />
+          <p className="text-xs text-slate-500 dark:text-slate-400">Select a JSON or XLSX export file to preview and import. XLSX files from the Custom Export (Excel) round-trip with original IDs.</p>
+          <input ref={fileInputRef} type="file" accept=".json,.xlsx,.xls" onChange={handleFileSelect} className="hidden" />
           <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full gap-2"><Upload className="h-4 w-4" /> Choose File</Button>
           {importFileName && <p className="text-xs text-slate-500">Selected: {importFileName}</p>}
           {importData !== null && (
@@ -377,7 +404,7 @@ export default function DeveloperPage() {
 
         {/* Export Data */}
         <Section icon={Download} title="Export Data" iconColor="text-amber-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Download a full raw JSON backup (all tables), or export the sections below for a period — as Excel (XLSX) or re-importable JSON.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Download a full raw JSON backup (all tables), or export the sections below for a period — Excel (XLSX) now also embeds re-importable raw sheets, or plain JSON.</p>
 
           <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full text-xs gap-2"><Download className="h-3.5 w-3.5" /> Export Raw Data (JSON)</Button>
 
