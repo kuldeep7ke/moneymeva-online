@@ -115,7 +115,9 @@ const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> =
   contact: [
     { value: 'individual', label: 'Individual / Person' },
     { value: 'friend', label: 'Friend / Family' },
-    { value: 'employee', label: 'Employee' },
+    { value: 'employer', label: 'Employer / Company' },
+    { value: 'company', label: 'Company / Organization' },
+    { value: 'employee', label: 'Employee / Staff' },
     { value: 'landlord', label: 'Landlord / Tenant' },
     { value: 'investor', label: 'Investor' },
     { value: 'partner', label: 'Joint Venture Partner' },

@@ -1168,6 +1168,8 @@ export default function DashboardPage() {
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
                     <option value="individual">Individual</option>
                     <option value="friend">Friend / Family</option>
+                    <option value="employer">Employer / Company</option>
+                    <option value="company">Company / Organization</option>
                     <option value="client">Client</option>
                     <option value="supplier">Supplier</option>
                   </select>
