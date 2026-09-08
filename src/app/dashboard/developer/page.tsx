@@ -17,6 +17,7 @@ import { createProgressOverlay } from '@/lib/progressOverlay';
 import { getLastSyncEvent } from '@/lib/sync-notify';
 import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API } from '@/lib/env';
 import { RELEASE_NOTES, getLastSeenVersion } from '@/lib/whats-new';
+import { exportCustomDataExcel, type CustomExportSection } from '@/lib/export';
 
 const mask = (s: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
 
@@ -41,6 +42,10 @@ export default function DeveloperPage() {
   const [annTesting, setAnnTesting] = useState(false);
   const [dismissedCount, setDismissedCount] = useState(0);
   const [confirmBox, setConfirmBox] = useState<{ mode: 'clear' | 'clearRemote'; stage: number } | null>(null);
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+  const [exportSections, setExportSections] = useState<Record<string, boolean>>({ income: true, expenses: true, parties: true, recurring: false });
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const m = document.querySelector('meta[name="app-version"]');
@@ -250,6 +255,28 @@ export default function DeveloperPage() {
     setBrand(brands[(idx + 1) % brands.length].key);
   };
 
+  const handleCustomExport = async () => {
+    const sections = (Object.keys(exportSections).filter(k => exportSections[k]) as CustomExportSection[]);
+    if (sections.length === 0) { toast('Select at least one section to export.', 'warning'); return; }
+    if (exportFrom && exportTo && exportFrom > exportTo) { toast('From date must be before To date.', 'warning'); return; }
+    setExporting(true);
+    const overlay = createProgressOverlay('Exporting data…');
+    try {
+      await exportCustomDataExcel({
+        from: exportFrom || undefined,
+        to: exportTo || undefined,
+        sections,
+        onProgress: (label, pct) => overlay.update(label, pct, 100),
+      });
+      setExporting(false);
+      overlay.finish('Export complete — check downloads', () => overlay.close());
+      toast('Custom export downloaded', 'success');
+    } catch {
+      setExporting(false);
+      overlay.error('Export failed', () => overlay.close());
+    }
+  };
+
   if (!warnDismissed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-[#1A1615] p-4">
@@ -350,6 +377,38 @@ export default function DeveloperPage() {
         <Section icon={Download} title="Export Raw Data" iconColor="text-orange-500">
           <p className="text-xs text-slate-500 dark:text-slate-400">Download all DB tables as a single JSON file.</p>
           <Button variant="outline" onClick={handleExportRaw} className="w-full text-xs gap-2"><Download className="h-3.5 w-3.5" /> Export JSON</Button>
+        </Section>
+
+        {/* Custom Export */}
+        <Section icon={Download} title="Custom Export" iconColor="text-amber-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Export selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-500 block mb-1">From date</label>
+              <input type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 block mb-1">To date</label>
+              <input type="date" value={exportTo} onChange={e => setExportTo(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-sm" />
+            </div>
+          </div>
+          <div className="text-xs">
+            <p className="text-slate-400 font-medium mb-1.5">Sections — select one or all</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }].map(s => (
+                <label key={s.k} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition-colors",
+                  exportSections[s.k] ? "border-brand/50 bg-brand-secondary dark:bg-brand-muted/40 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
+                  <input type="checkbox" checked={!!exportSections[s.k]} onChange={() => setExportSections({ ...exportSections, [s.k]: !exportSections[s.k] })} className="accent-brand" />
+                  {s.l}
+                </label>
+              ))}
+            </div>
+          </div>
+          <Button variant="outline" onClick={handleCustomExport} disabled={exporting} className="w-full gap-2">
+            {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4" /> Export Custom (XLSX)</>}
+          </Button>
         </Section>
 
         {/* Sync Diagnostics */}
