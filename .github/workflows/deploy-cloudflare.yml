@@ -28,11 +28,11 @@ jobs:
     steps:
       - name: Checkout
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
