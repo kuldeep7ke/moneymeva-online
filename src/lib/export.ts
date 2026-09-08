@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { getTransactions, getPartners, getPartnerPnL, getPartnerCreditBalance, getRecurring, getWorks, getGoals, getPartnerships, getPartnershipSummary } from './store';
+import { getTransactions, getPartners, getRecurring, getWorks, getGoals, getPartnerships, getPartnershipEntries } from './store';
 import { DEFAULT_CATEGORIES } from './defaultCategories';
 import { downloadFile, downloadBlob } from './download';
 
@@ -20,12 +20,25 @@ export async function exportCustomDataExcel(opts: {
     const partnerMap = new Map<string, string>();
     for (const p of partners) partnerMap.set(p.id, p.name);
     const inRange = (date: string) => (!from || date >= from) && (!to || date <= to);
+    const txsInRange = txs.filter(t => inRange(t.date));
     const partyName = (id?: string) => (id ? partnerMap.get(id) || '' : '');
+    // Entities are "in period" when their own date window overlaps [from, to].
+    // Guard part ranges: a missing bound means "no limit" on that side.
+    const recInRange = getRecurring().filter(r => {
+      if (from && (r.startDate || '') && (r.startDate || '') > (to || '9999-12-31')) return false;
+      if (to && r.endDate && r.endDate < (from || '0000-01-01')) return false;
+      return true;
+    });
+    const worksInRange = getWorks().filter(w => {
+      if (from && w.startDate && w.startDate > (to || '9999-12-31')) return false;
+      if (to && w.endDate && w.endDate < (from || '0000-01-01')) return false;
+      return true;
+    });
 
     onProgress?.('Reading data…', 10);
-    const incRows = sections.includes('income') ? txs.filter(t => t.type === 'income' && inRange(t.date)) : [];
-    const expRows = sections.includes('expenses') ? txs.filter(t => t.type === 'expense' && inRange(t.date)) : [];
-    const investRows = sections.includes('investments') ? txs.filter(t => t.type === 'investment' && inRange(t.date)) : [];
+    const incRows = sections.includes('income') ? txsInRange.filter(t => t.type === 'income') : [];
+    const expRows = sections.includes('expenses') ? txsInRange.filter(t => t.type === 'expense') : [];
+    const investRows = sections.includes('investments') ? txsInRange.filter(t => t.type === 'investment') : [];
     let categoriesCount = 0;
 
     const wb = XLSX.utils.book_new();
@@ -49,10 +62,15 @@ export async function exportCustomDataExcel(opts: {
     if (sections.includes('parties')) {
       onProgress?.('Building Parties sheet…', 60);
       const ws = XLSX.utils.json_to_sheet(partners.map(p => {
-        const pnl = getPartnerPnL(p.id) || { net: 0 };
+        const pt = txsInRange.filter(t => t.partnerAccountId === p.id && t.account !== 'credit');
+        const income = pt.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expense = pt.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        // Positive = you owe this party (buy on credit); negative = party owes you (sale on credit)
+        const credit = txsInRange.filter(t => t.account === 'credit' && t.partnerAccountId === p.id)
+          .reduce((s, t) => s + (t.type === 'expense' ? t.amount : -t.amount), 0);
         return {
           Name: p.name, Group: p.group || '', Type: p.type || '', Description: p.description || '',
-          'Initial Investment': p.initialInvestment || 0, 'Net P&L': pnl.net || 0, 'Credit Balance': getPartnerCreditBalance(p.id),
+          'Initial Investment': p.initialInvestment || 0, 'Net P&L': income - expense, 'Credit Balance': credit,
         };
       }));
       XLSX.utils.book_append_sheet(wb, ws, 'Parties');
@@ -60,7 +78,7 @@ export async function exportCustomDataExcel(opts: {
 
     if (sections.includes('recurring')) {
       onProgress?.('Building Recurring sheet…', 55);
-      const ws = XLSX.utils.json_to_sheet(getRecurring().map(r => ({
+      const ws = XLSX.utils.json_to_sheet(recInRange.map(r => ({
         Title: r.title, Type: r.txType, Amount: r.amount, Frequency: r.frequency, Status: r.status,
         'Start Date': r.startDate || '', 'End Date': r.endDate || '', 'Next Date': r.nextDate || '', 'Reminder (days)': r.reminderDays || 0,
       })));
@@ -81,7 +99,7 @@ export async function exportCustomDataExcel(opts: {
       for (const c of [...DEFAULT_CATEGORIES.income, ...DEFAULT_CATEGORIES.expense]) {
         catStats[c] = { incN: 0, incA: 0, expN: 0, expA: 0 };
       }
-      for (const t of txs) {
+      for (const t of txsInRange) {
         if (t.type !== 'income' && t.type !== 'expense') continue;
         const s = catStats[t.category] || (catStats[t.category] = { incN: 0, incA: 0, expN: 0, expA: 0 });
         if (t.type === 'income') { s.incN++; s.incA += t.amount; } else { s.expN++; s.expA += t.amount; }
@@ -99,7 +117,7 @@ export async function exportCustomDataExcel(opts: {
 
     if (sections.includes('works')) {
       onProgress?.('Building Works sheet…', 66);
-      const ws = XLSX.utils.json_to_sheet(getWorks().map(w => {
+      const ws = XLSX.utils.json_to_sheet(worksInRange.map(w => {
         const status = w.paidAmount >= w.agreedAmount ? 'paid' : w.paidAmount > 0 ? 'partial' : 'pending';
         return {
           Direction: w.direction, Profile: w.profile, 'Work Type': w.workType, Crop: w.crop || '', Season: w.season, Year: w.year,
@@ -121,10 +139,10 @@ export async function exportCustomDataExcel(opts: {
 
     if (sections.includes('accounts')) {
       onProgress?.('Building Accounts sheet…', 72);
-      const bal = (pred: (t: any) => boolean) => txs.filter(pred).reduce((s, t) => s + (t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
-      const investTotal = txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
-      const capitalIn = txs.filter(t => t.type === 'income' && t.category === 'Capital').reduce((s, t) => s + t.amount, 0);
-      const drawings = txs.filter(t => t.type === 'expense' && t.category === 'Drawings').reduce((s, t) => s + t.amount, 0);
+      const bal = (pred: (t: any) => boolean) => txsInRange.filter(pred).reduce((s, t) => s + (t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0), 0);
+      const investTotal = txsInRange.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0);
+      const capitalIn = txsInRange.filter(t => t.type === 'income' && t.category === 'Capital').reduce((s, t) => s + t.amount, 0);
+      const drawings = txsInRange.filter(t => t.type === 'expense' && t.category === 'Drawings').reduce((s, t) => s + t.amount, 0);
       const ws = XLSX.utils.json_to_sheet([
         { Account: 'Cash', Balance: bal(t => !t.account || t.account === 'cash') },
         { Account: 'Bank', Balance: bal(t => t.account === 'bank') },
@@ -139,10 +157,12 @@ export async function exportCustomDataExcel(opts: {
     if (sections.includes('partnership')) {
       onProgress?.('Building Partnership sheet…', 75);
       const ws = XLSX.utils.json_to_sheet(getPartnerships().map(p => {
-        const sum = getPartnershipSummary(p.id);
+        const entries = getPartnershipEntries(p.id).filter(e => inRange(e.date));
+        const totalIncome = entries.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+        const totalExpense = entries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
         return {
           Title: p.title, Crop: p.crop, Season: p.season, Year: p.year, Members: (p.members || []).map(m => m.name).join(', '),
-          'Total Income': sum.totalIncome, 'Total Expense': sum.totalExpense, Net: sum.totalIncome - sum.totalExpense,
+          'Total Income': totalIncome, 'Total Expense': totalExpense, Net: totalIncome - totalExpense,
         };
       }));
       XLSX.utils.book_append_sheet(wb, ws, 'Partnership');
@@ -154,9 +174,9 @@ export async function exportCustomDataExcel(opts: {
       { Section: 'Expenses', Rows: expRows.length, Amount: expRows.reduce((s, t) => s + t.amount, 0) },
       ...(sections.includes('investments') ? [{ Section: 'Investments', Rows: investRows.length, Amount: investRows.reduce((s, t) => s + t.amount, 0) }] : []),
       ...(sections.includes('parties') ? [{ Section: 'Parties', Rows: partners.length, Amount: 0 }] : []),
-      ...(sections.includes('recurring') ? [{ Section: 'Recurring', Rows: getRecurring().length, Amount: 0 }] : []),
+      ...(sections.includes('recurring') ? [{ Section: 'Recurring', Rows: recInRange.length, Amount: 0 }] : []),
       ...(sections.includes('categories') ? [{ Section: 'Categories', Rows: categoriesCount, Amount: 0 }] : []),
-      ...(sections.includes('works') ? [{ Section: 'Works', Rows: getWorks().length, Amount: 0 }] : []),
+      ...(sections.includes('works') ? [{ Section: 'Works', Rows: worksInRange.length, Amount: 0 }] : []),
       ...(sections.includes('goals') ? [{ Section: 'Goals', Rows: getGoals().length, Amount: 0 }] : []),
       ...(sections.includes('accounts') ? [{ Section: 'Accounts', Rows: 6, Amount: 0 }] : []),
       ...(sections.includes('partnership') ? [{ Section: 'Partnership', Rows: getPartnerships().length, Amount: 0 }] : []),

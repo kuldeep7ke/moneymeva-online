@@ -373,15 +373,15 @@ export default function DeveloperPage() {
           )}
         </Section>
 
-        {/* Export Raw Data */}
-        <Section icon={Download} title="Export Raw Data" iconColor="text-orange-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Download all DB tables as a single JSON file.</p>
-          <Button variant="outline" onClick={handleExportRaw} className="w-full text-xs gap-2"><Download className="h-3.5 w-3.5" /> Export JSON</Button>
-        </Section>
+        {/* Export Data */}
+        <Section icon={Download} title="Export Data" iconColor="text-amber-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Download a full raw JSON backup (all tables), or export the sections below as an Excel workbook.</p>
 
-        {/* Custom Export */}
-        <Section icon={Download} title="Custom Export" iconColor="text-amber-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Export selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
+          <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full text-xs gap-2"><Download className="h-3.5 w-3.5" /> Export Raw Data (JSON)</Button>
+
+          <div className="border-t border-slate-100 dark:border-brand-muted/30" />
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">Custom Export — selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="custom-export-from" className="text-xs font-medium text-slate-500 block mb-1">From date</label>
