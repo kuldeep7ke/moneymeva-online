@@ -506,7 +506,7 @@ function ExistingUsers({ onRefresh }: { onRefresh: () => void }) {
         {users.map(u => (
           <div key={u.id}
             className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2.5 transition-colors hover:bg-brand-light dark:border-brand-muted dark:hover:bg-brand-muted/50">
-                            <button type="button" onClick={() => { switchUser(u.id); onRefresh(); window.location.href = u.onboarding_completed ? '/dashboard' : '/onboarding'; }}
+                            <button type="button" onClick={() => { switchUser(u.id); onRefresh(); window.location.href = u.onboarding_completed ? `${BASE_PATH}/dashboard` : `${BASE_PATH}/onboarding`; }}
               className="flex min-w-0 flex-1 items-center gap-3 text-left">
               <div className="h-8 w-8 shrink-0 rounded-full bg-brand-secondary dark:bg-brand-muted flex items-center justify-center text-brand dark:text-brand-secondary font-bold text-sm">
                 {(u.full_name || u.email)?.[0] || '?'}

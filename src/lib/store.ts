@@ -678,7 +678,9 @@ export function permanentDeletePartner(id: string) {
 }
 
 export function getPartnerPnL(partnerId: string) {
-  const txs = getTransactions().filter(t => t.partnerAccountId === partnerId);
+  // Cash-basis P&L: credit-account accruals live in getPartnerCreditBalance, so a credit
+  // purchase is only counted when actually paid (the cash Credit Settlement entry).
+  const txs = getTransactions().filter(t => t.partnerAccountId === partnerId && t.account !== 'credit');
   const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   return { income, expense, net: income - expense };
@@ -721,7 +723,7 @@ export function deleteRecurring(id: string) {
   logMutation('recurring', id, tId, 'deleted', cache.recurring[idx].title);
 }
 
-export function advanceRecurring(id: string, overrides?: { amount?: number; date?: string; account?: Transaction['account']; description?: string }): Transaction | null {
+export function advanceRecurring(id: string, overrides?: { amount?: number; date?: string; account?: Transaction['account']; description?: string; partnerAccountId?: string }): Transaction | null {
   const idx = cache.recurring.findIndex(r => r.id === id);
   if (idx === -1) return null;
   const rec = cache.recurring[idx];
@@ -736,7 +738,7 @@ export function advanceRecurring(id: string, overrides?: { amount?: number; date
     account: overrides?.account,
     isRecurring: true,
     recurringId: rec.id,
-    partnerAccountId: undefined,
+    partnerAccountId: overrides?.partnerAccountId,
   });
   // Advance nextDate (parse/serialize consistently in UTC, same as computeNextDate)
   const dt = new Date(nextDate);
@@ -990,7 +992,7 @@ export function permanentDeleteGoal(id: string) {
 }
 
 // ─── Summary helpers ─────────────────────────────────────────
-const NON_OPERATIONAL_CATEGORIES = ['Transfer', 'Capital', 'Drawings'];
+const NON_OPERATIONAL_CATEGORIES = ['Transfer', 'Capital', 'Drawings', 'Investment Outflow'];
 
 function cashBankTransactions(txs: Transaction[]): Transaction[] {
   return txs.filter(t => !t.account || (t.account !== 'invest' && (t.account === 'cash' || t.account === 'bank' || t.account === 'upi')));

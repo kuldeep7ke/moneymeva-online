@@ -15,7 +15,7 @@ import { useTheme, getBrands } from '@/components/ThemeProvider';
 import { useToast } from '@/components/Toast';
 import { createProgressOverlay } from '@/lib/progressOverlay';
 import { getLastSyncEvent } from '@/lib/sync-notify';
-import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API } from '@/lib/env';
+import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API, BASE_PATH } from '@/lib/env';
 import { RELEASE_NOTES, getLastSeenVersion } from '@/lib/whats-new';
 import { exportCustomDataExcel, type CustomExportSection } from '@/lib/export';
 
@@ -161,7 +161,7 @@ export default function DeveloperPage() {
       // Hard navigation (not router.push): the raw progress overlay is appended to
       // document.body and must not linger, and the store cache is hydrated from
       // Dexie on init — a full reload is required so imported rows actually appear.
-      overlay.finish(`Import complete — ${total.toLocaleString()} items`, () => { window.location.assign('/dashboard'); });
+      overlay.finish(`Import complete — ${total.toLocaleString()} items`, () => { window.location.assign(`${BASE_PATH}/dashboard`); });
     } catch {
       setStatus('Import failed.');
       overlay.error('Import failed', () => overlay.close());
@@ -384,13 +384,13 @@ export default function DeveloperPage() {
           <p className="text-xs text-slate-500 dark:text-slate-400">Export selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-500 block mb-1">From date</label>
-              <input type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)}
+              <label htmlFor="custom-export-from" className="text-xs font-medium text-slate-500 block mb-1">From date</label>
+              <input id="custom-export-from" name="custom-export-from" type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-sm" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-500 block mb-1">To date</label>
-              <input type="date" value={exportTo} onChange={e => setExportTo(e.target.value)}
+              <label htmlFor="custom-export-to" className="text-xs font-medium text-slate-500 block mb-1">To date</label>
+              <input id="custom-export-to" name="custom-export-to" type="date" value={exportTo} onChange={e => setExportTo(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-sm" />
             </div>
           </div>

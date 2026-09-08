@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Wallet, Landmark, CreditCard, ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown, PiggyBank, Plus, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getTransactions, isStoreReady, addTransaction } from '@/lib/store';
+import { useTranslation } from '@/lib/i18n';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
 
@@ -98,6 +99,7 @@ function AccountCard({ icon: Icon, accentCls, title, subtitle, balance, balanceC
 }
 
 export default function AccountsPage() {
+  const { t } = useTranslation();
   const toast = useToast();
   const [selectedMonth, setSelectedMonth] = useState(currentYM());
   const [cashBalance, setCashBalance] = useState(0);
@@ -203,7 +205,7 @@ export default function AccountsPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <Reveal>
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Accounts</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('nav.accounts')}</h1>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowCapital(true)}><PiggyBank className="h-4 w-4" /> Capital</Button>
               <Button size="sm" variant="outline" className="gap-2" onClick={() => setShowTransfer(v => !v)}>

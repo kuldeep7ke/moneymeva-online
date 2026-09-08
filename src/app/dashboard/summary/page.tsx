@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Target, Download, Clock, Trash2 } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getMonthlySummary, getTransactions, getGoals, getAllArchivedItems } from '@/lib/store';
+import { getMonthlySummary, getTransactions, getGoals, getAllArchivedItems, getAggregates } from '@/lib/store';
 import { exportSummaryPDF, exportSummaryExcel } from '@/lib/export';
 import { getActivityLog, clearActivityLog, type ActivityEntry } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
@@ -68,10 +68,11 @@ export default function SummaryPage() {
     setGoals(getGoals());
 
     const all = getTransactions();
+    const agg = getAggregates();
     setTotals({
-      income: all.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-      expense: all.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
-      investment: all.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
+      income: agg.income,
+      expense: agg.expense,
+      investment: agg.investment,
     });
 
     const transactionHistory = all.map(t => ({

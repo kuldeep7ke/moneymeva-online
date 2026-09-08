@@ -255,7 +255,7 @@ export default function PartnersPage() {
         <Reveal>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">Party Accounts</h1>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">{t('nav.partners')}</h1>
               <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Track your joint ventures and project budgets.".split(' ').slice(0, 5).join(' ')}{"Track your joint ventures and project budgets.".split(' ').length > 5 ? '...' : ''}</p>
               <p className="text-slate-500 dark:text-slate-400 hidden md:block">Track your joint ventures and project budgets.</p>
             </div>

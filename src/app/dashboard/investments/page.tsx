@@ -5,6 +5,7 @@ export default function InvestmentsPage() {
     <TransactionPage 
       type="investment" 
       title="Investments" 
+      titleKey="nav.investments"
       description="Manage your stocks, mutual funds, and other investments" 
     />
   );

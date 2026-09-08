@@ -5,6 +5,7 @@ export default function IncomePage() {
     <TransactionPage 
       type="income" 
       title="Income" 
+      titleKey="nav.income"
       description="Track your earnings from all sources" 
     />
   );

@@ -13,8 +13,10 @@ import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import { createProgressOverlay } from '@/lib/progressOverlay';
 import Reveal from '@/components/Reveal';
+import { useTranslation } from '@/lib/i18n';
 
 export default function ArchivePage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<ArchivedItem[]>([]);
   const [confirmClear, setConfirmClear] = useState(false);
   const [pinAction, setPinAction] = useState<{ type: 'restore' | 'delete' | 'clear'; item?: ArchivedItem } | null>(null);
@@ -67,7 +69,7 @@ export default function ArchivePage() {
         <Reveal>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">Archive</h1>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">{t('nav.archive')}</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Restore or permanently delete archived items".split(' ').slice(0, 5).join(' ')}{"Restore or permanently delete archived items".split(' ').length > 5 ? '...' : ''}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400 hidden md:block">Restore or permanently delete archived items</p>
             </div>

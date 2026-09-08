@@ -30,6 +30,7 @@ import { downloadFile, copyText } from '@/lib/download';
 import { MutationAction, MutationLog } from '@/types';
 import Reveal from '@/components/Reveal';
 import { LucideIcon } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 const ENTITY_ICONS: Record<string, LucideIcon> = {
   transaction: ArrowUpCircle,
@@ -72,6 +73,7 @@ function entityOpts(): { value: string; label: string }[] {
 }
 
 export default function LedgerPage() {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<MutationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export default function LedgerPage() {
         <Reveal>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Audit Ledger</h1>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{t('nav.ledger')}</h1>
               <p className="text-slate-500 dark:text-slate-400"><span className="sm:hidden">Full traceability of every data...</span><span className="hidden sm:inline">Full traceability of every data transition</span></p>
             </div>
             <Button onClick={exportToCSV} className="gap-1.5 bg-brand hover:bg-brand-dark text-white sm:gap-2 sm:px-4 sm:py-2 px-3 py-1.5 text-xs sm:text-sm">

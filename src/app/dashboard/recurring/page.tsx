@@ -12,8 +12,10 @@ import { hasPins } from '@/lib/pinStore';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import SwipeCard from '@/components/SwipeCard';
+import { useTranslation } from '@/lib/i18n';
 
 export default function RecurringPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<any[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export default function RecurringPage() {
       <div className="space-y-8">
         <Reveal><div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">Recurring Transactions</h1>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">{t('nav.recurring')}</h1>
             <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{"Automate your bills, premiums, and subscriptions".split(' ').slice(0, 5).join(' ')}{"Automate your bills, premiums, and subscriptions".split(' ').length > 5 ? '...' : ''}</p>
             <p className="text-slate-500 dark:text-slate-400 hidden md:block">Automate your bills, premiums, and subscriptions</p>
           </div>

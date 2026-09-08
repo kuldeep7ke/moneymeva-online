@@ -15,11 +15,13 @@ import { getSession } from '@/lib/localAuth';
 import { logActivity } from '@/lib/activityLog';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
+import { useTranslation } from '@/lib/i18n';
 
 interface TransactionPageProps {
   type: TransactionType;
   title: string;
   description: string;
+  titleKey?: string;
 }
 
 const ACCOUNT_BADGE: Record<string, { label: string; cls: string }> = {
@@ -30,8 +32,10 @@ const ACCOUNT_BADGE: Record<string, { label: string; cls: string }> = {
   invest: { label: 'Invest', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
 };
 
-export default function TransactionPage({ type, title, description }: TransactionPageProps) {
+export default function TransactionPage({ type, title, description, titleKey }: TransactionPageProps) {
   const toast = useToast();
+  const { t } = useTranslation();
+  const headerTitle = titleKey ? t(titleKey) : title;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -556,7 +560,7 @@ export default function TransactionPage({ type, title, description }: Transactio
         <Reveal>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">{title}</h1>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">{headerTitle}</h1>
               <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">{description.split(' ').slice(0, 5).join(' ')}{description.split(' ').length > 5 ? '...' : ''}</p>
               <p className="text-slate-500 dark:text-slate-400 hidden md:block">{description}</p>
             </div>

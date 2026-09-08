@@ -675,7 +675,7 @@ export default function SettingsPage() {
                         let type = typeIdx >= 0 ? cols[typeIdx].toLowerCase() : 'expense';
                         type = ['income', 'expense', 'investment'].includes(type) ? type : 'expense';
                         if (!amount || isNaN(amount)) continue;
-                        const partnerAccountId = partnerIdx >= 0 && cols[partnerIdx] ? partners.find((p: any) => p.id === cols[partnerIdx])?.id : undefined;
+                        const partnerAccountId = partnerIdx >= 0 && cols[partnerIdx] ? (partners.find((p: any) => p.id === cols[partnerIdx]) || partners.find((p: any) => p.name.trim().toLowerCase() === cols[partnerIdx].trim().toLowerCase()))?.id : undefined;
                         addTransaction({ amount, type: type as any, category, description, date, partnerAccountId, isRecurring: false });
                         imported++;
                         if (i % 25 === 0) overlay.update(`Importing transactions… ${imported} added`, i, total);

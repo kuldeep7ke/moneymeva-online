@@ -3,8 +3,9 @@
 import { Share2 } from 'lucide-react';
 import { useState } from 'react';
 import { copyText } from '@/lib/download';
+import { BASE_PATH } from '@/lib/env';
 
-const SHARE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://money-meva.app';
+const SHARE_URL = typeof window !== 'undefined' ? `${window.location.origin}${BASE_PATH}` : 'https://money-meva.app';
 
 export default function ShareButton({ variant = 'default', className = '' }: { variant?: 'default' | 'icon'; className?: string }) {
   const [copied, setCopied] = useState(false);

@@ -1,3 +1,5 @@
+import { BASE_PATH } from '@/lib/env';
+
 export type ProgressOverlayHandle = {
   update: (label: string, done: number, total: number) => void;
   finish: (label: string, onDone?: () => void) => void;
@@ -11,7 +13,7 @@ export function createProgressOverlay(initialLabel = 'Working…'): ProgressOver
   el.style.cssText = `position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;${dark ? 'background:#020617;' : 'background:#F8F6F3;'}`;
   el.innerHTML = `
     <div style="margin-bottom:24px;position:relative">
-      <img src="/favicon.jpg" alt="" style="width:64px;height:64px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.15)" />
+      <img src="${BASE_PATH}/favicon.jpg" alt="" style="width:64px;height:64px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.15)" />
       <span style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#10b981;animation:ping 1s cubic-bezier(0,0,0.2,1)infinite"></span>
     </div>
     <p id="mm-prog-label" style="font-size:15px;font-weight:600;${dark ? 'color:#e2e8f0;' : 'color:#1e293b;'}margin-bottom:16px;text-align:center;padding:0 24px">${initialLabel}</p>

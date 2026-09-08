@@ -20,7 +20,7 @@ try { APP_VERSION = readFileSync(join(process.cwd(), "VERSION"), "utf-8").trim()
 
 export const metadata: Metadata = {
   title: "Money Meva - Personal Finance App",
-  description: "Manage your expenses, income, savings, and investments with ease. à¤ªà¥ˆà¤¸à¥‡ à¤•à¥à¤ à¥‡ à¤œà¤¾à¤¤à¤¾à¤¤? à¤¶à¥‹à¤§à¥‚à¤¯à¤¾. â€” Local-first, privacy-focused, multi-language personal finance companion.",
+  description: "Manage your expenses, income, savings, and investments with ease. पैसे कुठे जातात? शोधूया. — Local-first, privacy-focused, multi-language personal finance companion.",
   manifest: `${BASE_PATH}/manifest.webmanifest`,
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Money Meva" },
   icons: {
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
     apple: `${BASE_PATH}/icon-512.png`,
   },
   openGraph: {
-    title: "Money Meva â€” Personal Finance App",
-    description: "à¤ªà¥ˆà¤¸à¥‡ à¤•à¥à¤ à¥‡ à¤œà¤¾à¤¤à¤¾à¤¤? à¤¶à¥‹à¤§à¥‚à¤¯à¤¾. Manage expenses, income, savings, and investments. Local-first, multi-language, privacy-focused.",
+    title: "Money Meva — Personal Finance App",
+    description: "पैसे कुठे जातात? शोधूया. Manage expenses, income, savings, and investments. Local-first, multi-language, privacy-focused.",
     url: "https://moneymevaonline.pages.dev",
     siteName: "Money Meva",
     images: [
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
         url: "/og-image.svg",
         width: 1200,
         height: 630,
-        alt: "Money Meva â€” Where does the money go? Let's find out.",
+        alt: "Money Meva — Where does the money go? Let's find out.",
       },
     ],
     locale: "en_IN",
@@ -48,8 +48,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Money Meva â€” Personal Finance App",
-    description: "à¤ªà¥ˆà¤¸à¥‡ à¤•à¥à¤ à¥‡ à¤œà¤¾à¤¤à¤¾à¤¤? à¤¶à¥‹à¤§à¥‚à¤¯à¤¾. Local-first personal finance companion.",
+    title: "Money Meva — Personal Finance App",
+    description: "पैसे कुठे जातात? शोधूया. Local-first personal finance companion.",
     images: ["/og-image.svg"],
   },
   robots: {
@@ -86,6 +86,7 @@ export default function RootLayout({
         <meta name="app-version" content={APP_VERSION} />
         <link rel="apple-touch-icon" href={`${BASE_PATH}/icon-512.png`} />
         <link rel="sitemap" type="application/xml" href={`${BASE_PATH}/sitemap.xml`} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var s=localStorage;var t=s.getItem('mm_theme');var b=s.getItem('mm_brand');var d=document.documentElement;if(t==='dark')d.classList.add('dark');if(b&&b!=='orange')d.classList.add('brand-'+b);}catch(e){}})();` }} />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>

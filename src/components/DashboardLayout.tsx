@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { initDB } from '@/lib/store';
+import { BASE_PATH } from '@/lib/env';
 import { 
   LayoutDashboard, 
   ArrowUpCircle, 
@@ -257,7 +258,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <div className="px-3 mt-2 space-y-2">
           <button onClick={async () => {
-            const url = window.location.origin;
+            const url = `${window.location.origin}${BASE_PATH}`;
             if (navigator.share) {
               try { await navigator.share({ title: 'Money Meva', text: 'Track expenses, watch savings grow, and see where your investments are headed — all wrapped in a minimalist canvas. Built for Indian wallets.', url }); return; } catch { /* */ }
             }

@@ -171,7 +171,7 @@ export default function CategoriesPage() {
     <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Categories</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('nav.categories')}</h1>
           {hasChanges && (
             <Button size="sm" className="gap-2" onClick={handleSave}>
               <Save className="h-4 w-4" /> Save Changes
