@@ -44,7 +44,7 @@ export default function DeveloperPage() {
   const [confirmBox, setConfirmBox] = useState<{ mode: 'clear' | 'clearRemote'; stage: number } | null>(null);
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
-  const [exportSections, setExportSections] = useState<Record<string, boolean>>({ income: true, expenses: true, parties: true, recurring: false });
+  const [exportSections, setExportSections] = useState<Record<string, boolean>>({ income: true, expenses: true, parties: true, recurring: false, investments: false, categories: true, works: false, goals: false, accounts: true, partnership: false });
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -397,7 +397,7 @@ export default function DeveloperPage() {
           <div className="text-xs">
             <p className="text-slate-400 font-medium mb-1.5">Sections — select one or all</p>
             <div className="grid grid-cols-2 gap-1.5">
-              {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }].map(s => (
+              {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'investments', l: 'Investments' }, { k: 'categories', l: 'Categories' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }, { k: 'works', l: 'Works' }, { k: 'goals', l: 'Goals' }, { k: 'accounts', l: 'Accounts' }, { k: 'partnership', l: 'Partnership' }].map(s => (
                 <label key={s.k} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition-colors",
                   exportSections[s.k] ? "border-brand/50 bg-brand-secondary dark:bg-brand-muted/40 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
                   <input type="checkbox" checked={!!exportSections[s.k]} onChange={() => setExportSections({ ...exportSections, [s.k]: !exportSections[s.k] })} className="accent-brand" />
