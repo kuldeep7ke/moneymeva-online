@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Wallet, TrendingUp, TrendingDown, Trash2, X, AlertTriangle, Pencil } from 'lucide-react';
+import { Plus, Wallet, TrendingUp, TrendingDown, Trash2, X, AlertTriangle, Pencil, CreditCard } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
-import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady } from '@/lib/store';
+import { Transaction } from '@/types';
+import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady, getPartnerCreditBalance } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -57,7 +58,7 @@ export default function PartnersPage() {
   
   const refresh = () => {
     if (!isStoreReady()) return;
-    setPartners(getPartners().map(p => ({ ...p, ...getPartnerPnL(p.id) })));
+    setPartners(getPartners().map(p => ({ ...p, ...getPartnerPnL(p.id), credit: getPartnerCreditBalance(p.id) })));
   };
 
   useEffect(() => {
@@ -72,13 +73,17 @@ export default function PartnersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTxModal, setShowTxModal] = useState<string | null>(null);
   const [showLedger, setShowLedger] = useState<string | null>(null);
+  const [settlePartyId, setSettlePartyId] = useState<string | null>(null);
+  const [settleForm, setSettleForm] = useState({ amount: '', date: todayStr(), account: 'cash' as 'cash' | 'bank' | 'upi' });
+  const [receivePartyId, setReceivePartyId] = useState<string | null>(null);
+  const [receiveForm, setReceiveForm] = useState({ amount: '', date: todayStr(), account: 'cash' as 'cash' | 'bank' | 'upi' });
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [pinDeleteId, setPinDeleteId] = useState<string | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [dupWarning, setDupWarning] = useState<any | null>(null);
 
   const [form, setForm] = useState({ name: '', type: 'supplier', group: 'vendor' as 'customer' | 'vendor' | 'contact', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
-  const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: todayStr() });
+  const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: todayStr(), account: 'cash' as 'cash' | 'bank' | 'upi' | 'credit' });
 
   const filteredPartners = activeGroup === 'all' ? partners : partners.filter(p => p.group === activeGroup);
 
@@ -94,7 +99,7 @@ export default function PartnersPage() {
     const txs = partnerTransactions;
     const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    return { ...p, income, expense, net: income - expense, count: txs.length };
+    return { ...p, income, expense, net: income - expense, count: txs.length, credit: p.credit || 0 };
   }, [showLedger, partnerTransactions, partners]);
 
   const [partyWarn, setPartyWarn] = useState<string | null>(null);
@@ -141,17 +146,17 @@ export default function PartnersPage() {
     if (!(amount > 0)) { toast('Amount must be greater than zero.', 'warning'); return; }
     const date = txForm.date;
     if (date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
-    const tx = { amount, type: txForm.type, category: txForm.category, description: txForm.description, date, partnerAccountId: showTxModal };
-    const dup = checkDuplicateTransaction(tx);
+    const check = { amount, type: txForm.type, category: txForm.category, description: txForm.description, date, partnerAccountId: showTxModal };
+    const dup = checkDuplicateTransaction(check);
     if (dup) {
-      setDupWarning({ ...tx, existing: dup });
+      setDupWarning({ ...check, existing: dup });
       return;
     }
-    addTransaction({ ...tx, isRecurring: false });
+    addTransaction({ ...check, account: txForm.account as Transaction['account'], isRecurring: false });
     toast(`${txForm.type[0].toUpperCase() + txForm.type.slice(1)} added · ${txForm.category} · ${formatCurrency(amount)}`, 'success');
 
     setShowTxModal(null);
-    setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr() });
+    setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr(), account: 'cash' });
     refresh();
   };
 
@@ -164,7 +169,7 @@ export default function PartnersPage() {
 
     setDupWarning(null);
     setShowTxModal(null);
-    setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr() });
+    setTxForm({ amount: '', type: 'income', category: '', description: '', date: todayStr(), account: 'cash' });
     refresh();
   };
 
@@ -181,11 +186,48 @@ export default function PartnersPage() {
   };
 
   const doDelete = (id: string) => {
-    const partner = partners.find(p => p.id === id);
     const linkedCount = getTransactions().filter(t => t.partnerAccountId === id && !t.deletedAt).length;
     deletePartner(id);
     if (linkedCount > 0) toast(`${linkedCount} linked transaction(s) will remain but this party will be removed.`, 'warning');
     setConfirmDelete(null);
+    refresh();
+  };
+
+  const handleSettle = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settlePartyId) return;
+    const amount = Number(settleForm.amount);
+    if (!(amount > 0)) { toast('Amount must be greater than zero.', 'warning'); return; }
+    if (settleForm.date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
+    const partner = partners.find(p => p.id === settlePartyId);
+    if (!partner) return;
+    const transferId = Date.now().toString(36);
+    // 1. Cash/bank/UPI expense — real payment out
+    addTransaction({ amount, type: 'expense', category: 'Credit Settlement', description: `Paid ${partner.name}`, date: settleForm.date, account: settleForm.account, partnerAccountId: settlePartyId, transferId, isRecurring: false });
+    // 2. Credit income — clear the credit debt
+    addTransaction({ amount, type: 'income', category: 'Credit Settlement', description: `Credit cleared — ${partner.name}`, date: settleForm.date, account: 'credit', partnerAccountId: settlePartyId, transferId, isRecurring: false });
+    toast(`Credit settled for ${partner.name} · ${formatCurrency(amount)}`, 'success');
+    setSettlePartyId(null);
+    setSettleForm({ amount: '', date: todayStr(), account: 'cash' });
+    refresh();
+  };
+
+  const handleReceive = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!receivePartyId) return;
+    const amount = Number(receiveForm.amount);
+    if (!(amount > 0)) { toast('Amount must be greater than zero.', 'warning'); return; }
+    if (receiveForm.date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
+    const partner = partners.find(p => p.id === receivePartyId);
+    if (!partner) return;
+    const transferId = Date.now().toString(36);
+    // 1. Cash/bank/UPI income — real money in
+    addTransaction({ amount, type: 'income', category: 'Credit Settlement', description: `Received from ${partner.name}`, date: receiveForm.date, account: receiveForm.account, partnerAccountId: receivePartyId, transferId, isRecurring: false });
+    // 2. Credit expense — clear the receivable
+    addTransaction({ amount, type: 'expense', category: 'Credit Settlement', description: `Credit cleared — ${partner.name}`, date: receiveForm.date, account: 'credit', partnerAccountId: receivePartyId, transferId, isRecurring: false });
+    toast(`Payment received from ${partner.name} · ${formatCurrency(amount)}`, 'success');
+    setReceivePartyId(null);
+    setReceiveForm({ amount: '', date: todayStr(), account: 'cash' });
     refresh();
   };
 
@@ -310,7 +352,7 @@ export default function PartnersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <div className="p-4 bg-slate-50 dark:bg-brand-muted rounded-xl border border-slate-100 dark:border-brand-muted">
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-1">Investment</p>
                   <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(partner.initialInvestment)}</p>
@@ -324,6 +366,16 @@ export default function PartnersPage() {
                   <p className="text-xs text-slate-400 dark:text-slate-500">Income: {formatCurrency(partner.income)} / Expense: {formatCurrency(partner.expense)}</p>
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-brand-muted rounded-xl border border-slate-100 dark:border-brand-muted">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Credit Tally</p>
+                    <CreditCard className="h-3 w-3 text-orange-500" />
+                  </div>
+                  <p className={cn("text-xl font-bold", partner.credit > 0 ? "text-orange-600 dark:text-orange-400" : partner.credit < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-slate-100")}>
+                    {partner.credit > 0 ? `+${formatCurrency(partner.credit)}` : formatCurrency(partner.credit)}
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{partner.credit > 0 ? 'You owe this party' : partner.credit < 0 ? 'Party owes you' : 'No credit balance'}</p>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-brand-muted rounded-xl border border-slate-100 dark:border-brand-muted">
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-1">Total Value</p>
                   <p className="text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(partner.initialInvestment + partner.net)}</p>
                 </div>
@@ -333,6 +385,16 @@ export default function PartnersPage() {
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowTxModal(partner.id)}>
                   Add Transaction
                 </Button>
+                {partner.credit > 0 && (
+                  <Button variant="outline" size="sm" className="gap-2 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-700" onClick={() => setSettlePartyId(partner.id)}>
+                    Settle Credit
+                  </Button>
+                )}
+                {partner.credit < 0 && (
+                  <Button variant="outline" size="sm" className="gap-2 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700" onClick={() => setReceivePartyId(partner.id)}>
+                    Receive Payment
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" className="ml-auto text-slate-500 dark:text-slate-400" onClick={() => setShowLedger(partner.id)}>
                   View History
                 </Button>
@@ -432,6 +494,22 @@ export default function PartnersPage() {
                 <input required value={txForm.description} onChange={e => setTxForm({ ...txForm, description: e.target.value })}
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder="Transaction details" />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Account</label>
+                <select value={txForm.account} onChange={e => setTxForm({ ...txForm, account: e.target.value as any })}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                  <option value="upi">UPI</option>
+                  <option value="credit">{txForm.type === 'expense' ? 'Credit (buy on credit)' : 'Credit (sale on credit)'}</option>
+                </select>
+                {txForm.account === 'credit' && txForm.type === 'expense' && (
+                  <p className="text-xs text-orange-500 dark:text-orange-400">Bought on credit — money owed to this party. Counts as expense when you pay.</p>
+                )}
+                {txForm.account === 'credit' && txForm.type === 'income' && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Sold on credit — this party owes you. Counts as income when they pay.</p>
+                )}
+              </div>
               <div className="flex items-center justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setShowTxModal(null)}>Cancel</Button>
                 <Button type="submit" size="sm">Save</Button>
@@ -483,6 +561,98 @@ export default function PartnersPage() {
         action={showPinSetup || ''}
       />
 
+      {/* Settle Credit Modal */}
+      {settlePartyId && (() => {
+        const p = partners.find(p => p.id === settlePartyId);
+        if (!p || p.credit <= 0) return null;
+        return (
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Settle Credit — {p.name}</h2>
+                <button onClick={() => setSettlePartyId(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><X className="h-5 w-5" /></button>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">You owe <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(p.credit)}</span> to this party. Record your payment below.</p>
+              <form onSubmit={handleSettle} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Amount (₹)</label>
+                  <input required type="number" min="0" step="0.01" max={p.credit} value={settleForm.amount} onChange={e => setSettleForm({ ...settleForm, amount: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder={`Max ${p.credit}`} autoFocus />
+                  <button type="button" onClick={() => setSettleForm({ ...settleForm, amount: String(p.credit) })}
+                    className="text-xs text-brand hover:underline font-medium">Pay full amount</button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Date</label>
+                    <input required type="date" max={todayStr()} value={settleForm.date} onChange={e => setSettleForm({ ...settleForm, date: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Pay from</label>
+                    <select value={settleForm.account} onChange={e => setSettleForm({ ...settleForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="upi">UPI</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSettlePartyId(null)}>Cancel</Button>
+                  <Button type="submit" size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">Settle</Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Receive Payment Modal */}
+      {receivePartyId && (() => {
+        const p = partners.find(p => p.id === receivePartyId);
+        if (!p || p.credit >= 0) return null;
+        return (
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Receive Payment — {p.name}</h2>
+                <button onClick={() => setReceivePartyId(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><X className="h-5 w-5" /></button>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">This party owes you <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(-p.credit)}</span>. Record the payment you received below.</p>
+              <form onSubmit={handleReceive} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Amount (₹)</label>
+                  <input required type="number" min="0" step="0.01" max={-p.credit} value={receiveForm.amount} onChange={e => setReceiveForm({ ...receiveForm, amount: e.target.value })}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" placeholder={`Max ${-p.credit}`} autoFocus />
+                  <button type="button" onClick={() => setReceiveForm({ ...receiveForm, amount: String(-p.credit) })}
+                    className="text-xs text-brand hover:underline font-medium">Receive full amount</button>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Date</label>
+                    <input required type="date" max={todayStr()} value={receiveForm.date} onChange={e => setReceiveForm({ ...receiveForm, date: e.target.value })}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Receive to</label>
+                    <select value={receiveForm.account} onChange={e => setReceiveForm({ ...receiveForm, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
+                      <option value="cash">Cash</option>
+                      <option value="bank">Bank</option>
+                      <option value="upi">UPI</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button variant="ghost" size="sm" onClick={() => setReceivePartyId(null)}>Cancel</Button>
+                  <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">Received</Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Party Ledger Modal */}
       {showLedger && partnerSummary && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -494,10 +664,28 @@ export default function PartnersPage() {
             <div className="flex items-center gap-4 px-4 py-3 bg-slate-50 dark:bg-brand-muted/20 text-sm border-b border-slate-100 dark:border-brand-muted">
               <span className="text-green-600 font-medium">+{formatCurrency(partnerSummary.income)}</span>
               <span className="text-red-600 font-medium">-{formatCurrency(partnerSummary.expense)}</span>
+              {partnerSummary.credit > 0 && (
+                <span className="text-orange-600 dark:text-orange-400 font-medium">Owe {formatCurrency(partnerSummary.credit)}</span>
+              )}
+              {partnerSummary.credit < 0 && (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Owed to you {formatCurrency(-partnerSummary.credit)}</span>
+              )}
               <span className={cn("font-semibold ml-auto", partnerSummary.net >= 0 ? "text-green-600" : "text-red-600")}>
                 Net {formatCurrency(partnerSummary.net)}
               </span>
             </div>
+            {partnerSummary.credit > 0 && (
+              <button onClick={() => { setShowLedger(null); setSettlePartyId(partnerSummary.id); }}
+                className="w-full px-4 py-2.5 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 text-sm font-medium hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors flex items-center gap-2">
+                <CreditCard className="h-4 w-4" /> Settle credit ({formatCurrency(partnerSummary.credit)})
+              </button>
+            )}
+            {partnerSummary.credit < 0 && (
+              <button onClick={() => { setShowLedger(null); setReceivePartyId(partnerSummary.id); }}
+                className="w-full px-4 py-2.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-sm font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors flex items-center gap-2">
+                <CreditCard className="h-4 w-4" /> Receive payment ({formatCurrency(-partnerSummary.credit)})
+              </button>
+            )}
             <div className="flex-1 overflow-y-auto">
               {partnerTransactions.length === 0 ? (
                 <div className="p-6 text-center text-sm text-slate-400">No transactions</div>

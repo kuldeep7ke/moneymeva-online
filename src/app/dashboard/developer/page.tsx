@@ -153,10 +153,13 @@ export default function DeveloperPage() {
         localStorage.setItem('mm_activity_log', JSON.stringify(merged));
       }
       setStatus(`Import complete — ${total.toLocaleString()} items. Redirecting...`);
-      overlay.finish(`Import complete — ${total.toLocaleString()} items`, () => router.push('/dashboard'));
+      // Hard navigation (not router.push): the raw progress overlay is appended to
+      // document.body and must not linger, and the store cache is hydrated from
+      // Dexie on init — a full reload is required so imported rows actually appear.
+      overlay.finish(`Import complete — ${total.toLocaleString()} items`, () => { window.location.assign('/dashboard'); });
     } catch {
       setStatus('Import failed.');
-      overlay.error('Import failed', () => router.push('/dashboard'));
+      overlay.error('Import failed', () => overlay.close());
     }
   };
 

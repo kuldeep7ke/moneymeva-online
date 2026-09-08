@@ -1001,15 +1001,28 @@ export function getCashBankBalance(): number {
   return txs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
 }
 
+export function getCreditBalance(): number {
+  const txs = getTransactions().filter(t => t.account === 'credit');
+  return txs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
+}
+
+export function getPartnerCreditBalance(partnerId: string): number {
+  // Positive = you owe this party (buy on credit); negative = party owes you (sale on credit)
+  return getTransactions()
+    .filter(t => t.account === 'credit' && t.partnerAccountId === partnerId)
+    .reduce((s, t) => s + (t.type === 'expense' ? t.amount : -t.amount), 0);
+}
+
 export function getMonthlySummary(year: number, month: number) {
   const txs = getTransactions().filter(t => {
     const d = new Date(t.date);
     return d.getFullYear() === year && d.getMonth() === month;
   });
   const cb = cashBankTransactions(txs);
+  const operational = txs.filter(t => !NON_OPERATIONAL_CATEGORIES.includes(t.category)).filter(t => t.account !== 'credit');
   return {
-    income: txs.filter(t => t.type === 'income' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
-    expense: txs.filter(t => t.type === 'expense' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
+    income: operational.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+    expense: operational.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
     investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     total: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
     cashBankBalance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
@@ -1019,10 +1032,11 @@ export function getMonthlySummary(year: number, month: number) {
 export function getAggregates(since?: Date) {
   const txs = since ? getTransactions().filter(t => new Date(t.date) >= since!) : getTransactions();
   const cb = cashBankTransactions(txs);
+  const operational = txs.filter(t => !NON_OPERATIONAL_CATEGORIES.includes(t.category)).filter(t => t.account !== 'credit');
   return {
     balance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
-    income: txs.filter(t => t.type === 'income' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
-    expense: txs.filter(t => t.type === 'expense' && !NON_OPERATIONAL_CATEGORIES.includes(t.category)).reduce((s, t) => s + t.amount, 0),
+    income: operational.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+    expense: operational.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
     investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
     cashBankBalance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
   };

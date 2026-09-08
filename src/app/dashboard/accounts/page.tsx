@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Wallet, Landmark, ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown, PiggyBank, Plus, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { Wallet, Landmark, CreditCard, ArrowUpRight, ArrowDownRight, RefreshCw, TrendingUp, TrendingDown, PiggyBank, Plus, X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getTransactions, isStoreReady, addTransaction } from '@/lib/store';
 import Reveal from '@/components/Reveal';
@@ -102,15 +102,19 @@ export default function AccountsPage() {
   const [selectedMonth, setSelectedMonth] = useState(currentYM());
   const [cashBalance, setCashBalance] = useState(0);
   const [bankBalance, setBankBalance] = useState(0);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [creditOwed, setCreditOwed] = useState(0);
+  const [creditReceivable, setCreditReceivable] = useState(0);
   const [cashTxs, setCashTxs] = useState<CardTx[]>([]);
   const [bankTxs, setBankTxs] = useState<CardTx[]>([]);
+  const [creditTxs, setCreditTxs] = useState<CardTx[]>([]);
   const [revenueTotal, setRevenueTotal] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [incomeTxs, setIncomeTxs] = useState<CardTx[]>([]);
   const [expenseTxs, setExpenseTxs] = useState<CardTx[]>([]);
   const [capitalNet, setCapitalNet] = useState(0);
   const [capitalTxs, setCapitalTxs] = useState<CardTx[]>([]);
-  const [expanded, setExpanded] = useState<'cash' | 'bank' | 'capital' | 'revenue' | 'expenses' | null>(null);
+  const [expanded, setExpanded] = useState<'cash' | 'bank' | 'credit' | 'capital' | 'revenue' | 'expenses' | null>(null);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferForm, setTransferForm] = useState({ amount: '', from: 'cash', to: 'bank' });
   const [showCapital, setShowCapital] = useState(false);
@@ -122,15 +126,20 @@ export default function AccountsPage() {
 
     const cash = active.filter(t => !t.account || t.account === 'cash');
     const bank = active.filter(t => t.account === 'bank' || t.account === 'upi');
+    const credit = active.filter(t => t.account === 'credit');
     setCashBalance(cash.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0));
     setBankBalance(bank.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0));
+    setCreditBalance(credit.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0));
+    setCreditOwed(credit.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0));
+    setCreditReceivable(credit.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0));
     setCashTxs([...cash].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
     setBankTxs([...bank].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
+    setCreditTxs([...credit].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
 
     const { start, end } = monthRange(selectedMonth);
     const ptxs = active.filter(t => t.date >= start && t.date <= end);
-    const revTxs = ptxs.filter(t => t.type === 'income' && !NON_OP.includes(t.category));
-    const expTxs = ptxs.filter(t => t.type === 'expense' && !NON_OP.includes(t.category));
+    const revTxs = ptxs.filter(t => t.type === 'income' && t.account !== 'credit' && !NON_OP.includes(t.category));
+    const expTxs = ptxs.filter(t => t.type === 'expense' && t.account !== 'credit' && !NON_OP.includes(t.category));
     setRevenueTotal(revTxs.reduce((s, t) => s + t.amount, 0));
     setExpenseTotal(expTxs.reduce((s, t) => s + t.amount, 0));
     setIncomeTxs([...revTxs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));
@@ -294,6 +303,32 @@ export default function AccountsPage() {
             txs={bankTxs}
             expanded={expanded === 'bank'}
             onToggle={() => setExpanded(expanded === 'bank' ? null : 'bank')}
+          />
+        </Reveal>
+
+        <Reveal delay={125}>
+          <AccountCard
+            icon={CreditCard}
+            accentCls="bg-orange-50 dark:bg-orange-900/20 [&_svg]:text-orange-600"
+            title="Credit"
+            subtitle="Buy on credit → you owe · Sale on credit → owed to you"
+            balance={creditBalance}
+            balanceCls={creditBalance > 0 ? 'text-emerald-600' : creditBalance < 0 ? 'text-orange-600' : 'text-slate-900 dark:text-slate-100'}
+            txs={creditTxs}
+            expanded={expanded === 'credit'}
+            onToggle={() => setExpanded(expanded === 'credit' ? null : 'credit')}
+            action={(creditOwed > 0 || creditReceivable > 0) ? (
+              <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-brand-muted border-t border-slate-100 dark:border-brand-muted">
+                <div className="px-5 py-4">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">You owe (buy on credit)</p>
+                  <p className={cn("text-lg font-bold mt-0.5", creditOwed > 0 ? "text-orange-600 dark:text-orange-400" : "text-slate-500")}>{formatCurrency(creditOwed)}</p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Owed to you (sale on credit)</p>
+                  <p className={cn("text-lg font-bold mt-0.5", creditReceivable > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500")}>{formatCurrency(creditReceivable)}</p>
+                </div>
+              </div>
+            ) : undefined}
           />
         </Reveal>
 

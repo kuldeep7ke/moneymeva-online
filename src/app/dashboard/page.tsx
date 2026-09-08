@@ -8,7 +8,7 @@ import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
-import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getRecurring, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary } from '@/lib/store';
+import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getRecurring, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary, getCreditBalance } from '@/lib/store';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import Reveal from '@/components/Reveal';
@@ -309,7 +309,9 @@ export default function DashboardPage() {
   const accountBalances = useMemo(() => ({
     cash: periodTxs.reduce((sum, t: any) => t.account === 'cash' ? sum + (t.type === 'income' ? t.amount : -t.amount) : sum, 0),
     bank: periodTxs.reduce((sum, t: any) => (t.account === 'bank' || t.account === 'upi') ? sum + (t.type === 'income' ? t.amount : -t.amount) : sum, 0),
-  }), [periodTxs]);
+    credit: getCreditBalance(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [periodTxs, allTxs]);
 
   const partnershipBalance = getPartnerships().reduce((s, ps) => {
     const sum = getPartnershipSummary(ps.id);

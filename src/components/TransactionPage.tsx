@@ -26,6 +26,7 @@ const ACCOUNT_BADGE: Record<string, { label: string; cls: string }> = {
   cash: { label: 'Cash', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
   bank: { label: 'Bank', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
   upi: { label: 'UPI', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  credit: { label: 'Credit', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
   invest: { label: 'Invest', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' },
 };
 
@@ -122,7 +123,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     }
   }, [editingTransaction]);
 
-  const [form, setForm] = useState({ amount: '', category: '', description: '', date: todayStr(), partnerAccountId: '', investSource: 'bank', account: 'cash' as 'cash' | 'bank' | 'upi', party: '' });
+  const [form, setForm] = useState({ amount: '', category: '', description: '', date: todayStr(), partnerAccountId: '', investSource: 'bank', account: 'cash' as 'cash' | 'bank' | 'upi' | 'credit', party: '' });
 
   const openEdit = (tx: Transaction) => {
     setEditingTransaction(tx);
@@ -341,6 +342,7 @@ export default function TransactionPage({ type, title, description }: Transactio
     const desc = buildDescription();
     const tx = { amount, type, category: form.category, description: desc, date: form.date, partnerAccountId: form.partnerAccountId || undefined };
     if (form.date > todayStr()) { toast('Cannot add entries with future dates.', 'warning'); return; }
+    if ((type === 'income' || type === 'expense') && form.account === 'credit' && !form.partnerAccountId) { toast(type === 'expense' ? 'Credit purchases require a Party (the shop you owe).' : 'Credit sales require a Party (who owes you).', 'warning'); return; }
     const dup = checkDuplicateTransaction(tx);
     if (dup) {
       setDupWarning({ ...tx, existing: dup, investSource: form.investSource, account: form.account });
@@ -966,12 +968,19 @@ export default function TransactionPage({ type, title, description }: Transactio
               {(type === 'income' || type === 'expense') && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Account</label>
-                  <select value={form.account} onChange={e => setForm({ ...form, account: e.target.value as 'cash' | 'bank' | 'upi' })}
+                  <select value={form.account} onChange={e => setForm({ ...form, account: e.target.value as 'cash' | 'bank' | 'upi' | 'credit' })}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
                     <option value="cash">Cash</option>
                     <option value="bank">Bank</option>
                     <option value="upi">UPI</option>
+                    <option value="credit">{type === 'expense' ? 'Credit (buy on credit)' : 'Credit (sale on credit)'}</option>
                   </select>
+                  {form.account === 'credit' && type === 'expense' && (
+                    <p className="text-xs text-orange-500 dark:text-orange-400">Bought on credit — money owed. Choose the Party (shop) you owe. It will not count as an expense until you pay.</p>
+                  )}
+                  {form.account === 'credit' && type === 'income' && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Sold on credit — this party owes you. Choose the Party. It will not count as income until they pay.</p>
+                  )}
                 </div>
               )}
               {type === 'investment' && (
@@ -1145,7 +1154,7 @@ export default function TransactionPage({ type, title, description }: Transactio
                 </>
               )}
               <div className="space-y-2 relative" ref={partyRef}>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party (Optional)</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Party {form.account === 'credit' ? '(Required for Credit)' : '(Optional)'}</label>
                 <input value={partyFocused && !form.party && !partySearch ? '' : (partySearch || form.party || 'None')} onChange={e => { setPartySearch(e.target.value); setShowPartyDropdown(true); setPartyHighlightIndex(-1); }}
                   onFocus={() => { setPartyFocused(true); setShowPartyDropdown(true); }}
                   onBlur={() => { if (!partySearch && !form.party) setPartyFocused(false); }}

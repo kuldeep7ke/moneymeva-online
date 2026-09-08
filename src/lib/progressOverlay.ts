@@ -40,13 +40,21 @@ export function createProgressOverlay(initialLabel = 'Working…'): ProgressOver
       barEl.style.background = '#10b981';
       labelEl.textContent = label;
       clearPct();
-      if (onDone) setTimeout(onDone, 900);
+      if (onDone) setTimeout(() => {
+        try { el.remove(); } catch {}
+        onDone();
+      }, 900);
+      else setTimeout(() => { try { el.remove(); } catch {} }, 900);
     },
     error(label, onDone) {
       barEl.style.background = '#ef4444';
       labelEl.textContent = label;
       clearPct();
-      if (onDone) setTimeout(onDone, 1800);
+      if (onDone) setTimeout(() => {
+        try { el.remove(); } catch {}
+        onDone();
+      }, 1800);
+      else setTimeout(() => { try { el.remove(); } catch {} }, 1800);
     },
     close() {
       try { el.remove(); } catch {}
