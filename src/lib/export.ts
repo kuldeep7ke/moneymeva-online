@@ -11,10 +11,11 @@ export async function exportCustomDataExcel(opts: {
   from?: string;
   to?: string;
   sections: CustomExportSection[];
+  format?: 'xlsx' | 'json';
   onProgress?: (label: string, pct: number) => void;
 }) {
   try {
-    const { from, to, sections, onProgress } = opts;
+    const { from, to, sections, format = 'xlsx', onProgress } = opts;
     const txs = getTransactions().filter(t => !t.deletedAt);
     const partners = getPartners();
     const partnerMap = new Map<string, string>();
@@ -40,6 +41,38 @@ export async function exportCustomDataExcel(opts: {
     const expRows = sections.includes('expenses') ? txsInRange.filter(t => t.type === 'expense') : [];
     const investRows = sections.includes('investments') ? txsInRange.filter(t => t.type === 'investment') : [];
     let categoriesCount = 0;
+
+    // JSON mode emits a raw table map that the developer-page Import can restore.
+    if (format === 'json') {
+      onProgress?.('Building JSON data…', 30);
+      const data: Record<string, any[]> = {};
+      // Income/expenses/investments/categories/accounts all come from the transactions table.
+      const txIncluded = ['income', 'expenses', 'investments', 'categories', 'accounts'].some(s => sections.includes(s as CustomExportSection));
+      if (txIncluded) {
+        const wantType = (ty: string) =>
+          (ty === 'income' && sections.includes('income')) ||
+          (ty === 'expense' && sections.includes('expenses')) ||
+          (ty === 'investment' && sections.includes('investments')) ||
+          ((ty === 'income' || ty === 'expense') && sections.includes('categories')) ||
+          sections.includes('accounts');
+        data.transactions = txsInRange.filter(t => wantType(t.type));
+      }
+      if (sections.includes('parties')) data.partners = partners;
+      if (sections.includes('recurring')) data.recurring = recInRange;
+      if (sections.includes('works')) data.works = worksInRange;
+      if (sections.includes('goals')) data.goals = getGoals();
+      if (sections.includes('partnership')) {
+        data.partnerships = getPartnerships();
+        data.partnershipEntries = getPartnerships().flatMap(p => getPartnershipEntries(p.id).filter(e => inRange(e.date)));
+      }
+      if (Object.keys(data).length === 0) throw new Error('No data to export for the selected sections.');
+      onProgress?.('Generating file…', 90);
+      const stamp = new Date().toISOString().split('T')[0];
+      const range = `[${from || 'all'}]-[${to || 'all'}]`.replace(/[^a-z0-9_[\]]/gi, '-');
+      await downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `money-meva-export-${range}-${stamp}.json`);
+      onProgress?.('Done', 100);
+      return;
+    }
 
     const wb = XLSX.utils.book_new();
 

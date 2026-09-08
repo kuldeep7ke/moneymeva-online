@@ -45,6 +45,7 @@ export default function DeveloperPage() {
   const [exportFrom, setExportFrom] = useState('');
   const [exportTo, setExportTo] = useState('');
   const [exportSections, setExportSections] = useState<Record<string, boolean>>({ income: true, expenses: true, parties: true, recurring: false, investments: false, categories: true, works: false, goals: false, accounts: true, partnership: false });
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'json'>('xlsx');
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -266,10 +267,11 @@ export default function DeveloperPage() {
         from: exportFrom || undefined,
         to: exportTo || undefined,
         sections,
+        format: exportFormat,
         onProgress: (label, pct) => overlay.update(label, pct, 100),
       });
       setExporting(false);
-      overlay.finish('Export complete — check downloads', () => overlay.close());
+      overlay.finish(`Export complete (${exportFormat.toUpperCase()}) — check downloads`, () => overlay.close());
       toast('Custom export downloaded', 'success');
     } catch {
       setExporting(false);
@@ -375,7 +377,7 @@ export default function DeveloperPage() {
 
         {/* Export Data */}
         <Section icon={Download} title="Export Data" iconColor="text-amber-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Download a full raw JSON backup (all tables), or export the sections below as an Excel workbook.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Download a full raw JSON backup (all tables), or export the sections below for a period — as Excel (XLSX) or re-importable JSON.</p>
 
           <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full text-xs gap-2"><Download className="h-3.5 w-3.5" /> Export Raw Data (JSON)</Button>
 
@@ -406,8 +408,20 @@ export default function DeveloperPage() {
               ))}
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { k: 'xlsx', l: 'Excel (XLSX)' },
+              { k: 'json', l: 'JSON (re-importable)' },
+            ].map(f => (
+              <button key={f.k} type="button" onClick={() => setExportFormat(f.k as 'xlsx' | 'json')}
+                className={cn("px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
+                  exportFormat === f.k ? "border-brand/50 bg-brand-secondary dark:bg-brand-muted/40 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
+                {f.l}
+              </button>
+            ))}
+          </div>
           <Button variant="outline" onClick={handleCustomExport} disabled={exporting} className="w-full gap-2">
-            {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4" /> Export Custom (XLSX)</>}
+            {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4" /> Export Custom ({exportFormat.toUpperCase()})</>}
           </Button>
         </Section>
 
