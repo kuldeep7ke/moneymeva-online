@@ -35,6 +35,21 @@ function readRemoteAccount(cfg: { url: string; key: string }): string {
   } catch { return 'not signed in'; }
 }
 
+const DB_ENTITY_LABELS: Record<string, string> = {
+  transactions: 'Transactions', transaction: 'Transactions',
+  partners: 'Party', partner: 'Party',
+  recurring: 'Recurring',
+  budgets: 'Budgets', budget: 'Budgets',
+  reminders: 'Reminders', reminder: 'Reminders',
+  adjustments: 'Adjustments', adjustment: 'Adjustments',
+  goals: 'Goals', goal: 'Goals',
+  works: 'Work entries', work: 'Work entries',
+  partnerships: 'Partnership', partnership: 'Partnership',
+  partnership_entries: 'Partnership entries', partnership_entry: 'Partnership entries',
+  mutation_log: 'Change log', audit: 'Change log',
+};
+const dbLabel = (k: string) => DB_ENTITY_LABELS[k] || k.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+
 export default function DeveloperPage() {
   const toast = useToast();
   const router = useRouter();
@@ -61,7 +76,7 @@ export default function DeveloperPage() {
   const [exportSections, setExportSections] = useState<Record<string, boolean>>({ income: true, expenses: true, parties: true, recurring: false, investments: false, categories: true, works: false, goals: false, accounts: true, partnership: false });
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'json'>('xlsx');
   const [exporting, setExporting] = useState(false);
-  const [remoteStats, setRemoteStats] = useState<{ total: number; byEntity: Record<string, number> } | null>(null);
+  const [remoteStats, setRemoteStats] = useState<{ total: number; byEntity: Record<string, number>; ok: boolean; error?: string | null } | null>(null);
   const [remoteRows, setRemoteRows] = useState<{ id: string; entity: string; updated_at: string; deleted_at: string | null }[] | null>(null);
   const [dbLoading, setDbLoading] = useState(false);
   const [freshConfirm, setFreshConfirm] = useState(false);
@@ -262,10 +277,16 @@ export default function DeveloperPage() {
   const testSync = async () => {
     setSyncing(true);
     const cfg = getConfig();
-    if (!cfg.url) { setSyncOk(false); setSyncing(false); return; }
+    if (!cfg.url) {
+      setSyncOk(false);
+      setSyncing(false);
+      toast('No sync URL configured — set it in Settings → Multi-Device Sync or use Quick Connect above.', 'warning');
+      return;
+    }
     const r = await checkConnection();
     setSyncOk(r);
     setSyncing(false);
+    toast(r ? 'Connection OK — remote is reachable' : 'Connection failed — check URL, anon key and network', r ? 'success' : 'error');
   };
 
   const testAnnouncements = async () => {
@@ -348,22 +369,44 @@ export default function DeveloperPage() {
 
   // ─── Database Control Handlers ──────────────────────────────────
 
-  const loadRemoteStats = async () => {
+const loadRemoteStats = async () => {
     setDbLoading(true);
     if (!connected()) await ensureConnected();
+    if (!connected()) {
+      setDbLoading(false);
+      setRemoteStats(null);
+      setSyncOk(false);
+      toast('Not connected to Supabase — click Connect above (or set your URL in Settings → Multi-Device Sync) first.', 'warning');
+      return;
+    }
     const stats = await getRemoteStats();
     setRemoteStats(stats);
-    setSyncOk(connected());
+    setSyncOk(true);
     setDbLoading(false);
+    if (!stats.ok) {
+      toast(stats.error || 'Failed to read remote data', 'error');
+    } else if (stats.total === 0) {
+      toast('Remote is empty — use Push Local → Remote to upload your on-device data first', 'info');
+    } else {
+      toast(`Remote has ${stats.total} row${stats.total === 1 ? '' : 's'} stored`, 'success');
+    }
   };
 
-  const loadRemoteRows = async () => {
+const loadRemoteRows = async () => {
     setDbLoading(true);
     if (!connected()) await ensureConnected();
+    if (!connected()) {
+      setDbLoading(false);
+      setRemoteRows(null);
+      setSyncOk(false);
+      toast('Not connected to Supabase — click Connect above first.', 'warning');
+      return;
+    }
     const rows = await getRemoteRows();
     setRemoteRows(rows);
-    setSyncOk(connected());
+    setSyncOk(true);
     setDbLoading(false);
+    toast(rows.length === 0 ? 'No rows on the remote — use Push Local → Remote to upload first' : `${rows.length} row${rows.length === 1 ? '' : 's'} found on the remote`, rows.length === 0 ? 'info' : 'success');
   };
 
   const handlePull = async () => {
@@ -463,6 +506,7 @@ export default function DeveloperPage() {
         setSyncOk(true);
         setConnectStatus('Connected successfully');
         toast('Supabase connected', 'success');
+        loadRemoteStats();
       } else {
         setSyncOk(false);
         setConnectStatus(result.error || 'Connection failed');
@@ -595,6 +639,7 @@ export default function DeveloperPage() {
 
             <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Remote Data</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Reads rows stored inside the remote Supabase project <span className="font-semibold">for this account</span> — it does <span className="font-semibold">not</span> count your device's local data. To upload local rows first use <span className="font-mono">Push Local → Remote</span>, then refresh.</p>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={loadRemoteStats} disabled={dbLoading} className="w-full">
                   {dbLoading && !remoteStats ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Loading…</> : remoteStats ? 'Refresh Stats' : 'Load Stats'}
@@ -603,11 +648,19 @@ export default function DeveloperPage() {
                   {dbLoading && !remoteRows ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Loading…</> : remoteRows ? 'Refresh Rows' : 'Browse Rows'}
                 </Button>
               </div>
-              {remoteStats && (
+              {remoteStats && !remoteStats.ok && (
+                <div className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-700 dark:text-amber-300">
+                  Cannot read remote stats — {remoteStats.error || 'not connected'}. Connect first, then retry.
+                </div>
+              )}
+              {remoteStats && remoteStats.ok && (
                 <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3 space-y-0.5">
                   <StatRow label="Total" value={remoteStats.total} />
+                  {remoteStats.total === 0 && (
+                    <p className="text-xs text-slate-400 mt-1">0 rows — nothing has been pushed to the remote yet. Use <span className="font-mono">Push Local → Remote</span> below.</p>
+                  )}
                   {Object.entries(remoteStats.byEntity).sort((a, b) => b[1] - a[1]).map(([entity, count]) => (
-                    <StatRow key={entity} label={entity.replace('_', ' ')} value={count} />
+                    <StatRow key={entity} label={dbLabel(entity)} value={count} />
                   ))}
                 </div>
               )}
@@ -754,7 +807,7 @@ export default function DeveloperPage() {
                 <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
                     {Object.entries(dbStats).map(([k, v]) => (
-                      <StatRow key={k} label={k.replace('_', ' ')} value={v < 0 ? 'err' : v} />
+                      <StatRow key={k} label={dbLabel(k)} value={v < 0 ? 'err' : v} />
                     ))}
                   </div>
                 </div>
@@ -891,17 +944,17 @@ export default function DeveloperPage() {
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">These actions permanently delete data. Export a backup first if in doubt.</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="w-full text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+            <div className="space-y-2 max-w-sm">
+              <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="w-full justify-start text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
                 {freshLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Processing...</> : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Start Fresh: Clear Remote + Push Local</>}
               </Button>
-              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full justify-start text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
                 <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear Remote Only
               </Button>
-              <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+              <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="w-full justify-start text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
                 {clearLocalLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear Local Only</>}
               </Button>
-              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
+              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="w-full justify-start text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
                 {clearing ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear ALL Data (Local + Remote)</>}
               </Button>
             </div>

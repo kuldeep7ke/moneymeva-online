@@ -625,18 +625,20 @@ export async function pullPinsFromRemote(): Promise<string[] | null> {
 
 // ─── Developer helpers ─────────────────────────────────────────
 
-export async function getRemoteStats(): Promise<{ total: number; byEntity: Record<string, number> }> {
-  if (!supabase) return { total: 0, byEntity: {} };
+export async function getRemoteStats(): Promise<{ total: number; byEntity: Record<string, number>; ok: boolean; error?: string | null }> {
+  if (!supabase) return { total: 0, byEntity: {}, ok: false, error: 'not connected' };
   try {
     const { data: rows, error } = await supabase.from(SYNC_TABLE).select('entity');
-    if (error || !rows) return { total: 0, byEntity: {} };
+    if (error || !rows) return { total: 0, byEntity: {}, ok: false, error: error?.message || 'select failed' };
     const byEntity: Record<string, number> = {};
     for (const row of rows) {
       const e = row.entity || 'unknown';
       byEntity[e] = (byEntity[e] || 0) + 1;
     }
-    return { total: rows.length, byEntity };
-  } catch { return { total: 0, byEntity: {} }; }
+    return { total: rows.length, byEntity, ok: true };
+  } catch (err) {
+    return { total: 0, byEntity: {}, ok: false, error: err instanceof Error ? err.message : 'error' };
+  }
 }
 
 export async function getRemoteRows(): Promise<{ id: string; entity: string; updated_at: string; deleted_at: string | null }[]> {
