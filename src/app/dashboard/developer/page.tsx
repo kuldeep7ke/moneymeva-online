@@ -157,6 +157,11 @@ export default function DeveloperPage() {
   };
 
   const handleClearRemote = async () => {
+    if (!connected()) await ensureConnected();
+    if (!connected()) {
+      toast('Not connected to Supabase — click Connect above (or set your URL in Settings → Multi-Device Sync) first.', 'warning');
+      return;
+    }
     setStatus('Clearing remote...');
     await clearRemote();
     setStatus('Remote cleared');
@@ -411,6 +416,12 @@ const loadRemoteRows = async () => {
 
   const handlePull = async () => {
     setPullLoading(true);
+    if (!connected()) await ensureConnected();
+    if (!connected()) {
+      setPullLoading(false);
+      toast('Not connected to Supabase — click Connect above (or set your URL in Settings → Multi-Device Sync) first.', 'warning');
+      return;
+    }
     const overlay = createProgressOverlay('Pulling remote data…');
     try {
       const { ok } = await manualSync();
@@ -432,6 +443,12 @@ const loadRemoteRows = async () => {
 
   const handlePush = async () => {
     setPushLoading(true);
+    if (!connected()) await ensureConnected();
+    if (!connected()) {
+      setPushLoading(false);
+      toast('Not connected to Supabase — click Connect above (or set your URL in Settings → Multi-Device Sync) first.', 'warning');
+      return;
+    }
     const overlay = createProgressOverlay('Pushing local data…');
     try {
       const { pushAllToPouch } = await import('@/lib/store');
@@ -458,6 +475,12 @@ const loadRemoteRows = async () => {
   const handleStartFresh = async () => {
     setFreshConfirm(false);
     setFreshLoading(true);
+    if (!connected()) await ensureConnected();
+    if (!connected()) {
+      setFreshLoading(false);
+      toast('Not connected to Supabase — click Connect above (or set your URL in Settings → Multi-Device Sync) first.', 'warning');
+      return;
+    }
     const overlay = createProgressOverlay('Starting fresh…');
     try {
       overlay.update('Clearing remote database…', 1, 3);
