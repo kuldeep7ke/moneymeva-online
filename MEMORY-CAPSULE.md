@@ -71,6 +71,19 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 - **Income / Expenses / Investments** — full CRUD with search, filter, sort, group by
   day/week/month, duplicate detection, category auto-suggest, PIN-protected deletion,
   archive/restore. Account badges (Cash/Bank/UPI/Invest). Future-dated entries blocked.
+- **Credit (उधार) Tracking** — accrual-basis: a credit purchase counts as an expense
+  and a credit sale as income at the moment it's recorded (no waiting for the payment).
+  Every credit entry auto-creates a linked **payment-pending Adjustment** (with
+  `sourceTransactionId` and `sourceType`). Settling or receiving in the Party Account
+  updates those adjustments **FIFO** — partial keeps Pending with a tracked settled
+  amount, full payment flips to Settled. All `Credit Settlement` rows are excluded from
+  every income/expense total (dashboard, lists, summary, export, accounts). The real
+  cash/bank/UPI payment leg is hidden from the list but still moves balances + party
+  ledger; the opposite-section informational clearing row shows with an amber
+  **"Credit settled"** badge plus a **"Credit only"** filter chip. Existing credit
+  entries are backfilled into pending adjustments automatically on first load
+  (idempotent). Each party can carry an optional credit limit + settle-within-days;
+  near-limit/reached badges appear on the card.
 - **Dashboard** — summary cards (Balance, Income, Expenses, Investments, Available to
   Spend, Partner Invested), 6-month cash flow chart, spending breakdown donut, goals
   with progress bars, upcoming reminders, cloud sync status card, quick-add modals.
@@ -184,6 +197,25 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 | Web (any browser) | Static export — works anywhere |
 
 ---
+
+## What Changed Recently (v7.3.x)
+
+- **Accrual credit model** — credit purchases/sales count in totals at record time, not
+  at settlement; every credit entry auto-creates a payment-pending Adjustment; settling
+  FIFO-updates them (partial → Pending with tracked amount, full → Settled)
+- **Settlement rows excluded everywhere** — `Credit Settlement` category is never part of
+  income/expense totals (dashboard, lists, summary, export, accounts); the real
+  cash/bank/UPI payment leg is hidden from lists but still moves balances + party ledger;
+  the opposite-section clearing row shows with an amber **"Credit settled"** badge
+- **Adjustments page** — Source ("Credit purchase/sale · Party") + Status (Pending/Settled)
+  columns; backfill converts existing credit entries into pending adjustments (idempotent)
+- **Credit alerts + Notification & Popups settings** — CreditAlertModal, NotificationPanel
+  credit icon, per-type popup toggles, partner credit limits (₹10k default) + settle-within
+  days (30), near/reached-limit badges, swipe-to-dismiss dashboard credit chip
+- **PIN input fix** — `type="text"` + `inputMode="numeric"` + `.pin-mask` (number inputs
+  auto-increment on focus in some browsers)
+- **Restore-linkage fix** — restoring a deleted credit transaction also restores its
+  archived linked adjustment
 
 ## What Changed Recently (v7.2.x)
 

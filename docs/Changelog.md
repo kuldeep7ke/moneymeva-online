@@ -1,5 +1,17 @@
 # Changelog
 
+## v7.3.1 (2026-09-10) — Accrual Credit Model, Credit Alerts & Settlement Tracking
+- **Accrual credit tracking** — credit purchases/sales count in income/expense totals at record time (no longer at settlement). `operationalTransactions()` excludes `Credit Settlement` everywhere, so settlements never double-count.
+- **Auto payment-pending adjustments** — every credit entry creates a linked Adjustment (`sourceTransactionId`, `sourceType`, `settleStatus: pending`, `settledAmount: 0`) in the Adjustments section.
+- **FIFO settle tracking** — settling or receiving in the Party Account updates those adjustments FIFO: partial payments stay Pending with a tracked settled amount, full payments flip to Settled with a language-aware note.
+- **Visible settlement rows** — real cash/bank/UPI payment legs are hidden from the list (balances + party ledger still move); the opposite-section clearing row shows with an amber **"Credit settled"** badge + a **"Credit only"** filter chip.
+- **Adjustments page columns** — Source ("Credit purchase/sale · Party") and Status (Pending/Settled) badges.
+- **Partner credit limits** — optional credit limit (₹10,000 default) + settle-within days (30 default) per party; near/reached-limit badges on cards; `getPartnerCreditStats` computes outstanding/pct/due state.
+- **Backfill** — existing credit entries get pending adjustments automatically on first load (idempotent); clearance history is replayed to mark settlements correctly.
+- **Credit alerts + Notification & Popups settings** — CreditAlertModal, NotificationPanel credit icon, per-type popup toggles, swipe-to-dismiss dashboard credit chip.
+- **Fix** — restoring a deleted credit transaction now also restores its archived linked adjustment (v7.3.0.22).
+- **Other** — PIN inputs switched to `type="text"` + `inputMode="numeric"` + `.pin-mask`; new `credit.*` i18n keys (mr/hi/en); worked example: dashboard "1W" is a rolling 7-day window while the Expenses page "This Week" is calendar Monday→today (values legitimately differ mid-week).
+
 ## v7.3.0 (2026-09-10) — Party Groups Redesign, Partnership Fixes, Supabase Verify
 - **Party groups redesign** — 3 generic groups → 7 (Personal, Services, Financial, Business, Government, Agriculture, Office) with per-group types; shared constants in `src/lib/parties.ts`, auto-migration of old records in `initDB`
 - **Partnership "Who paid?" fix** — dropdown now lists ALL members, including free-text names (pseudo payer `__ps:<memberId>`); settlement math attributes `paid` correctly to them

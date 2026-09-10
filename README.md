@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.3.0.11** — A minimalistic, local-first personal finance companion.
+**v7.3.0.23** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India. Runs on Windows, Mac, Linux, Docker, and Android.
 
@@ -34,11 +34,12 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
 - **Savings & Goals** — goals page with contribute/withdraw + progress bars. Goal contributions record as `expense` transactions (withdrawals as `income`).
-- **Partner Accounts** — 7 party groups (Personal, Services, Financial, Business, Government, Agriculture, Office) with per-group types, P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit from the partners page. Includes a **Partnership (भागीदारी) tab** for shared work: members with % shares (must total 100%), shared income/expense entries with "who paid" tracking (lists **all** members — party-linked or free-text), automatic settlement balances (gets/owes), optional mirroring into the main Income/Expense ledger. The **current user is auto-added** as the first member of any new partnership.
+- **Partner Accounts** — 7 party groups (Personal, Services, Financial, Business, Government, Agriculture, Office) with per-group types, P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, full edit from the partners page, and **credit limit + settle-within-days** per party (defaults ₹10,000 / 30 days) with near/reached-limit badges. Includes a **Partnership (भागीदारी) tab** for shared work: members with % shares (must total 100%), shared income/expense entries with "who paid" tracking (lists **all** members — party-linked or free-text), automatic settlement balances (gets/owes), optional mirroring into the main Income/Expense ledger. The **current user is auto-added** as the first member of any new partnership.
+- **Credit (उधार) Tracking** — accrual-basis: a credit purchase counts as an expense and a credit sale as income at the moment it's recorded (no waiting until the money moves). Entering a credit entry in a party transaction automatically creates a **payment-pending Adjustment** (Adjustments → Source/Status columns show "Credit purchase/sale · Party" with a Pending/Settled badge). Settling or receiving payment in the Party Account updates those adjustments **FIFO** — a partial payment stays Pending with a tracked settled amount, a full payment flips to Settled. **Settlement rows never count twice**: all `Credit Settlement` rows are excluded from every income/expense total (dashboard, lists, summary, export, accounts), the real cash/bank/UPI payment leg is hidden from the list but still moves balances, and the opposite-section clearing row shows as a visible entry with an amber **"Credit settled"** badge plus a "Credit only" filter chip. Existing credit entries are backfilled into pending adjustments automatically on first load of the new version (idempotent).
 - **Works (कामे)** — Work register for farm jobs, labour and hired work. **Profession-driven:** each onboarding profession maps to a matching work profile — Salaried → Employee + Employer, Freelancer, Student, Homemaker, Investor/Trader, Retired, Business → Shop (+ Employer), Farmer, Other → General (plus trade profiles: farm services, labour, contractor, transport). The add-form surfaces the user's profile first, and switching profile swaps the work-type list. Farmer-specific fields (crop, season, area) appear **only** for the farmer/farm-services profiles. Each work records direction (I will receive / I will pay), a preset work type or free-text, start/end dates (auto duration), party and partnership links, and an agreed amount. Record payments per work — optionally auto-creating a matching Income or Expense ledger entry — with a full payment history and progress bar.
 - **Farmer Onboarding** — Farmer added as a profession choice during onboarding; selects farming income/expense/investment categories (Farm Sale, Seeds, Fertilizer, Diesel/Fuel…) and maps to the farmer work profile in Works.
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days. Future start/end dates allowed.
-- **Adjustments** — Balance corrections between personal and partner accounts with amount guards.
+- **Adjustments** — Balance corrections between personal and partner accounts with amount guards, plus the auto-tracked credit payments above. Deleting a credit transaction also archives its linked adjustment; restoring brings both back.
 - **Budgets** — Category-based monthly/yearly spending limits with overrun warnings at ≥80%.
 - **Reminders** — One-time or recurring (daily to yearly) with "Mark as Paid" that creates expense transactions and auto-reschedules.
 - **Archive** — Soft-delete across all entity types with bulk restore, permanent delete, or empty-all (PIN-protected).
@@ -248,6 +249,7 @@ src/
 │   ├── PinSetupGuide.tsx        # PIN setup instructions
 │   ├── SyncStatusBar.tsx        # Sync status indicator
 │   ├── NotificationPanel.tsx    # Notification display
+│   ├── CreditAlertModal.tsx     # Overdue/near-limit credit alert popup
 │   ├── ThemeProvider.tsx        # Dark/light theme provider
 │   ├── LoadingOverlay.tsx       # Full-screen loading overlay
 │   ├── InstallPrompt.tsx        # PWA install prompt
@@ -265,6 +267,7 @@ src/
 │   ├── localAuth.ts             # Email/password auth (local)
 │   ├── pinStore.ts              # PIN generation and validation
 │   ├── sync-notify.ts           # CustomEvent-based sync status dispatch
+│   ├── notification-prefs.ts    # Notification & popup preference toggles
 │   ├── activityLog.ts           # Security + CRUD event history
 │   ├── export.ts                # PDF + Excel + CSV export
 │   ├── download.ts              # downloadBlob (native share sheet on Android), copyText, printHtml

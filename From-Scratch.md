@@ -73,11 +73,11 @@ const config: CapacitorConfig = {
 Define all data entities. Key types:
 
 - **`Transaction`** — id, userId, transitionId, amount, type ('income'|'expense'|'investment'), category, description, date, account ('cash'|'bank'|'upi'), savingTag?, transferId?, partnerAccountId?, isRecurring, recurringId?, deletedAt?, createdAt, updatedAt
-- **`PartnerAccount`** — id, userId, transitionId, name, type, group ('personal'|'services'|'financial'|'business'|'government'|'agriculture'|'office' — shared constants in `src/lib/parties.ts`), description, budgetWindowStart, budgetWindowEnd, initialInvestment, deletedAt?, createdAt, updatedAt
+- **`PartnerAccount`** — id, userId, transitionId, name, type, group ('personal'|'services'|'financial'|'business'|'government'|'agriculture'|'office' — shared constants in `src/lib/parties.ts`), description, budgetWindowStart, budgetWindowEnd, initialInvestment, creditLimit?, creditSettleDays?, deletedAt?, createdAt, updatedAt
 - **`RecurringTx`** — id, userId, transitionId, title, amount, category, txType, frequency, customIntervalDays?, startDate, endDate?, status, nextDate, reminderDays, deletedAt?, createdAt
 - **`Budget`** — id, userId, transitionId, category, limit, period ('monthly'|'yearly'), deletedAt?, createdAt
 - **`Reminder`** — id, userId, transitionId, title, description, dueDate, category, amount, frequency, status, deletedAt?, createdAt
-- **`Adjustment`** — id, userId, transitionId, amount, accountType ('personal'|'partner'), partnerAccountId?, notes, date, deletedAt?, createdAt
+- **`Adjustment`** — id, userId, transitionId, amount, accountType ('personal'|'partner'), partnerAccountId?, notes, date, sourceTransactionId?, sourceType? ('credit-purchase'|'credit-sale'), settleStatus? ('pending'|'settled'), settledAmount?, settleTransferId?, deletedAt?, createdAt
 - **`Goal`** — id, userId, transitionId, name, target, saved, deletedAt?, createdAt
 - **`MutationLog`** — id, transitionId, entityType, entityId, action, timestamp, userId, detail?
 - **`WorkEntry`** — id, userId, transitionId, direction ('receivable'|'payable'), partyId?, partnershipId?, profile (WORK_PROFILES key), workType, crop?, season ('kharif'|'rabi'|'summer'|'annual'), year, area? {value, unit}, startDate, endDate?, agreedAmount, paidAmount, payments[] {id, date, amount, note?, linkedTransactionId?}, dueDate?, notes?, deletedAt?, createdAt, updatedAt
@@ -186,7 +186,10 @@ function transitionId() { return 'tr_' + Date.now().toString(36) + Math.random()
 | `addRecurring()` / `advanceRecurring()` | Recurring with next-date computation |
 | `setBudgets()` / `upsertBudget()` | Budget management |
 | `addReminder()` / `completeAndRescheduleReminder()` | Reminders with frequency |
-| `addAdjustment()` / `deleteAdjustment()` | Balance corrections |
+| `addAdjustment()` / `updateAdjustment()` / `deleteAdjustment()` / `restoreAdjustment()` | Balance corrections + credit payment tracking (all push via `syncWriteDoc('adjustments', …)`) |
+| `markCreditAdjustmentsSettled()` | FIFO-settles linked credit adjustments after a party settle/receive (partial stays Pending, full flips to Settled) |
+| `backfillCreditAdjustments()` | Idempotent backfill in `initDB()`: creates payment-pending adjustments for existing credit entries, replays clearance history |
+| `getPartnerCreditStats()` / `getPartnerCreditBalance()` | Outstanding, limit pct used, limit state, due date/state per partner (FIFO queue over credit txs) |
 | `addGoal()` / `updateGoal()` | Savings goals |
 | `getAggregates()` / `getMonthlySummary()` / `getCarryForward()` | Dashboard calculations |
 | `getAllNotifications()` | Combined notifications |
@@ -408,6 +411,10 @@ A reusable CRUD page used by Income, Expenses, and Investments.
 **Category dropdown:** Reads from localStorage keys (`mm_income_categories`, `mm_expense_categories`, `mm_investment_categories`) merged with categories found in existing transactions. `saveCategoryToLocalStorage()` persists new categories on add/edit. No `.slice(0,10)` limit — all used categories appear. Keyboard navigation (ArrowDown/Enter) reaches the inline "Create" button in both add and edit modals.
 
 **Party field:** Shows "None" by default in both Add and Edit modals when no party is selected. A "None" option is the first item in the party dropdown. Selecting "None" clears `partnerAccountId` and `party` values.
+
+**Credit settlement rows:** Real cash/bank/UPI `Credit Settlement` legs are hidden from the list (`isRealSettlementLeg`) but still affect account balances + party ledger. Informational clearing rows on the opposite side show as visible entries with an amber **"Credit settled"** badge (`isCreditSettlementRow`). The section footer total excludes ALL `Credit Settlement` rows (`sectionTotal` filters them out) — including on the "Credit only" filter chip, which shows just the credit-account rows.
+
+**Credit entry tips:** The add modal's account selector shows context hints when the account is `credit` — a credit purchase "counts in expenses now" and "a payment-pending adjustment is added; settling updates it to paid"; a credit sale mirrors that for income. Hints are the i18n keys `credit.notePurchasePending` / `credit.noteSalePending` (and the settled variants) in mr/hi/en.
 
 **Modal behavior:** No modal closes when clicking outside/on the backdrop overlay. Users must use explicit Cancel/X buttons to dismiss any modal (Add, Edit, Create Party, Duplicate Warning, Detail, or any popup across the app).
 
@@ -719,6 +726,7 @@ Triggered on push to `master` (paths: VERSION, android/**, src/**, package.json)
 | `DashboardLayout` | Main dashboard shell (nav, auth guard, DB init, PIN lock) |
 | `TransactionPage` | Reusable CRUD for income/expense/investment |
 | `NotificationPanel` | Dropdown panel showing all notifications |
+| `CreditAlertModal` | Overdue / near-limit credit alert modal (driven by `getPartnerCreditStats` + `notification-prefs.ts` toggles) |
 | `PinPrompt` | Modal for PIN code input |
 | `PinSetupGuide` | Shows generated PINs to user (one-time) |
 | `Reveal` | Scroll-triggered reveal animation wrapper |
@@ -810,8 +818,17 @@ Recurring 🔄 buttons open a modal form instead of directly writing to the ledg
 ### Partner P&L
 `getPartnerPnL(partnerId)`:
 - Filters transactions by `partnerAccountId`
-- Sums income and expense separately
+- Sums income and expense separately (accrual — excludes `Credit Settlement` rows; the P&L sheet in export does the same)
 - Returns `{ income, expense, net }`
+
+### Credit (उधार) Model — Accrual + Auto-Adjustment
+- **Accrual basis** — a credit purchase (`account: 'credit'`, type expense) counts as an expense and a credit sale as income at record time. Settlement rows (category `Credit Settlement`) never affect income/expense totals anywhere (`operationalTransactions()` in `store.ts` excludes both `NON_OPERATIONAL_CATEGORIES` and `CREDIT_SETTLEMENT_CATEGORY`).
+- **Auto-adjustment** — `addTransaction()` calls `maybeAutoCreateCreditAdjustment(t)` for credit entries (skips `Credit Settlement` rows and entries without `partnerAccountId`). It calls the normal `addAdjustment()` path (→ cache → Dexie → `syncWriteDoc('adjustments')` → audit log), so adjustments sync like any other data. Fields: `sourceTransactionId`, `sourceType` (`credit-purchase|credit-sale`), `settleStatus: 'pending'`, `settledAmount: 0`.
+- **FIFO settlement** — `partners/page.tsx` calls `markCreditAdjustmentsSettled(partnerId, amount, transferId, isReceive)` after each settle/receive. It sorts pending adjustments oldest-first (date, then createdAt), siphons the cleared amount, sets `settledAmount`, and marks `settleStatus: 'settled'` + a language-aware note when fully covered. A partial payment leaves the adjustment Pending.
+- **Delete/restore linkage** — `updateTransaction()` finds linked adjustments by `sourceTransactionId` (all, regardless of deleted state) and archives/restores them in the same direction as the transaction.
+- **Backfill** — `backfillCreditAdjustments()` runs inside `initDB()` (try/catch guarded, idempotent): creates pending adjustments for any credit transaction missing one, then replays `Credit Settlement` clearing rows FIFO to mark the correct ones Settled. Runs every load until nothing is missing.
+- **Exclusion in export/accounts** — `export.ts` `incRows`/`expRows`, the party P&L sheet, and the category-stats loop skip `Credit Settlement`; `accounts/page.tsx` revenue/expense filters exclude the category too.
+- **Credit stats per partner** — `getPartnerCreditStats(partnerId, partner?)` computes outstanding, limit, `pctUsed`, `limitState` (none/near/reached via `NEAR_LIMIT_PCT = 0.8`), oldest unsettled date (FIFO queue), `dueDate`/`daysRemaining`/`dueState` using `creditSettleDaysFor()`; defaults from `DEFAULT_CREDIT_LIMIT = 10000` / `DEFAULT_CREDIT_SETTLE_DAYS = 30` in `src/lib/parties.ts`.
 
 ### Duplicate Detection
 `checkDuplicateTransaction(tx)`:
@@ -826,6 +843,7 @@ Recurring 🔄 buttons open a modal form instead of directly writing to the ledg
 - **Carry Forward** = last month's cash/bank/upi balance (positive only)
 - **Total Income/Expense/Investment** = across all accounts (per type; no saving type exists)
 - **v7.2.0**: `getAggregates()` + `getMonthlySummary()` exclude categories `Transfer`, `Capital`, `Drawings` from income/expense totals — internal transfers and owner capital no longer inflate revenue stats (`NON_OPERATIONAL_CATEGORIES` in store.ts)
+- **v7.3.0 (accrual credit)**: the same totals ALSO exclude `Credit Settlement`, so credit purchases/sales count once at record time and settlement never double-counts; `operationalTransactions()` in store.ts is the single shared filter
 - **Accounts page** (5 cards): Cash, Bank, Capital (net of `Capital`/`Drawings` tagged txs), Revenue & Expenses (period-based via pill selector; excludes the same non-operational categories)
 
 ### Partner P&L + Edit
@@ -929,6 +947,7 @@ money-meva/
 │   │   ├── utils.ts            # Shared utilities
 │   │   ├── supabase.ts         # Legacy (unused)
 │   │   ├── capacitor-notifications.ts
+│   │   ├── notification-prefs.ts # "Notification & Popups" per-type toggles + dismissal state
 │   │   └── i18n/               # Translations (mr/hi/en) + I18nProvider
 │   └── types/index.ts          # TypeScript interfaces
 ├── VERSION                     # Current version string

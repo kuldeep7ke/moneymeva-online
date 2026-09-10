@@ -64,6 +64,10 @@ Three transaction types: **Income · Expense · Investment**.
 
 - Groups: **Personal / Services / Financial / Business / Government / Agriculture / Office** (each with its own types).
 - Per-partner profit & loss, mini-ledger, and transaction history.
+- **Credit (उधार) tracking** — a credit purchase counts as an expense and a credit sale as income **at the moment you record it**. Every credit entry automatically adds a **payment-pending entry in Adjustments** (look for "Credit purchase/sale · Party" with a **Pending** badge).
+- When the party settles the payment (or you receive it), that adjustment updates automatically — **FIFO**: a partial payment keeps it Pending (with the amount paid so far), a full payment flips it to **Settled**. You'll always see "who still owes what" in Adjustments.
+- **Settlement rows never double-count** — the real cash/bank/UPI payment appears in your lists, and the opposite section shows it as a visible row with an amber **"Credit settled"** badge; totals always exclude settlement rows (use the **Credit only** filter to see just credit entries).
+- Optional per-party **credit limit** (default ₹10,000) and **settle-within days** (default 30) — the card shows a **Near Limit** / **Limit Reached** badge when you're getting close.
 
 ### Recurring
 

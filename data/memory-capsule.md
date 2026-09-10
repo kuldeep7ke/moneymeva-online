@@ -1,13 +1,13 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.1.1.91 (incremented on every build)
+**Version:** v7.3.0.23 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Remote announcements:** jsonbin.io bins (broadcast + banner) — see `docs/BROADCAST-GUIDE.md`
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
-**Last Updated:** 2026-08-23
+**Last Updated:** 2026-09-10
 
 ---
 
@@ -305,6 +305,19 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.3.0.21–23 (2026-09-10) — Accrual Credit Model, Credit Alerts & Adjustments Overhaul
+- **Accrual credit tracking** — credit purchases/sales now count in expense/income totals at the moment they're recorded (`account: 'credit'`). Every credit entry auto-creates a linked **payment-pending Adjustment** (`sourceType: credit-purchase|credit-sale`, `settleStatus: pending`, `settledAmount: 0`). Settling or receiving payment in the Party Account updates those adjustments **FIFO** — partial stays Pending (with tracked settled amount), full payment flips to Settled.
+- **Settlement row exclusion** — all `Credit Settlement` category rows are excluded from every income/expense total (dashboard aggregates, monthly summary, TransactionPage section footer, export incRows/expRows/party P&L/categories, Accounts page revenue/expenses). The real cash/bank/UPI payment leg is hidden from the TransactionPage list but still moves cash/bank balances + party ledger; the opposite-side informational clearing row shows with an amber **"Credit settled"** badge and a **"Credit only"** filter chip.
+- **Adjustments page columns** — added Source ("Credit purchase/sale · Party" or "—") and Status (Pending/Settled badges) columns; `partnerMap` from `getPartners()` resolves partner names.
+- **Partner credit limit + settle days** — each party card has optional `creditLimit` (default ₹10,000) and `creditSettleDays` (default 30) fields; amber **Near Limit** / red **Limit Reached** badges on cards + the Credit Tally row. (`getPartnerCreditStats` computes outstanding, pctUsed, dueDate, dueState via FIFO queue; `creditLimitFor`/`creditSettleDaysFor` from `src/lib/parties.ts`.)
+- **Backfill on first load** — `backfillCreditAdjustments()` runs in `initDB()` (guarded try/catch, idempotent): existing unsettled credit entries without a `sourceTransactionId` adjustment get one created; already-settled clearances are replayed FIFO to mark the right adjustments Settled. This runs on every load until no missing adjustments remain.
+- **Delete/restore linkage** — deleting a credit transaction also archives all its linked pending adjustments; restoring the transaction restores both the transaction and the archived adjustments. (Bug fixed in v7.3.0.22: the original filter excluded archived adjustments from the restore lookup; corrected to match all linked adjustments then filter by deletedAt direction.)
+- **Credit alerts + Notification & Popups settings** — `CreditAlertModal` fires when a partner's outstanding exceeds its credit limit or is overdue (> settle-within days); `NotificationPanel` shows a credit icon for credit-related notifications; Settings has new "Notification & Popups" section with toggles for overdue alerts, near-limit alerts, weekend backup tips, install prompts, and welcome card; `notification-prefs.ts` manages per-type enable/disable and per-device dismissal.
+- **i18n keys** — new `credit.*` keys in mr/hi/en (`credit.filterTitle`, `credit.settledBadge`, `credit.notePurchasePending`, `credit.noteSalePending`, `credit.notePurchaseSettled`, `credit.noteSaleSettled`, `credit.limitReached`, `credit.nearLimit`, `credit.tally`, `credit.alertHint`).
+- **PIN input fix** — PIN input fields changed from `type="number"` to `type="text"` with `inputMode="numeric"` + `.pin-mask` CSS class to prevent spinner-side-to-side auto-increment on focus.
+- **Export exclusion** — Excel/PDF export (`incRows`/`expRows`, party P&L sheet, category stats loop) skips `Credit Settlement` rows so exported income/expense totals match the app UI.
+- **Build/lint verified** — `npm run build` green; 18/18 DB-layer simulation checks (FIFO, sync, backfill idempotency, delete/restore linkage, credit balance, oldest unsettled date) pass; all 4 deploy pipelines (Cloudflare, GitHub Pages, APK, Docker) green on v7.3.0.21 and v7.3.0.22 tags.
 
 ### v7.3.0.11 (2026-09-10) — Docs Restructure + Full-App Verification
 - **Route/nav/i18n audit**: all 14 nav items (income, expenses, savings, investments, partners, works, recurring, accounts, categories, adjustments, summary, ledger, archive, settings, about) map to real pages; support/terms/privacy published; developer hidden. All nav labels present in mr/hi/en.
