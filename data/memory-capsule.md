@@ -306,6 +306,17 @@ npm run android:apk          # build → version → gradle assembleDebug
 
 ## Recent Changes
 
+### v7.3.0.10 (2026-09-10) — Supabase Sync Architecture Verified
+- **Check result: ALL features store data in Supabase via the single `sync_docs` table** (deliberate one-table design; the `entity` column tags the feature). No feature writes finance data that lacks a storage path:
+  `transaction | partner | recurring | budget | reminder | adjustment | goal | work | partnership | partnership_entry | pin | audit`
+  (maps 1:1 to the 11 Dexie tables + PINs; `src/lib/store.ts` `entityMap`/`entityTableMap`, `pushAllToPouch`, and PouchDB `ENTITY_PREFIXES`).
+- **Party groups (7) / types are app constants** (`src/lib/parties.ts`) — no table needed; they live as `group`/`type` fields inside each `partner` doc (jsonb). Partnership `__ps:` payer pseudo-ids are jsonb values in `partnership_entry` docs — no schema change required.
+- **Live-verified against the shared project** `orpgmbrycnmjwtalupce` via REST + realtime:
+  - `sync_docs` exists (`GET /rest/v1/sync_docs` → 200).
+  - RLS enforced: anon SELECT returns `[{"count":0}]`; anon INSERT → 401 `new row violates row-level security policy`.
+  - Realtime: `channel('rt_probe').on('postgres_changes'...)` → **SUBSCRIBED** — `sync_docs` is in the `supabase_realtime` publication (live cross-device sync works).
+- **schema.sql updated**: added `sync_docs_user_entity_idx (user_id, entity)` — backs the developer page Remote Data Load Stats / Browse Rows per-entity grouping; header rewrote to document the entity list + the constants-vs-data split. Idempotent — safe to re-run in the SQL Editor to apply the new index.
+
 ### v7.3.0.7 (2026-09-10) — Developer Zone Restructured + Docs Policy
 - **Developer page restructured** (owner-only tool): **Data Management** moved to the top (import JSON/XLSX backup with preview, raw JSON export, custom section-based Excel/JSON export with optional date range — Income, Expenses, Investments, Categories, Party, Recurring, Works, Goals, Accounts, Partnership); **Database & Cloud Sync**, **Diagnostics**, **Danger Zone** anchored at the bottom.
 - **Database & Cloud Sync**: Quick Connect (URL + anon key; Anonymous mode or email/password) is a *temporary* connection that never overwrites the saved Settings config; Disconnect button; masked current-config readout. **Remote Data** section: Load Stats (per-entity row counts for THIS account only) + Browse Rows, with not-connected guards, error states, and auto-load after a successful connect.

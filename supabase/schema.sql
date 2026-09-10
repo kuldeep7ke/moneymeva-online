@@ -3,10 +3,32 @@
 -- Creates/upgrades the sync_docs table used by the app's cloud sync.
 -- Each app user signs in with email + password; data is isolated per user.
 
--- The app syncs its local data as JSON documents in this table.
+-- Every app feature stores its data as JSON documents in THIS single table
+-- (there is deliberately no table per feature). The `entity` column tags which
+-- feature a row belongs to:
+--   Money Meva entity list (matches src/lib/store.ts entityMap + pouchdb.ts):
+--   entity = transaction | partner | recurring | budget | reminder | adjustment
+--            | goal | work | partnership | partnership_entry | pin | audit
+--   transaction       → Income / Expenses / Investments  (src/lib/db.ts transactions)
+--   partner           → Party Accounts (group: personal/services/financial/
+--                       business/government/agriculture/office; type: per-group)
+--   recurring         → Recurring transactions
+--   budget            → Budgets
+--   reminder          → Reminders
+--   adjustment        → Adjustments
+--   goal              → Savings & Goals
+--   work              → Works (farm/job register)
+--   partnership       → Partnership (members + share %)   [feat: auto-add self]
+--   partnership_entry → Partnership income/expense entries (paidByPartyId may be
+--                       a real party id or "__ps:<memberId>" for free-text members)
+--   pin               → PIN batch (device PINs, synced across devices)
+--   audit             → Audit Ledger / mutation_log history
+--
+-- Party groups & types (personal/services/financial/business/government/
+-- agriculture/office) are app constants (src/lib/parties.ts) — no table needed.
+-- They are stored as plain `group`/`type` fields inside each `partner` doc.
+--
 --   id         = "<entity>:<item-id>" (e.g. "transaction:ab12cd")
---   entity     = transaction | partner | recurring | budget | reminder | adjustment |
---                goal | work | partnership | partnership_entry | pin | audit
 --   data       = the full document (jsonb)
 --   updated_at = last write time (used for conflict resolution, newer wins)
 --   deleted_at = set when a document is permanently deleted on another device
@@ -30,6 +52,11 @@ alter table public.sync_docs add constraint sync_docs_pkey primary key (user_id,
 
 drop index if exists sync_docs_updated_at_idx;
 create index if not exists sync_docs_user_updated_at_idx on public.sync_docs (user_id, updated_at);
+
+-- Per-feature lookups: developer page Remote Data Load Stats & Browse Rows
+-- (getRemoteStats / getRemoteRows in src/lib/pouchdb.ts) group by this.
+drop index if exists sync_docs_user_entity_idx;
+create index if not exists sync_docs_user_entity_idx on public.sync_docs (user_id, entity);
 
 -- Row Level Security: a user can only see/modify their OWN rows.
 -- Requires the app to be signed in via Supabase Auth (email + password).
