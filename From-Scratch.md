@@ -73,7 +73,7 @@ const config: CapacitorConfig = {
 Define all data entities. Key types:
 
 - **`Transaction`** — id, userId, transitionId, amount, type ('income'|'expense'|'investment'), category, description, date, account ('cash'|'bank'|'upi'), savingTag?, transferId?, partnerAccountId?, isRecurring, recurringId?, deletedAt?, createdAt, updatedAt
-- **`PartnerAccount`** — id, userId, transitionId, name, type, group ('customer'|'vendor'|'contact'), description, budgetWindowStart, budgetWindowEnd, initialInvestment, deletedAt?, createdAt, updatedAt
+- **`PartnerAccount`** — id, userId, transitionId, name, type, group ('personal'|'services'|'financial'|'business'|'government'|'agriculture'|'office' — shared constants in `src/lib/parties.ts`), description, budgetWindowStart, budgetWindowEnd, initialInvestment, deletedAt?, createdAt, updatedAt
 - **`RecurringTx`** — id, userId, transitionId, title, amount, category, txType, frequency, customIntervalDays?, startDate, endDate?, status, nextDate, reminderDays, deletedAt?, createdAt
 - **`Budget`** — id, userId, transitionId, category, limit, period ('monthly'|'yearly'), deletedAt?, createdAt
 - **`Reminder`** — id, userId, transitionId, title, description, dueDate, category, amount, frequency, status, deletedAt?, createdAt

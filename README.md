@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.2.0.47** — A minimalistic, local-first personal finance companion.
+**v7.3.0.11** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India. Runs on Windows, Mac, Linux, Docker, and Android.
 
@@ -34,7 +34,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 - **Dashboard** — Auto-hiding welcome card, 6 summary cards (Balance, Income, Expenses, Investments, Available to Spend, Partner Invested), 6-month cash flow AreaChart, balance carry-forward with rollover, spending breakdown donut chart, recent transactions, goals with progress bars, upcoming reminders, cloud sync status card with inline Sync Now. Quick-add modals via the + button on any summary card — no page navigation needed.
 - **Investment Calculator** — Built-in calculator with 4 scrollable pill tabs: FD (quarterly/half-yearly/yearly compounding), SIP, RD, PPF. Shows maturity amount, total returns, and year-wise breakdown. "Use this amount" fills the add form. Accessible from Investments page header.
 - **Savings & Goals** — goals page with contribute/withdraw + progress bars. Goal contributions record as `expense` transactions (withdrawals as `income`).
-- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit (name, group, type, investment, description) from the partners page. Includes a **Partnership (भागीदारी) tab** for shared work: members with % shares (must total 100%), shared income/expense entries with "who paid" tracking, automatic settlement balances (gets/owes), and optional mirroring into the main Income/Expense ledger.
+- **Partner Accounts** — 7 party groups (Personal, Services, Financial, Business, Government, Agriculture, Office) with per-group types, P&L tracking, investment tracking, portfolio value, dual-entry transactions, mini ledger modal per party, and full edit from the partners page. Includes a **Partnership (भागीदारी) tab** for shared work: members with % shares (must total 100%), shared income/expense entries with "who paid" tracking (lists **all** members — party-linked or free-text), automatic settlement balances (gets/owes), optional mirroring into the main Income/Expense ledger. The **current user is auto-added** as the first member of any new partnership.
 - **Works (कामे)** — Work register for farm jobs, labour and hired work. **Profession-driven:** each onboarding profession maps to a matching work profile — Salaried → Employee + Employer, Freelancer, Student, Homemaker, Investor/Trader, Retired, Business → Shop (+ Employer), Farmer, Other → General (plus trade profiles: farm services, labour, contractor, transport). The add-form surfaces the user's profile first, and switching profile swaps the work-type list. Farmer-specific fields (crop, season, area) appear **only** for the farmer/farm-services profiles. Each work records direction (I will receive / I will pay), a preset work type or free-text, start/end dates (auto duration), party and partnership links, and an agreed amount. Record payments per work — optionally auto-creating a matching Income or Expense ledger entry — with a full payment history and progress bar.
 - **Farmer Onboarding** — Farmer added as a profession choice during onboarding; selects farming income/expense/investment categories (Farm Sale, Seeds, Fertilizer, Diesel/Fuel…) and maps to the farmer work profile in Works.
 - **Recurring Transactions** — Automate bills and subscriptions with configurable frequencies and reminder days. Future start/end dates allowed.
@@ -215,7 +215,7 @@ src/
 │   │   ├── income/              # Income CRUD
 │   │   ├── investments/         # Investment CRUD
 │   │   ├── ledger/              # Audit mutation log
-│   │   ├── partners/            # Vendor/Customer/Contact mgmt
+│   │   ├── partners/            # Party accounts (7 groups) + partnership
 │   │   ├── privacy/             # Public privacy page
 │   │   ├── recurring/           # Recurring transactions
 │   │   ├── savings/             # Savings + Goals

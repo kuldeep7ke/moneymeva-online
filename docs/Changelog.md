@@ -1,5 +1,12 @@
 # Changelog
 
+## v7.3.0 (2026-09-10) — Party Groups Redesign, Partnership Fixes, Supabase Verify
+- **Party groups redesign** — 3 generic groups → 7 (Personal, Services, Financial, Business, Government, Agriculture, Office) with per-group types; shared constants in `src/lib/parties.ts`, auto-migration of old records in `initDB`
+- **Partnership "Who paid?" fix** — dropdown now lists ALL members, including free-text names (pseudo payer `__ps:<memberId>`); settlement math attributes `paid` correctly to them
+- **Partnership UX** — new partnerships auto-add the current user as the first member (links to their Partner card when a name match exists)
+- **Supabase verify** — confirmed every feature stores data in the single `sync_docs` table via the `entity` tag (11 Dexie tables + PINs); live RLS/realtime checks against the shared project; `supabase/schema.sql` gained `sync_docs_user_entity_idx (user_id, entity)` — re-run in SQL Editor to apply
+- **Docs restructure** — README, USER-GUIDE, From-Scratch, memory capsules aligned to the current app (7 groups, partnership details, up-to-date version)
+
 ## v7.2.0 (2026-08-23) — Big Update: Works, Partnership, Accounts 2.0, Performance
 - **Works (कामे)** module — farm & job entries with direction (receivable/payable), profiles, payment history, pending tracking
 - **Partnership (भागीदारी)** tab in Party Accounts — member shares (must total 100%), settlement math (`balance = incomeShare + paid − expenseShare`), ledger mirroring; members are free-text fields with recent-party suggestions

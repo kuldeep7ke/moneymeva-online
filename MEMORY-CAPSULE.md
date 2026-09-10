@@ -81,10 +81,14 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
   Goal contributions record as transactions.
 
 ### Partners & Work
-- **Partner Accounts** — Vendor/Customer/Contact groups with P&L tracking, investment
+- **Partner Accounts** — 7 party groups (Personal, Services, Financial, Business, Government,
+  Agriculture, Office) with per-group types, P&L tracking, investment
   tracking, portfolio value, dual-entry transactions, mini ledger modal per party.
 - **Partnership (भागीदारी)** — shared work: members with % shares (must total 100%),
   shared income/expense entries with "who paid" tracking, automatic settlement balances.
+  New partnerships auto-add the current user as the first member; "Who paid?" lists all
+  members (a free-text member uses a `__ps:<memberId>` payer value) and the settlement
+  math attributes `paid` correctly for them.
 - **Works (कामे)** — work register for farm jobs, labour, hired work. Profession-driven:
   each onboarding profession maps to a matching work profile (Employee, Employer,
   Freelancer, Student, Homemaker, Investor, Retired, Shop/Business, Farmer, General),

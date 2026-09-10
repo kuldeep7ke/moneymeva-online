@@ -229,7 +229,7 @@ All list/table/chart empty views show **icon + bold heading + grey hint** (not b
 - Future dates blocked (date picker `max` + submit toast)
 
 ### Partners (`/dashboard/partners`)
-- Groups: Customer / Vendor / Contact
+- Groups: Personal / Services / Financial / Business / Government / Agriculture / Office
 - P&L per partner, mini ledger with transaction history
 - Add/edit modal (pre-filled on edit, `updatePartner`), duplicate guard skips self
 
@@ -305,6 +305,11 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.3.0.11 (2026-09-10) — Docs Restructure + Full-App Verification
+- **Route/nav/i18n audit**: all 14 nav items (income, expenses, savings, investments, partners, works, recurring, accounts, categories, adjustments, summary, ledger, archive, settings, about) map to real pages; support/terms/privacy published; developer hidden. All nav labels present in mr/hi/en.
+- **Docs aligned with current app**: README version + Partner Accounts bullet (7 groups, partnership with auto-add-self + "Who paid?"), directory-tree comment; MEMORY-CAPSULE `Partners & Work` rewritten; From-Scratch partner group union → 7 groups via `src/lib/parties.ts`; USER-GUIDE groups list; this file's Partners section.
+- **Verified**: `npm run lint` (only the repo-wide legacy baseline) + `npm run build` green — tsc clean, 30/30 static routes prerendered. Tagged + pushed; all 4 deploy pipelines (Cloudflare, GitHub Pages, APK, Docker) green.
 
 ### v7.3.0.10 (2026-09-10) — Supabase Sync Architecture Verified
 - **Check result: ALL features store data in Supabase via the single `sync_docs` table** (deliberate one-table design; the `entity` column tags the feature). No feature writes finance data that lacks a storage path:

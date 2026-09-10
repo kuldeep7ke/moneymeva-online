@@ -62,7 +62,7 @@ Three transaction types: **Income · Expense · Investment**.
 
 ### Partners
 
-- Groups: **Customer / Vendor / Contact**.
+- Groups: **Personal / Services / Financial / Business / Government / Agriculture / Office** (each with its own types).
 - Per-partner profit & loss, mini-ledger, and transaction history.
 
 ### Recurring
