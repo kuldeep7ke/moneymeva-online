@@ -26,7 +26,7 @@
 | `/dashboard/archive` | `src/app/dashboard/archive/page.tsx` | Deleted items |
 | `/dashboard/categories` | `src/app/dashboard/categories/page.tsx` | Categories |
 | `/dashboard/settings` | `src/app/dashboard/settings/page.tsx` | Settings |
-| `/dashboard/developer` | `src/app/dashboard/developer/page.tsx` | Dev tools |
+| `/dashboard/account` | `src/app/dashboard/account/page.tsx` | Profile & password |
 
 ## Components
 

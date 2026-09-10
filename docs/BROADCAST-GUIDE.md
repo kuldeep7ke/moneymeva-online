@@ -159,7 +159,7 @@ Common edits:
 - **Fallback chain**: if the proxy fails, components retry direct `https://api.jsonbin.io/v3/b/<BIN_ID>/latest?t=${Date.now()}` (`cache: 'no-store'`) so announcements never go dark
 - Response wrapper handled automatically — jsonbin returns `{ record: <your JSON>, metadata: {...} }`; the app reads `.record ?? raw`
 - Components: `src/components/BroadcastBanner.tsx`, `src/components/BannerModal.tsx`
-- Config: `src/lib/env.ts` (`BROADCAST_BIN_ID`, `BANNER_BIN_ID`, `JSONBIN_BASE`, `ANNOUNCEMENTS_API` — XOR-obfuscated, decoded at runtime; Developer Zone → Remote Announcements runs a live test against BOTH proxy and jsonbin)
+- Config: `src/lib/env.ts` (`BROADCAST_BIN_ID`, `BANNER_BIN_ID`, `JSONBIN_BASE`, `ANNOUNCEMENTS_API` — XOR-obfuscated, decoded at runtime). To live-test a bin: open the bin URL (or the proxy) in a browser and confirm it returns `{ record: … }` for the type; the app's test hook hits proxy first, jsonbin as fallback
 - Bin IDs also live server-side in `functions/api/announcements.js` (override via Pages env vars `BROADCAST_BIN_ID` / `BANNER_BIN_ID` in the Cloudflare dashboard — fallbacks are hardcoded there too)
 - To switch services later: change the upstream URL in `functions/api/announcements.js` (one place)
 
@@ -168,6 +168,6 @@ Common edits:
 | Symptom | Check |
 |---|---|
 | Pill/banner not showing | JSON valid? `id` present? Outside `startDate`–`expires` window? Banner already shown once this app load (reload to see again)? |
-| Changes not appearing | Saved in jsonbin (Ctrl+S)? Edge cache holds up to 10 min — wait or lower `TTL_MINUTES`. Developer Zone → Test Bin Fetch shows proxy + jsonbin status |
+| Changes not appearing | Saved in jsonbin (Ctrl+S)? Edge cache holds up to 10 min — wait or lower `TTL_MINUTES`. Confirm the proxy returns fresh content: `functions/api/announcements.js` is deployed when the branch builds — check the Cloudflare Pages build ran |
 | Banner shows but X disabled | Normal — countdown starts only after full display (image included) and runs 7s |
 | Pill keeps coming back | Its `id` changed since last dismiss — that's by design |

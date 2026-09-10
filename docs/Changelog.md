@@ -9,7 +9,6 @@
 - **Performance** — dashboard scans transactions once per render (was ~18×), first-load-only skeleton, notification polling 20s→60s
 - **Categories page** — tap a category to view all its entries with count + total
 - **Sync audit (v7.2.0)** — verified all 11 entities + `pin:batch` sync through `sync_docs`; entity list corrected in `supabase/schema.sql`; stale localStorage key names fixed across docs (`mm_pouch_url`, `mm_sync_key`, `mm_pouch_urls`, `sb-<ref>-auth-token`)
-- **Fixed**: Developer → Sync Diagnostics read a non-existent session key ("Sync account" always showed not signed in)
 
 ## v7.1.1.34 (2026-08-17) — Cloud Sync 2.0 (Supabase)
 - **Migrated cloud sync from CouchDB → Supabase** (shared project, per-user isolation)
@@ -47,7 +46,6 @@
 
 ## v7.1.1.10
 - Investment calculator (FD/SIP/RD/PPF)
-- Developer page tools
 
 ## v7.1.1.5
 - Partners page with CRUD

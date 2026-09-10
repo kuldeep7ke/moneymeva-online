@@ -117,11 +117,25 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 - **Cloud Setup Wizard** — auto-checking 4-step wizard (project, schema, Google
   provider, redirect URL) with live validation.
 
-### Developer Tools
-- **Developer Zone** — hidden diagnostic page with session timer, live version +
-  release-notes tracking, DB stats (all 11 tables), localStorage inspector, storage
-  usage, sync diagnostics, remote announcement diagnostics, raw JSON export/import,
-  brand switcher, PIN viewer, danger zone for full data wipe.
+### Developer Tools (author-only)
+- **Developer Zone** (`/dashboard/developer`) — private page for the owner, not
+  exposed to users. Header shows live version + release-notes seen status + an
+  inactivity timer. Sections, top → bottom:
+  - **Data Management** — import a JSON/XLSX backup (with preview), export raw
+    JSON, and a custom Excel/JSON export with date range + selectable sections
+    (Income, Expenses, Investments, Categories, Party, Recurring, Works, Goals,
+    Accounts, Partnership).
+  - **Database & Cloud Sync** — Quick Connect to a Supabase project (URL + anon
+    key; anonymous or email/password mode), a temporary connection that never
+    overwrites the saved Settings config; masked current-config readout; Remote
+    Data Load Stats / Browse Rows (per-entity counts for that account only); and
+    Pull Remote → Local / Push Local → Remote.
+  - **Diagnostics** — sync health (masked URL, sync account, status, last sync
+    event) with Test Connection, local DB stats across all 11 tables, storage
+    usage, and a localStorage key/value inspector.
+  - **Danger Zone** — two-stage confirmed destructive actions: Start Fresh
+    (Clear Remote + Push Local), Clear Remote Only, Clear Local Only, Clear ALL
+    Data (Local + Remote). All destructive/sync actions are connection-guarded.
 
 ### User Experience
 - **i18n** — Marathi (default), Hindi, English. Grammar-preserving translations.

@@ -357,7 +357,7 @@ src/app/
     ├── summary/page.tsx    # Charts: cash flow, spending breakdown, month-by-month
     ├── archive/page.tsx    # Soft-deleted items: restore, permanent delete, empty all
     ├── settings/page.tsx   # PIN setup, sync config, export/import, themes, brand, auto-lock, clear data
-    ├── developer/page.tsx  # Dev tools: version/release-notes status, DB stats, localStorage inspector, sync diagnostics (masked URL, sync email, last event), announcement bin tests, JSON import/export, PIN viewer
+    ├── developer/page.tsx  # AUTHOR-ONLY tool (never advertised in nav/docs) — see "Developer Page" below
     ├── account/page.tsx    # PIN-gated password change and user management
     ├── support/page.tsx    # Contact support (Telegram, email, website)
     ├── about/page.tsx      # App info, version, edit profile
@@ -410,6 +410,37 @@ A reusable CRUD page used by Income, Expenses, and Investments.
 **Party field:** Shows "None" by default in both Add and Edit modals when no party is selected. A "None" option is the first item in the party dropdown. Selecting "None" clears `partnerAccountId` and `party` values.
 
 **Modal behavior:** No modal closes when clicking outside/on the backdrop overlay. Users must use explicit Cancel/X buttons to dismiss any modal (Add, Edit, Create Party, Duplicate Warning, Detail, or any popup across the app).
+
+---
+
+### Developer Page (`src/app/dashboard/developer/page.tsx`) — AUTHOR-ONLY
+
+An internal diagnostic/tool page for the owner. It is **not** linked in the sidebar
+nav (`DashboardLayout`) and is **not** documented for users in README/guides/info
+files — the only references live here, in `From-Scratch.md`, and in the memory
+capsule. Arranged top → bottom:
+
+1. **Header** — live app version (`<meta name="app-version">`), release-notes
+   version + `getLastSeenVersion()` status, and an inactivity timer readout.
+2. **Data Management** — import a JSON/XLSX backup (file → preview rows → Import);
+   Export Raw Data (JSON); Custom Export with optional from/to dates and selectable
+   sections (Income, Expenses, Investments, Categories, Party, Recurring, Works,
+   Goals, Accounts, Partnership) as Excel (XLSX) or re-importable JSON.
+3. **Database & Cloud Sync** — "Quick Connect" to any Supabase URL + anon key in
+   **anonymous** mode (requires "Anonymous sign-ins" enabled in the Supabase
+   dashboard) or email/password mode. The connection is *temporary* and never
+   overwrites the Settings config. Shows masked current config, **Remote Data**
+   (Load Stats per entity / Browse Rows — this account's rows only; not-connected
+   guards), and Pull Remote → Local / Push Local → Remote.
+4. **Diagnostics** — Sync Health (masked URL, sync account, status, last sync event
+   via `getLastSyncEvent()`), **Test Connection** button, Local Database stats for
+   all 11 tables (friendly labels via `dbLabel()`), storage usage, localStorage
+   key/value inspector.
+5. **Danger Zone** — notice box (cannot be reversed; export first; disable cloud
+   sync on other devices) + compact button row: Start Fresh (Clear Remote + Push
+   Local), Clear Remote Only, Clear Local Only, Clear ALL Data (Local + Remote).
+   Every destructive/sync action is two-stage confirmed (in-app modal, no native
+   `confirm()`) and guarded against running while offline.
 
 ---
 
