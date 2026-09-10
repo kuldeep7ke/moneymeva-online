@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
-import { clearRemote, getConfig, checkConnection, getRemoteStats, getRemoteRows, manualSync, connectRemote, disconnectRemote, connected } from '@/lib/pouchdb';
+import { clearRemote, getConfig, checkConnection, getRemoteStats, getRemoteRows, manualSync, connectRemote, disconnectRemote, ensureConnected, connected } from '@/lib/pouchdb';
 import { downloadBlob } from '@/lib/download';
 import { AlertTriangle, Trash2, Loader2, Download, Upload, Key, Eye, EyeOff, Database, HardDrive, Search, Wifi, Palette, User, FileUp, Megaphone } from 'lucide-react';
 import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore';
@@ -21,6 +21,17 @@ import { exportCustomDataExcel, type CustomExportSection } from '@/lib/export';
 import * as XLSX from 'xlsx';
 
 const mask = (s: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
+
+function readRemoteAccount(cfg: { url: string; key: string }): string {
+  try {
+    const ref = (cfg.url || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
+    const tok = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`) || 'null');
+    const u = tok?.user;
+    if (!u) return 'not signed in';
+    if (u.is_anonymous || u.role === 'anonymous' || !u.email) return `anonymous (${(u.id || '').slice(0, 8)}…)`;
+    return u.email;
+  } catch { return 'not signed in'; }
+}
 
 export default function DeveloperPage() {
   const toast = useToast();
@@ -90,10 +101,14 @@ export default function DeveloperPage() {
     window.addEventListener('keydown', handler);
     window.addEventListener('touchstart', handler);
     const interval = setInterval(() => {
-      setTimer(t => { if (t <= 1) { clearInterval(interval); router.push('/dashboard'); return 0; } return t - 1; });
+      setTimer(t => (t <= 1 ? 0 : t - 1));
     }, 1000);
     return () => { clearInterval(interval); window.removeEventListener('mousedown', handler); window.removeEventListener('keydown', handler); window.removeEventListener('touchstart', handler); };
   }, [warnDismissed]);
+
+  useEffect(() => {
+    if (warnDismissed && timer <= 0) router.push('/dashboard');
+  }, [timer, warnDismissed, router]);
 
   const dismissWarn = () => {
     setWarnDismissed(true);
@@ -333,15 +348,19 @@ export default function DeveloperPage() {
 
   const loadRemoteStats = async () => {
     setDbLoading(true);
+    if (!connected()) await ensureConnected();
     const stats = await getRemoteStats();
     setRemoteStats(stats);
+    setSyncOk(connected());
     setDbLoading(false);
   };
 
   const loadRemoteRows = async () => {
     setDbLoading(true);
+    if (!connected()) await ensureConnected();
     const rows = await getRemoteRows();
     setRemoteRows(rows);
+    setSyncOk(connected());
     setDbLoading(false);
   };
 
@@ -612,17 +631,13 @@ export default function DeveloperPage() {
         <Section icon={Wifi} title="Sync Diagnostics" iconColor="text-sky-500">
           {(() => {
             const cfg = getConfig();
-            let sbEmail: string | null = null;
-            try {
-              const ref = (cfg.url || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
-              sbEmail = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`) || 'null')?.user?.email || null;
-            } catch {}
+            const sbAccount = readRemoteAccount(cfg);
             const lastEv = getLastSyncEvent();
             return (
               <>
                 <div className="text-xs space-y-1 mb-3">
                   <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url ? mask(cfg.url) : '(none)'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Sync account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbEmail || 'not signed in'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Sync account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbAccount}</span></div>
                   <div className="flex justify-between"><span className="text-slate-500">Status</span><span className={cn('font-mono', syncOk === true ? 'text-green-500' : syncOk === false ? 'text-red-500' : 'text-slate-400')}>{syncOk === null ? 'untested' : syncOk ? 'connected' : 'failed'}</span></div>
                   <div className="flex justify-between"><span className="text-slate-500">Last sync event</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{lastEv ? `${lastEv.status}${lastEv.message ? ` · ${lastEv.message}` : ''}` : '—'}</span></div>
                   <p className="text-[10px] text-slate-400 pt-1">Realtime push ≈ seconds · periodic pull every 2 min · reconnect watchdog 30 s</p>
@@ -741,15 +756,11 @@ export default function DeveloperPage() {
           {/* Current Config */}
           {(() => {
             const cfg = getConfig();
-            let sbEmail: string | null = null;
-            try {
-              const ref = (cfg.url || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
-              sbEmail = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`) || 'null')?.user?.email || null;
-            } catch {}
+            const sbAccount = readRemoteAccount(cfg);
             return (
               <div className="text-xs space-y-1">
                 <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url ? mask(cfg.url) : '(none)'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbEmail || 'not signed in'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbAccount}</span></div>
               </div>
             );
           })()}
