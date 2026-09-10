@@ -140,8 +140,8 @@ export default function AccountsPage() {
 
     const { start, end } = monthRange(selectedMonth);
     const ptxs = active.filter(t => t.date >= start && t.date <= end);
-    const revTxs = ptxs.filter(t => t.type === 'income' && t.account !== 'credit' && !NON_OP.includes(t.category));
-    const expTxs = ptxs.filter(t => t.type === 'expense' && t.account !== 'credit' && !NON_OP.includes(t.category));
+    const revTxs = ptxs.filter(t => t.type === 'income' && t.category !== 'Credit Settlement' && !NON_OP.includes(t.category));
+    const expTxs = ptxs.filter(t => t.type === 'expense' && t.category !== 'Credit Settlement' && !NON_OP.includes(t.category));
     setRevenueTotal(revTxs.reduce((s, t) => s + t.amount, 0));
     setExpenseTotal(expTxs.reduce((s, t) => s + t.amount, 0));
     setIncomeTxs([...revTxs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10));

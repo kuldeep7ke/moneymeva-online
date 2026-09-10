@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RELEASE_NOTES, shouldShowWhatsNew, markVersionSeen } from '@/lib/whats-new';
 import { requestPopup, cancelPopup } from '@/lib/popup-queue';
+import { isPopupEnabled } from '@/lib/notification-prefs';
 
 export default function WhatsNewModal() {
   const [show, setShow] = useState(false);
@@ -11,7 +12,7 @@ export default function WhatsNewModal() {
     const version = meta?.getAttribute('content');
     if (!version) return;
     setAppVersion(version);
-    if (shouldShowWhatsNew(version)) {
+    if (isPopupEnabled('whats-new') && shouldShowWhatsNew(version)) {
       requestPopup('whats-new', 10, () => setShow(true));
     }
     return () => cancelPopup('whats-new');

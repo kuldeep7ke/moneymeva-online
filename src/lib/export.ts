@@ -37,8 +37,8 @@ export async function exportCustomDataExcel(opts: {
     });
 
     onProgress?.('Reading data…', 10);
-    const incRows = sections.includes('income') ? txsInRange.filter(t => t.type === 'income') : [];
-    const expRows = sections.includes('expenses') ? txsInRange.filter(t => t.type === 'expense') : [];
+    const incRows = sections.includes('income') ? txsInRange.filter(t => t.type === 'income' && t.category !== 'Credit Settlement') : [];
+    const expRows = sections.includes('expenses') ? txsInRange.filter(t => t.type === 'expense' && t.category !== 'Credit Settlement') : [];
     const investRows = sections.includes('investments') ? txsInRange.filter(t => t.type === 'investment') : [];
     let categoriesCount = 0;
 
@@ -97,7 +97,7 @@ export async function exportCustomDataExcel(opts: {
     if (sections.includes('parties')) {
       onProgress?.('Building Parties sheet…', 60);
       const ws = XLSX.utils.json_to_sheet(partners.map(p => {
-        const pt = txsInRange.filter(t => t.partnerAccountId === p.id && t.account !== 'credit');
+        const pt = txsInRange.filter(t => t.partnerAccountId === p.id && t.category !== 'Credit Settlement');
         const income = pt.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = pt.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         // Positive = you owe this party (buy on credit); negative = party owes you (sale on credit)
@@ -136,6 +136,7 @@ export async function exportCustomDataExcel(opts: {
       }
       for (const t of txsInRange) {
         if (t.type !== 'income' && t.type !== 'expense') continue;
+        if (t.category === 'Credit Settlement') continue;
         const s = catStats[t.category] || (catStats[t.category] = { incN: 0, incA: 0, expN: 0, expA: 0 });
         if (t.type === 'income') { s.incN++; s.incA += t.amount; } else { s.expN++; s.expA += t.amount; }
       }

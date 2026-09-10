@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Upload, Download, Trash2, AlertTriangle, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User } from 'lucide-react';
+import { Upload, Download, Trash2, AlertTriangle, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User, Bell, RotateCcw } from 'lucide-react';
 import { cn, todayStr } from '@/lib/utils';
 import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getWorks, getPartnerships, getAllPartnershipEntries, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
@@ -25,6 +25,7 @@ import LanguageSelector from '@/components/LanguageSelector';
 import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
 import { dispatchSyncEvent, listenSyncEvents } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
+import { NOTIFICATION_KEYS, POPUP_KEYS, getNotifyPrefs, setNotifyPref, resetNotifyPrefs } from '@/lib/notification-prefs';
 import { createProgressOverlay } from '@/lib/progressOverlay';
 import { useToast } from '@/components/Toast';
 export default function SettingsPage() {
@@ -61,6 +62,24 @@ export default function SettingsPage() {
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
   const [syncUrlHistory, setSyncUrlHistory] = useState<string[]>([]);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setNotifPrefs(getNotifyPrefs());
+  }, []);
+
+  const toggleNotif = (key: string, enabled: boolean) => {
+    setNotifyPref(key, enabled);
+    setNotifPrefs(getNotifyPrefs());
+  };
+
+  const resetNotifs = () => {
+    resetNotifyPrefs();
+    setNotifPrefs(getNotifyPrefs());
+    toast('Notifications reset to recommended settings.', 'success');
+  };
+
+  const notifOn = (key: string) => notifPrefs[key] !== false;
 
   useEffect(() => {
     const existingPins = hasPins();
@@ -459,6 +478,69 @@ export default function SettingsPage() {
               <p className="text-sm text-slate-600 dark:text-slate-400">Choose your app language</p>
               <div className="mt-4">
                 <LanguageSelector />
+              </div>
+            </div>
+          </div>
+        </div>
+        </Reveal>
+
+        {/* Notification & Popups */}
+        <Reveal delay={160}>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-indigo-800 rounded-2xl p-6">
+          <div className="flex items-start gap-4 mb-5">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl">
+              <Bell className="h-6 w-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Notification &amp; Popups</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Control which alerts appear in your notification bell and which popups show. All are ON by default — the recommended baseline.
+              </p>
+            </div>
+            <button onClick={resetNotifs} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-brand-muted border border-blue-200 dark:border-indigo-700 text-xs font-semibold text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-muted/70 transition-colors shrink-0">
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Notification Bell</p>
+              <div className="space-y-1.5">
+                {NOTIFICATION_KEYS.map(key => {
+                  const on = notifOn(key);
+                  return (
+                    <div key={key} className="flex items-center justify-between rounded-xl bg-white dark:bg-brand-muted/60 border border-slate-200 dark:border-brand-muted px-3 py-2">
+                      <span className="text-sm text-slate-700 dark:text-slate-200 capitalize">{key === 'tips' ? 'Tips & reminders' : key}</span>
+                      <div className="flex items-center gap-2">
+                        {(key === 'recurring' || key === 'credit') && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Recommended</span>
+                        )}
+                        <button onClick={() => toggleNotif(key, !on)}
+                          className={cn("relative w-10 h-6 rounded-full transition-colors", on ? "bg-emerald-500" : "bg-slate-300 dark:bg-brand-muted")}>
+                          <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", on ? "left-[18px]" : "left-0.5")} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-3">Popups (suggestions &amp; alerts)</p>
+              <div className="space-y-1.5">
+                {POPUP_KEYS.map(key => {
+                  const on = notifOn(key);
+                  return (
+                    <div key={key} className="flex items-center justify-between rounded-xl bg-white dark:bg-brand-muted/60 border border-slate-200 dark:border-brand-muted px-3 py-2">
+                        <span className="text-sm text-slate-700 dark:text-slate-200 capitalize">{key === 'credit' ? 'Credit Alerts' : key.replace('-', ' ')}</span>
+                        <button onClick={() => toggleNotif(key, !on)}
+                        className={cn("relative w-10 h-6 rounded-full transition-colors", on ? "bg-emerald-500" : "bg-slate-300 dark:bg-brand-muted")}>
+                        <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform", on ? "left-[18px]" : "left-0.5")} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -95,4 +95,18 @@ export function getTypeLabel(group: string, type: string): string {
   return types.find(t => t.value === type)?.label || type;
 }
 
+// Credit (उधार) alarm defaults — alarm/highlight ONLY, never blocks entries.
+export const DEFAULT_CREDIT_LIMIT = 10000;
+export const DEFAULT_CREDIT_SETTLE_DAYS = 30;
+export const NEAR_LIMIT_PCT = 0.8;
+export const NEAR_DUE_DAYS = 3;
+
+export function creditLimitFor(partner: { creditLimit?: number }): number {
+  return partner.creditLimit && partner.creditLimit > 0 ? partner.creditLimit : DEFAULT_CREDIT_LIMIT;
+}
+
+export function creditSettleDaysFor(partner: { creditSettleDays?: number }): number {
+  return partner.creditSettleDays && partner.creditSettleDays > 0 ? partner.creditSettleDays : DEFAULT_CREDIT_SETTLE_DAYS;
+}
+
 export type PartyGroupType = PartyGroup;

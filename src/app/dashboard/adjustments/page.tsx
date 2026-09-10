@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { SlidersHorizontal, Plus, Trash2 } from 'lucide-react';
-import { formatCurrency, todayStr } from '@/lib/utils';
-import { getAdjustments, addAdjustment, deleteAdjustment, addTransaction } from '@/lib/store';
+import { formatCurrency, todayStr, cn } from '@/lib/utils';
+import { getAdjustments, addAdjustment, deleteAdjustment, addTransaction, getPartners } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -16,12 +16,16 @@ import { useToast } from '@/components/Toast';
 export default function AdjustmentsPage() {
   const toast = useToast();
   const [adjustments, setAdjustments] = useState<any[]>([]);
+  const [partnerMap, setPartnerMap] = useState<Map<string, string>>(new Map());
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [pinAction, setPinAction] = useState<'add' | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
 
-  useEffect(() => { setAdjustments(getAdjustments()); }, []);
+  useEffect(() => {
+    setAdjustments(getAdjustments());
+    setPartnerMap(new Map(getPartners().map(p => [p.id, p.name])));
+  }, []);
   const refreshAdj = () => { setAdjustments(getAdjustments()); };
 
   const [adjForm, setAdjForm] = useState({ amount: '', accountType: 'personal' as const, notes: '', date: todayStr(), reflectPersonal: false });
@@ -92,16 +96,33 @@ export default function AdjustmentsPage() {
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Date</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Amount</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Account</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Source</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Status</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400">Notes</th>
                   <th className="px-6 py-4 text-sm font-semibold text-slate-600 dark:text-slate-400 text-right w-[80px]">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {adjustments.map(a => (
+                {adjustments.map(a => {
+                  const sourceLabel = a.sourceType === 'credit-purchase' ? 'Credit purchase' : a.sourceType === 'credit-sale' ? 'Credit sale' : null;
+                  const partnerName = a.partnerAccountId ? partnerMap.get(a.partnerAccountId) || '' : '';
+                  const settled = a.settleStatus === 'settled';
+                  const statusLabel = a.sourceType ? (settled ? 'Settled' : 'Pending') : null;
+                  return (
                   <tr key={a.id}>
                     <td className="px-6 py-4 text-sm">{a.date}</td>
                     <td className="px-6 py-4 text-sm font-bold">{formatCurrency(a.amount)}</td>
                     <td className="px-6 py-4 text-sm capitalize">{a.accountType}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {sourceLabel ? (
+                        <span>{sourceLabel}{partnerName && <span className="text-slate-400"> · {partnerName}</span>}</span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm">
+                      {statusLabel ? (
+                        <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium", settled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400")}>{statusLabel}</span>
+                      ) : '—'}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{a.notes}</td>
                     <td className="px-6 py-4 text-right">
                       {confirmDelete === a.id ? (
@@ -117,7 +138,8 @@ export default function AdjustmentsPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

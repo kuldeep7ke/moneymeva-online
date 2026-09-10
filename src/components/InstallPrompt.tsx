@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, X, Wifi, Zap, Shield, Smartphone } from 'lucide-react';
 import { requestPopup, cancelPopup } from '@/lib/popup-queue';
+import { isPopupEnabled } from '@/lib/notification-prefs';
 
 const LAST_SHOWN_KEY = 'mm_install_prompt_last_shown';
 const MIN_DAYS = 4;
@@ -33,7 +34,7 @@ export default function InstallPrompt() {
   useEffect(() => {
     const check = () => {
       if (shownRef.current) return;
-      if (shouldShow()) {
+      if (shouldShow() && isPopupEnabled('install-prompt')) {
         shownRef.current = true;
         requestPopup('install-prompt', 30, () => setShow(true));
       }

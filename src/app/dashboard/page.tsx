@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, RotateCcw, CalendarArrowUp, Repeat, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, PiggyBank, TrendingUp, Plus, Users, Search, Trash2, RotateCcw, CalendarArrowUp, Repeat, X, Wallet, Gauge, Lock, Cloud, RefreshCw, Calculator, HandCoins } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
-import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getRecurring, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary, getCreditBalance } from '@/lib/store';
+import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getRecurring, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary, getCreditBalance, getPartnerCreditStats } from '@/lib/store';
 import { PARTY_GROUPS, PARTY_TYPES_BY_GROUP, type PartyGroup } from '@/lib/parties';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
@@ -38,6 +38,69 @@ function ChartSkeleton({ className = "" }: { className?: string }) {
     <div className={cn("bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm animate-pulse", className)}>
       <div className="h-4 bg-slate-200 dark:bg-brand-muted rounded w-1/4 mb-6"></div>
       <div className="h-64 bg-slate-100 dark:bg-brand-muted/50 rounded-xl"></div>
+    </div>
+  );
+}
+
+const CREDIT_CHIP_DISMISS_KEY = 'mm_credit_chip_dismissed';
+
+function CreditAlertChip({ reachedCount, nearCount, onOpen }: { reachedCount: number; nearCount: number; onOpen: () => void }) {
+  const { t } = useTranslation();
+  const [dismissed, setDismissed] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try { if (sessionStorage.getItem(CREDIT_CHIP_DISMISS_KEY) === '1') setDismissed(true); } catch { /* ignore */ }
+  }, []);
+
+  const dismiss = () => {
+    try { sessionStorage.setItem(CREDIT_CHIP_DISMISS_KEY, '1'); } catch { /* ignore */ }
+    setLeaving(true);
+    setTimeout(() => setDismissed(true), 260);
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => { startX.current = e.clientX; setDragging(true); };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging || startX.current === null) return;
+    setDragX(Math.min(0, e.clientX - startX.current));
+  };
+  const onPointerUp = () => {
+    if (!dragging) return;
+    setDragging(false);
+    startX.current = null;
+    if (dragX <= -80) dismiss();
+    else setDragX(0);
+  };
+
+  if (dismissed) return null;
+
+  return (
+    <div role="button" tabIndex={0}
+      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
+      className="w-full touch-pan-y select-none outline-none"
+      style={{
+        transform: `translateX(${leaving ? -140 : dragX}px)`,
+        opacity: 1 - (leaving ? 1 : Math.min(Math.abs(dragX) / 160, 0.6)),
+        transition: dragging ? 'none' : 'transform 0.25s ease, opacity 0.25s ease',
+      }}>
+      <div className={cn("flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium",
+        reachedCount > 0
+          ? "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800 text-red-700 dark:text-red-300"
+          : "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+      )}>
+        <HandCoins className="h-4 w-4 shrink-0" />
+        <button onClick={onOpen} className="flex-1 flex items-center gap-2 text-left min-w-0">
+          <span className="truncate">{t('credit.alertTitle')}: {reachedCount > 0 ? t('credit.crossedCount', { n: reachedCount }) : t('credit.nearCount', { n: nearCount })}</span>
+          <ArrowUpCircle className="h-3.5 w-3.5 ml-auto rotate-45 shrink-0" />
+        </button>
+        <button onClick={dismiss} aria-label="Dismiss alert" className="p-1 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 shrink-0">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -319,6 +382,21 @@ export default function DashboardPage() {
     return s + (sum.totalIncome - sum.totalExpense);
   }, 0);
 
+  const creditAlerts = useMemo(() => {
+    const reached: { name: string; limit: number; outstanding: number }[] = [];
+    const near: { name: string; limit: number; outstanding: number }[] = [];
+    try {
+      for (const p of getPartners()) {
+        if (p.deletedAt) continue;
+        const s = getPartnerCreditStats(p.id, p);
+        if (s.limitState === 'reached') reached.push({ name: p.name, limit: s.limit, outstanding: s.outstanding });
+        else if (s.limitState === 'near') near.push({ name: p.name, limit: s.limit, outstanding: s.outstanding });
+      }
+    } catch { /* ignore */ }
+    return { reached, near, count: reached.length + near.length };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTxs]);
+
   const summaryCards = [
     { key: 'available', title: t('dashboard.available'), amount: availableToSpend, icon: Wallet, color: availableToSpend >= 0 ? 'text-emerald-600' : 'text-red-600', bgColor: availableToSpend >= 0 ? 'bg-emerald-50' : 'bg-red-50' },
     { key: 'balance', title: t('dashboard.balance'), amount: aggregates.cashBankBalance, icon: PiggyBank, color: 'text-blue-600', bgColor: 'bg-blue-50' },
@@ -347,6 +425,10 @@ export default function DashboardPage() {
           </div>
           <NotificationPanel />
         </div>
+
+        {creditAlerts.count > 0 && (
+          <CreditAlertChip reachedCount={creditAlerts.reached.length} nearCount={creditAlerts.near.length} onOpen={() => router.push('/dashboard/partners')} />
+        )}
 
         {/* Period Filter Pills */}
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">

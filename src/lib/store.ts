@@ -2,6 +2,9 @@ import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Remi
 import { db } from './db';
 import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected } from './pouchdb';
 import { dispatchSyncEvent, getLastSyncEvent } from './sync-notify';
+import { creditLimitFor, creditSettleDaysFor, NEAR_LIMIT_PCT, NEAR_DUE_DAYS, DEFAULT_CREDIT_LIMIT, DEFAULT_CREDIT_SETTLE_DAYS } from './parties';
+import { isNotifyEnabled, notificationKey } from './notification-prefs';
+import { getSavedLanguage, translations as i18nTranslations } from './i18n/translations';
 
 // ─── localStorage keys (tiny settings only) ─────────────────
 const LS_KEYS = {
@@ -210,6 +213,8 @@ export async function initDB() {
     await autoDeleteExpiredArchived();
     // Migrate partner groups from old (vendor/customer/contact) to new system
     await migratePartnerGroups();
+    // Backfill payment-pending adjustments for existing unsettled credit entries (idempotent)
+    try { backfillCreditAdjustments(); } catch (e) { console.warn('[Store] credit adjustment backfill skipped:', e); }
   } catch (e) {
     console.warn('[Store] initDB failed — continuing with empty cache:', e);
   }
@@ -654,7 +659,27 @@ export function addTransaction(tx: Omit<Transaction, 'id' | 'transitionId' | 'us
   const partnerName = t.partnerAccountId ? getPartnerName(t.partnerAccountId) : null;
   const detail = partnerName ? `${t.type} ₹${t.amount.toLocaleString('en-IN')} · ${t.category} · ${partnerName}` : `${t.type} ₹${t.amount.toLocaleString('en-IN')} · ${t.category}`;
   logMutation('transaction', t.id, t.transitionId, 'created', detail);
+  maybeAutoCreateCreditAdjustment(t);
   return t;
+}
+
+// Credit entries (account==='credit' unless it is itself a settlement row) get a
+// linked payment-pending adjustment in the Adjustments section for tracking.
+function maybeAutoCreateCreditAdjustment(t: Transaction) {
+  if (t.account !== 'credit' || t.category === CREDIT_SETTLEMENT_CATEGORY || !t.partnerAccountId || (t.type !== 'expense' && t.type !== 'income')) return;
+  const isPurchase = t.type === 'expense';
+  const dict = i18nTranslations[getSavedLanguage()] ?? {};
+  addAdjustment({
+    amount: t.amount,
+    accountType: 'partner',
+    partnerAccountId: t.partnerAccountId,
+    notes: isPurchase ? dict['credit.notePurchasePending'] || 'Credit purchase — payment pending' : dict['credit.noteSalePending'] || 'Credit sale — payment pending',
+    date: t.date,
+    sourceTransactionId: t.id,
+    sourceType: isPurchase ? 'credit-purchase' : 'credit-sale',
+    settleStatus: 'pending',
+    settledAmount: 0,
+  });
 }
 
 function getPartnerName(partnerId: string): string | null {
@@ -679,6 +704,11 @@ export function updateTransaction(id: string, updates: Partial<Transaction>): Tr
   const partnerName = cache.transactions[idx].partnerAccountId ? getPartnerName(cache.transactions[idx].partnerAccountId) : null;
   const detail = partnerName ? `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category} · ${partnerName}` : `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category}`;
   logMutation('transaction', id, tId, action, detail);
+  if (prev.account === 'credit' && prev.category !== CREDIT_SETTLEMENT_CATEGORY) {
+    const linked = cache.adjustments.filter(a => a.sourceTransactionId === id && !a.deletedAt);
+    if (updates.deletedAt) linked.forEach(a => updateAdjustment(a.id, { deletedAt: now() }));
+    else if (updates.deletedAt === undefined && prev.deletedAt) linked.forEach(a => restoreAdjustment(a.id));
+  }
   return cache.transactions[idx];
 }
 
@@ -748,9 +778,10 @@ export function permanentDeletePartner(id: string) {
 }
 
 export function getPartnerPnL(partnerId: string) {
-  // Cash-basis P&L: credit-account accruals live in getPartnerCreditBalance, so a credit
-  // purchase is only counted when actually paid (the cash Credit Settlement entry).
-  const txs = getTransactions().filter(t => t.partnerAccountId === partnerId && t.account !== 'credit');
+  // Accrual-basis P&L: credit purchases/sales count when recorded; "Credit
+  // Settlement" rows (real payment legs + informational clearing rows) are
+  // excluded so a credit is never double-counted.
+  const txs = getTransactions().filter(t => t.partnerAccountId === partnerId && t.category !== CREDIT_SETTLEMENT_CATEGORY);
   const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   return { income, expense, net: income - expense };
@@ -996,6 +1027,85 @@ export function deleteAdjustment(id: string) {
   logMutation('adjustment', id, tId, 'deleted', cache.adjustments[idx].notes || 'adjustment');
 }
 
+export function updateAdjustment(id: string, updates: Partial<Adjustment>): Adjustment | null {
+  const idx = cache.adjustments.findIndex(a => a.id === id);
+  if (idx === -1) return null;
+  const prev = cache.adjustments[idx];
+  const tId = prev.transitionId;
+  cache.adjustments[idx] = { ...prev, ...updates, updatedAt: now() };
+  db.adjustments.put(cache.adjustments[idx]).catch(() => {});
+  syncWriteDoc('adjustments', cache.adjustments[idx]);
+  const action: MutationAction = updates.deletedAt && !prev.deletedAt ? 'deleted' : updates.deletedAt === undefined && prev.deletedAt ? 'restored' : 'updated';
+  logMutation('adjustment', id, tId, action, cache.adjustments[idx].notes || 'adjustment');
+  return cache.adjustments[idx];
+}
+
+// FIFO settlement of linked credit adjustments. isReceive = clearing a credit sale
+// (party paid you); otherwise clearing a credit purchase (you paid the party).
+export function markCreditAdjustmentsSettled(partnerId: string, amount: number, settleTransferId: string, isReceive = false) {
+  const wantSource = isReceive ? 'credit-sale' : 'credit-purchase';
+  const pending = cache.adjustments
+    .filter(a => !a.deletedAt && a.partnerAccountId === partnerId && a.sourceType === wantSource && a.settleStatus !== 'settled')
+    .sort((a, b) => (a.date === b.date ? a.createdAt.localeCompare(b.createdAt) : a.date.localeCompare(b.date)));
+  let toClear = amount;
+  const dict = i18nTranslations[getSavedLanguage()] ?? {};
+  for (const a of pending) {
+    if (toClear <= 0) break;
+    const remaining = Math.max(0, a.amount - (a.settledAmount || 0));
+    if (remaining <= 0) continue;
+    const siphon = Math.min(remaining, toClear);
+    toClear -= siphon;
+    const settledAmount = (a.settledAmount || 0) + siphon;
+    const fullySettled = settledAmount >= a.amount - 0.005;
+    updateAdjustment(a.id, {
+      settledAmount,
+      settleTransferId,
+      ...(fullySettled
+        ? {
+            settleStatus: 'settled' as const,
+            notes: isReceive
+              ? dict['credit.noteSaleSettled'] || 'Credit sale settled — payment received'
+              : dict['credit.notePurchaseSettled'] || 'Credit purchase settled — payment made',
+          }
+        : {}),
+    });
+  }
+}
+
+// One-time backfill: create payment-pending adjustments for existing unsettled credit
+// entries, then mark already-cleared ones as settled by replaying settlement history (FIFO).
+export function backfillCreditAdjustments(): number {
+  let created = 0;
+  const sources = cache.transactions.filter(t => !t.deletedAt && t.account === 'credit' && t.category !== CREDIT_SETTLEMENT_CATEGORY && t.partnerAccountId && (t.type === 'income' || t.type === 'expense'));
+  const dict = i18nTranslations[getSavedLanguage()] ?? {};
+  for (const t of sources) {
+    if (cache.adjustments.some(a => a.sourceTransactionId === t.id)) continue;
+    const isPurchase = t.type === 'expense';
+    addAdjustment({
+      amount: t.amount,
+      accountType: 'partner',
+      partnerAccountId: t.partnerAccountId,
+      notes: isPurchase ? dict['credit.notePurchasePending'] || 'Credit purchase — payment pending' : dict['credit.noteSalePending'] || 'Credit sale — payment pending',
+      date: t.date,
+      sourceTransactionId: t.id,
+      sourceType: isPurchase ? 'credit-purchase' : 'credit-sale',
+      settleStatus: 'pending',
+      settledAmount: 0,
+    });
+    created++;
+  }
+  const clearances = cache.transactions
+    .filter(t => !t.deletedAt && t.category === CREDIT_SETTLEMENT_CATEGORY && t.account === 'credit' && t.partnerAccountId && t.transferId)
+    .sort((a, b) => (a.date === b.date ? a.createdAt.localeCompare(b.createdAt) : a.date.localeCompare(b.date)));
+  const seen = new Set<string>();
+  for (const c of clearances) {
+    if (seen.has(c.transferId!)) continue;
+    seen.add(c.transferId!);
+    markCreditAdjustmentsSettled(c.partnerAccountId!, c.amount, c.transferId!, c.type === 'expense');
+  }
+  return created;
+}
+
 export function restoreAdjustment(id: string) {
   const idx = cache.adjustments.findIndex(a => a.id === id);
   if (idx === -1) return;
@@ -1063,9 +1173,17 @@ export function permanentDeleteGoal(id: string) {
 
 // ─── Summary helpers ─────────────────────────────────────────
 const NON_OPERATIONAL_CATEGORIES = ['Transfer', 'Capital', 'Drawings', 'Investment Outflow'];
+const CREDIT_SETTLEMENT_CATEGORY = 'Credit Settlement';
 
 function cashBankTransactions(txs: Transaction[]): Transaction[] {
   return txs.filter(t => !t.account || (t.account !== 'invest' && (t.account === 'cash' || t.account === 'bank' || t.account === 'upi')));
+}
+
+// Accrual-basis operational rows: credit purchases/sales count when recorded,
+// "Credit Settlement" rows (real payment legs + informational clearing rows)
+// never affect income/expense totals.
+function operationalTransactions(txs: Transaction[]): Transaction[] {
+  return txs.filter(t => !NON_OPERATIONAL_CATEGORIES.includes(t.category) && t.category !== CREDIT_SETTLEMENT_CATEGORY);
 }
 
 export function getCashBankBalance(): number {
@@ -1085,13 +1203,87 @@ export function getPartnerCreditBalance(partnerId: string): number {
     .reduce((s, t) => s + (t.type === 'expense' ? t.amount : -t.amount), 0);
 }
 
+export interface PartnerCreditStats {
+  partnerId: string;
+  outstanding: number;            // positive = you owe the party
+  limit: number;
+  pctUsed: number;
+  limitState: 'none' | 'near' | 'reached';
+  oldestUnsettledDate: string | null;
+  dueDate: string | null;
+  daysRemaining: number | null;
+  dueState: 'none' | 'ok' | 'due' | 'overdue';
+  settleDays: number;
+}
+
+export function getPartnerCreditStats(partnerId: string, partner?: PartnerAccount | null): PartnerCreditStats {
+  const p = partner ?? getPartners().find(x => x.id === partnerId) ?? null;
+  const limit = p ? creditLimitFor(p) : DEFAULT_CREDIT_LIMIT;
+  const settleDays = p ? creditSettleDaysFor(p) : DEFAULT_CREDIT_SETTLE_DAYS;
+  const outstanding = getPartnerCreditBalance(partnerId);
+
+  let oldestUnsettledDate: string | null = null;
+  let dueDate: string | null = null;
+  let daysRemaining: number | null = null;
+  let dueState: 'none' | 'ok' | 'due' | 'overdue' = 'none';
+
+  if (outstanding > 0) {
+    const txs = getTransactions()
+      .filter(t => t.account === 'credit' && t.partnerAccountId === partnerId && !t.deletedAt)
+      .sort((a, b) => (a.date === b.date ? a.createdAt.localeCompare(b.createdAt) : a.date.localeCompare(b.date)));
+    // FIFO: match "Credit Settlement" clearing rows against earlier open purchases.
+    const queue: { date: string; remaining: number }[] = [];
+    for (const t of txs) {
+      const v = t.type === 'expense' ? t.amount : -t.amount;
+      if (t.category === 'Credit Settlement') {
+        let toClear = -v;
+        while (toClear > 0 && queue.length) {
+          const head = queue[0];
+          if (head.remaining <= toClear) { toClear -= head.remaining; queue.shift(); }
+          else { head.remaining -= toClear; toClear = 0; }
+        }
+      } else if (v > 0) {
+        queue.push({ date: t.date, remaining: t.amount });
+      }
+    }
+    oldestUnsettledDate = queue[0]?.date ?? null;
+    if (oldestUnsettledDate) {
+      const due = new Date(oldestUnsettledDate + 'T00:00:00Z');
+      due.setUTCDate(due.getUTCDate() + settleDays);
+      dueDate = due.toISOString().slice(0, 10);
+      const now = new Date();
+      const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+      daysRemaining = Math.floor((due.getTime() - todayUtc) / 86400000);
+      dueState = daysRemaining < 0 ? 'overdue' : daysRemaining <= NEAR_DUE_DAYS ? 'due' : 'ok';
+    } else {
+      oldestUnsettledDate = null;
+    }
+  }
+
+  const pctUsed = limit > 0 ? (outstanding / limit) * 100 : 0;
+  const limitState = outstanding <= 0 ? 'none' : pctUsed >= 100 ? 'reached' : pctUsed >= NEAR_LIMIT_PCT * 100 ? 'near' : 'none';
+
+  return {
+    partnerId,
+    outstanding,
+    limit,
+    pctUsed,
+    limitState,
+    oldestUnsettledDate,
+    dueDate,
+    daysRemaining,
+    dueState,
+    settleDays,
+  };
+}
+
 export function getMonthlySummary(year: number, month: number) {
   const txs = getTransactions().filter(t => {
     const d = new Date(t.date);
     return d.getFullYear() === year && d.getMonth() === month;
   });
   const cb = cashBankTransactions(txs);
-  const operational = txs.filter(t => !NON_OPERATIONAL_CATEGORIES.includes(t.category)).filter(t => t.account !== 'credit');
+  const operational = operationalTransactions(txs);
   return {
     income: operational.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
     expense: operational.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
@@ -1104,7 +1296,7 @@ export function getMonthlySummary(year: number, month: number) {
 export function getAggregates(since?: Date) {
   const txs = since ? getTransactions().filter(t => new Date(t.date) >= since!) : getTransactions();
   const cb = cashBankTransactions(txs);
-  const operational = txs.filter(t => !NON_OPERATIONAL_CATEGORIES.includes(t.category)).filter(t => t.account !== 'credit');
+  const operational = operationalTransactions(txs);
   return {
     balance: cb.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0),
     income: operational.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
@@ -1138,7 +1330,7 @@ export function getBudgetForCategory(category: string): { budget: Budget | undef
 // ─── Notifications ───────────────────────────────────────────
 export interface AppNotification {
   id: string;
-  type: 'recurring' | 'trash' | 'budget' | 'reminder' | 'sync';
+  type: 'recurring' | 'trash' | 'budget' | 'reminder' | 'sync' | 'credit';
   title: string;
   message: string;
   severity: 'danger' | 'warning' | 'info';
@@ -1208,6 +1400,27 @@ export function getBudgetNotifications(): AppNotification[] {
   return notifs;
 }
 
+export function getCreditNotifications(): AppNotification[] {
+  const notifs: AppNotification[] = [];
+  for (const p of getPartners()) {
+    if (p.deletedAt) continue;
+    const s = getPartnerCreditStats(p.id, p);
+    if (s.limitState === 'none') continue;
+    const used = Math.round(s.pctUsed);
+    const reached = s.limitState === 'reached';
+    const dict = i18nTranslations[getSavedLanguage()] ?? {};
+    notifs.push({
+      id: `credit-${p.id}-${s.limitState}`,
+      type: 'credit',
+      title: (reached ? dict['credit.notifReached'] : dict['credit.notifNear'])?.replace('{name}', p.name) ?? `Credit ${reached ? 'limit reached' : 'near limit'}: ${p.name}`,
+      message: `Outstanding ₹${s.outstanding.toLocaleString('en-IN')} of ₹${s.limit.toLocaleString('en-IN')} (${used}%)`,
+      severity: reached ? 'danger' : 'warning',
+      amount: s.outstanding,
+    });
+  }
+  return notifs;
+}
+
 export function getAllNotifications(): AppNotification[] {
   const today = new Date().toISOString().split('T')[0];
   const reminderNotifs: AppNotification[] = getReminders()
@@ -1244,7 +1457,11 @@ export function getAllNotifications(): AppNotification[] {
     ...getBudgetNotifications(),
     ...reminderNotifs,
     ...getWeekendReminders(),
-  ];
+    ...getCreditNotifications(),
+  ].filter(n => {
+    const key = notificationKey(n);
+    return key ? isNotifyEnabled(key) : true;
+  });
 }
 
 function getWeekendReminders(): AppNotification[] {
@@ -1254,6 +1471,7 @@ function getWeekendReminders(): AppNotification[] {
   const today = new Date().toISOString().split('T')[0];
   if (lastShown === today) return [];
   if (notWeekend) return [];
+  if (!isNotifyEnabled('tips')) return [];
   localStorage.setItem('mm_weekend_notif_last_shown', today);
   return [
     {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, AlertTriangle, Trash2, Repeat, Info, RefreshCw, X } from 'lucide-react';
+import { Bell, AlertTriangle, Trash2, Repeat, Info, RefreshCw, HandCoins, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AppNotification, getAllNotifications } from '@/lib/store';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,7 @@ export default function NotificationPanel() {
     budget: AlertTriangle,
     reminder: Info,
     sync: RefreshCw,
+    credit: HandCoins,
   };
 
   const severityColors: Record<string, string> = {

@@ -31,6 +31,8 @@ export interface PartnerAccount {
   budgetWindowStart: string;
   budgetWindowEnd: string;
   initialInvestment: number;
+  creditLimit?: number;
+  creditSettleDays?: number;
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -95,6 +97,11 @@ export interface Adjustment {
   partnerAccountId?: string;
   notes: string;
   date: string;
+  sourceTransactionId?: string;
+  sourceType?: 'credit-purchase' | 'credit-sale';
+  settleStatus?: 'pending' | 'settled';
+  settledAmount?: number;
+  settleTransferId?: string;
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;

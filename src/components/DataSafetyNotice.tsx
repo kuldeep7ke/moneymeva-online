@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Shield, Download, Trash2, X } from 'lucide-react';
 import { requestPopup, cancelPopup } from '@/lib/popup-queue';
+import { isPopupEnabled } from '@/lib/notification-prefs';
 
 const LAST_SHOWN_KEY = 'mm_data_safety_last_shown';
 const MIN_DAYS = 2;
@@ -29,7 +30,7 @@ export default function DataSafetyNotice() {
   useEffect(() => {
     const check = () => {
       if (shownRef.current) return;
-      if (shouldShow()) {
+      if (shouldShow() && isPopupEnabled('data-safety')) {
         shownRef.current = true;
         requestPopup('data-safety', 20, () => setShow(true));
       }

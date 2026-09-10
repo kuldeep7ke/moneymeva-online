@@ -105,3 +105,9 @@ html.brand-green .dark body, html.brand-green .dark {
 @keyframes iconBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes iconFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @keyframes iconGlow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
+
+/* PIN input: mask digits without password semantics (no browser password popups) */
+.pin-mask {
+  -webkit-text-security: disc;
+  text-security: disc;
+}

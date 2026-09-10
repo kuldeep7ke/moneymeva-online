@@ -6,6 +6,7 @@ import { Shield, Key, Clock, X, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { hasPins, arePinsShown } from '@/lib/pinStore';
 import { requestPopup, cancelPopup } from '@/lib/popup-queue';
+import { isPopupEnabled } from '@/lib/notification-prefs';
 
 const LAST_SHOWN_KEY = 'mm_security_tip_last_shown';
 const MIN_DAYS = 3;
@@ -51,7 +52,7 @@ export default function SecurityTipNotice() {
   useEffect(() => {
     const check = () => {
       if (shownRef.current) return;
-      if (shouldShow()) {
+      if (shouldShow() && isPopupEnabled('security-tip')) {
         shownRef.current = true;
         requestPopup('security-tip', 40, () => setShow(true));
       }

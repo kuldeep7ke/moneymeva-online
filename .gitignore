@@ -3,6 +3,8 @@ node_modules/
 out/
 .env.local
 *.log
+.server.log.err
+.dev-server.log.err
 .DS_Store
 cd
 npm

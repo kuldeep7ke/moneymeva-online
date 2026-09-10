@@ -40,6 +40,7 @@ import DataSafetyNotice from '@/components/DataSafetyNotice';
 import SecurityTipNotice from '@/components/SecurityTipNotice';
 import InstallPrompt from '@/components/InstallPrompt';
 import WhatsNewModal from '@/components/WhatsNewModal';
+import CreditAlertModal from '@/components/CreditAlertModal';
 import BroadcastBanner from '@/components/BroadcastBanner';
 import BannerModal from '@/components/BannerModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
@@ -341,9 +342,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('common.enterPin')}</p>
             </div>
             <form onSubmit={(e) => { e.preventDefault(); handleUnlock(); }} className="space-y-4">
-              <input type="password" inputMode="numeric" autoFocus maxLength={4} value={pinInput}
+              <input type="text" inputMode="numeric" autoComplete="off" autoCorrect="off" spellCheck={false} autoFocus maxLength={4} value={pinInput}
                 onChange={e => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(false); }}
-                className={cn("w-full text-center text-2xl tracking-[0.5em] px-4 py-3 rounded-lg border outline-none focus:ring-2",
+                className={cn("w-full text-center text-2xl tracking-[0.5em] px-4 py-3 rounded-lg border outline-none focus:ring-2 pin-mask",
                   pinError ? "border-red-500 focus:ring-red-500 bg-red-50" : "border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 focus:ring-brand"
                 )} placeholder="••••" />
               {pinError && <p className="text-xs text-red-500 font-medium">Invalid PIN. Try another one.</p>}
@@ -401,6 +402,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <SecurityTipNotice />
       <InstallPrompt />
       <WhatsNewModal />
+      <CreditAlertModal />
       <BannerModal />
     </div>
   );

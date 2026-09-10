@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Wallet, TrendingUp, TrendingDown, Trash2, X, AlertTriangle, Pencil, CreditCard } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { Transaction } from '@/types';
-import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady, getPartnerCreditBalance } from '@/lib/store';
+import { getPartners, addPartner, deletePartner, updatePartner, getPartnerPnL, getTransactions, addTransaction, checkDuplicateTransaction, isStoreReady, getPartnerCreditBalance, getPartnerCreditStats, markCreditAdjustmentsSettled } from '@/lib/store';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -28,7 +28,7 @@ export default function PartnersPage() {
   
   const refresh = () => {
     if (!isStoreReady()) return;
-    setPartners(getPartners().map(p => ({ ...p, ...getPartnerPnL(p.id), credit: getPartnerCreditBalance(p.id) })));
+    setPartners(getPartners().map(p => ({ ...p, ...getPartnerPnL(p.id), credit: getPartnerCreditBalance(p.id), creditStats: getPartnerCreditStats(p.id, p) })));
   };
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function PartnersPage() {
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [dupWarning, setDupWarning] = useState<any | null>(null);
 
-  const [form, setForm] = useState({ name: '', type: 'other', group: 'personal' as PartyGroup, description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
+  const [form, setForm] = useState({ name: '', type: 'other', group: 'personal' as PartyGroup, description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '', creditLimit: '', creditSettleDays: '' });
   const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: todayStr(), account: 'cash' as 'cash' | 'bank' | 'upi' | 'credit' });
 
   const filteredPartners = activeGroup === 'all' ? partners : partners.filter(p => p.group === activeGroup);
@@ -90,6 +90,8 @@ export default function PartnersPage() {
       budgetWindowStart: form.budgetWindowStart,
       budgetWindowEnd: form.budgetWindowEnd,
       initialInvestment: Number(form.initialInvestment) || 0,
+      creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
+      creditSettleDays: form.creditSettleDays ? Number(form.creditSettleDays) : undefined,
     };
     if (editingId) {
       updatePartner(editingId, partner);
@@ -99,13 +101,13 @@ export default function PartnersPage() {
     }
     setShowAddModal(false);
     setEditingId(null);
-    setForm({ name: '', type: 'other', group: 'personal', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
+    setForm({ name: '', type: 'other', group: 'personal', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '', creditLimit: '', creditSettleDays: '' });
     refresh();
   };
 
   const handleEditClick = (p: any) => {
     setEditingId(p.id);
-    setForm({ name: p.name, type: p.type || 'supplier', group: p.group || 'vendor', description: p.description || '', budgetWindowStart: p.budgetWindowStart || '', budgetWindowEnd: p.budgetWindowEnd || '', initialInvestment: p.initialInvestment ? String(p.initialInvestment) : '' });
+    setForm({ name: p.name, type: p.type || 'supplier', group: p.group || 'vendor', description: p.description || '', budgetWindowStart: p.budgetWindowStart || '', budgetWindowEnd: p.budgetWindowEnd || '', initialInvestment: p.initialInvestment ? String(p.initialInvestment) : '', creditLimit: p.creditLimit ? String(p.creditLimit) : '', creditSettleDays: p.creditSettleDays ? String(p.creditSettleDays) : '' });
     setShowAddModal(true);
   };
 
@@ -176,6 +178,7 @@ export default function PartnersPage() {
     addTransaction({ amount, type: 'expense', category: 'Credit Settlement', description: `Paid ${partner.name}`, date: settleForm.date, account: settleForm.account, partnerAccountId: settlePartyId, transferId, isRecurring: false });
     // 2. Credit income — clear the credit debt
     addTransaction({ amount, type: 'income', category: 'Credit Settlement', description: `Credit cleared — ${partner.name}`, date: settleForm.date, account: 'credit', partnerAccountId: settlePartyId, transferId, isRecurring: false });
+    markCreditAdjustmentsSettled(settlePartyId, amount, transferId, false);
     toast(`Credit settled for ${partner.name} · ${formatCurrency(amount)}`, 'success');
     setSettlePartyId(null);
     setSettleForm({ amount: '', date: todayStr(), account: 'cash' });
@@ -195,6 +198,7 @@ export default function PartnersPage() {
     addTransaction({ amount, type: 'income', category: 'Credit Settlement', description: `Received from ${partner.name}`, date: receiveForm.date, account: receiveForm.account, partnerAccountId: receivePartyId, transferId, isRecurring: false });
     // 2. Credit expense — clear the receivable
     addTransaction({ amount, type: 'expense', category: 'Credit Settlement', description: `Credit cleared — ${partner.name}`, date: receiveForm.date, account: 'credit', partnerAccountId: receivePartyId, transferId, isRecurring: false });
+    markCreditAdjustmentsSettled(receivePartyId, amount, transferId, true);
     toast(`Payment received from ${partner.name} · ${formatCurrency(amount)}`, 'success');
     setReceivePartyId(null);
     setReceiveForm({ amount: '', date: todayStr(), account: 'cash' });
@@ -287,7 +291,12 @@ export default function PartnersPage() {
             </div>
           )}
           {filteredPartners.map((partner) => (
-            <div key={partner.id} className="bg-white dark:bg-[#2A2522] p-6 rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm hover:shadow-md transition-shadow">
+            <div key={partner.id} className={cn(
+              "bg-white dark:bg-[#2A2522] p-6 rounded-2xl border shadow-sm hover:shadow-md transition-shadow",
+              partner.creditStats?.limitState === 'reached' ? "border-red-400 dark:border-red-600 ring-1 ring-red-400/50" :
+              partner.creditStats?.limitState === 'near' ? "border-amber-400 dark:border-amber-600 ring-1 ring-amber-400/50" :
+              "border-slate-200 dark:border-brand-muted"
+            )}>
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-brand-secondary dark:bg-brand-muted/30 rounded-xl text-brand dark:text-brand-secondary"><Wallet className="h-6 w-6" /></div>
@@ -334,11 +343,18 @@ export default function PartnersPage() {
                   <div className="flex items-center gap-2 mb-1">
                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Credit Tally</p>
                     <CreditCard className="h-3 w-3 text-orange-500" />
+                    {partner.creditStats?.limitState === 'reached' && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-[10px] font-bold text-red-600 dark:text-red-400">{t('credit.limitReached')}</span>
+                    )}
+                    {partner.creditStats?.limitState === 'near' && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-[10px] font-bold text-amber-600 dark:text-amber-500">{t('credit.nearLimit')}</span>
+                    )}
                   </div>
                   <p className={cn("text-xl font-bold", partner.credit > 0 ? "text-orange-600 dark:text-orange-400" : partner.credit < 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-slate-100")}>
                     {partner.credit > 0 ? `+${formatCurrency(partner.credit)}` : formatCurrency(partner.credit)}
                   </p>
                   <p className="text-xs text-slate-400 dark:text-slate-500">{partner.credit > 0 ? 'You owe this party' : partner.credit < 0 ? 'Party owes you' : 'No credit balance'}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('credit.tally', { amt: formatCurrency(Math.abs(partner.creditStats?.outstanding ?? partner.credit ?? 0)), lim: formatCurrency(partner.creditStats?.limit ?? 10000) })}</p>
                 </div>
                 <div className="p-4 bg-slate-50 dark:bg-brand-muted rounded-xl border border-slate-100 dark:border-brand-muted">
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase mb-1">Total Value</p>
@@ -407,13 +423,26 @@ export default function PartnersPage() {
                 <input type="number" min="0" value={form.initialInvestment} onChange={e => setForm({ ...form, initialInvestment: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="₹0" />
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">Credit Limit (optional)</label>
+                  <input type="number" min="0" value={form.creditLimit} onChange={e => setForm({ ...form, creditLimit: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="₹10,000 default" />
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{t('credit.alertHint')}</p>
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">Settle Within (days)</label>
+                  <input type="number" min="1" value={form.creditSettleDays} onChange={e => setForm({ ...form, creditSettleDays: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="30 days default" />
+                </div>
+              </div>
               <div>
                 <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">Description</label>
                 <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Optional notes..." />
               </div>
               <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => { setShowAddModal(false); setEditingId(null); setForm({ name: '', type: 'other', group: 'personal', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' }); }}>Cancel</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowAddModal(false); setEditingId(null); setForm({ name: '', type: 'other', group: 'personal', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '', creditLimit: '', creditSettleDays: '' }); }}>Cancel</Button>
                 <Button type="submit" size="sm">{editingId ? 'Save' : 'Create'}</Button>
               </div>
             </form>
@@ -469,10 +498,10 @@ export default function PartnersPage() {
                   <option value="credit">{txForm.type === 'expense' ? 'Credit (buy on credit)' : 'Credit (sale on credit)'}</option>
                 </select>
                 {txForm.account === 'credit' && txForm.type === 'expense' && (
-                  <p className="text-xs text-orange-500 dark:text-orange-400">Bought on credit — money owed to this party. Counts as expense when you pay.</p>
+                  <p className="text-xs text-orange-500 dark:text-orange-400">Bought on credit — counts in expenses now. A payment-pending adjustment is added; settling updates it to paid.</p>
                 )}
                 {txForm.account === 'credit' && txForm.type === 'income' && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Sold on credit — this party owes you. Counts as income when they pay.</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">Sold on credit — counts in income now. A payment-pending adjustment is added; settling updates it to received.</p>
                 )}
               </div>
               <div className="flex items-center justify-end gap-2 pt-2">

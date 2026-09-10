@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, Pencil, TrendingUp, TrendingDown, Calculator } from 'lucide-react';
+import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, SlidersHorizontal, Pencil, TrendingUp, TrendingDown, Calculator, CreditCard } from 'lucide-react';
 import { formatCurrency, cn, getSortedCategories, todayStr } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, addPartner, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
@@ -36,6 +36,7 @@ const ACCOUNT_BADGE: Record<string, { label: string; cls: string }> = {
 export default function TransactionPage({ type, title, description, titleKey }: TransactionPageProps) {
   const toast = useToast();
   const { t } = useTranslation();
+  const transText = t;
   const headerTitle = titleKey ? t(titleKey) : title;
   const [showAddModal, setShowAddModal] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
@@ -59,6 +60,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterMinAmount, setFilterMinAmount] = useState('');
   const [filterMaxAmount, setFilterMaxAmount] = useState('');
+  const [creditOnly, setCreditOnly] = useState(false);
   const [sortField, setSortField] = useState<'date' | 'amount'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [groupBy, setGroupBy] = useState<'day' | 'week' | 'month'>('day');
@@ -417,7 +419,8 @@ export default function TransactionPage({ type, title, description, titleKey }: 
         (!filterDateFrom || t.date >= filterDateFrom) &&
         (!filterDateTo || t.date <= filterDateTo) &&
         (!filterMinAmount || t.amount >= Number(filterMinAmount)) &&
-        (!filterMaxAmount || t.amount <= Number(filterMaxAmount))
+        (!filterMaxAmount || t.amount <= Number(filterMaxAmount)) &&
+        (!creditOnly || t.account === 'credit')
       )
       .sort((a, b) => {
         const mul = sortDir === 'asc' ? 1 : -1;
@@ -427,7 +430,20 @@ export default function TransactionPage({ type, title, description, titleKey }: 
         }
         return mul * (a.amount - b.amount);
       });
-  }, [transactions, search, filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, sortField, sortDir]);
+  }, [transactions, search, filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, creditOnly, sortField, sortDir]);
+
+  // A "Credit Settlement" leg on a real account (cash/bank/UPI) is the actual
+  // payment/receipt — hidden from the section lists (it still affects account
+  // balances and the party ledger, and totals exclude all settlement rows).
+  const isRealSettlementLeg = (t: Transaction) => t.category === 'Credit Settlement' && t.account && t.account !== 'credit';
+  const isCreditSettlementRow = (t: Transaction) => t.account === 'credit' && t.category === 'Credit Settlement';
+
+  const displayRows = useMemo(() => {
+    return filtered.filter(t => !isRealSettlementLeg(t));
+  }, [filtered]);
+
+  // Settlement rows are informational (badged) and never count in a section total.
+  const sectionTotal = useMemo(() => displayRows.filter(t => t.category !== 'Credit Settlement').reduce((s, t) => s + t.amount, 0), [displayRows]);
 
   const getGroupKey = (d: string, g: string) => {
     const dt = new Date(d + 'T00:00:00');
@@ -458,13 +474,13 @@ export default function TransactionPage({ type, title, description, titleKey }: 
 
   const groups = useMemo(() => {
     const map = new Map<string, Transaction[]>();
-    for (const t of filtered) {
+    for (const t of displayRows) {
       const key = getGroupKey(t.date, groupBy);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     }
     return Array.from(map.entries()).sort(([a], [b]) => sortDir === 'desc' ? b.localeCompare(a) : a.localeCompare(b));
-  }, [filtered, groupBy]);
+  }, [displayRows, groupBy]);
 
   const baseCategories = type === 'income' ? ['Salary', 'Freelance', 'Business', 'Interest', 'Dividends', 'Rental', 'Other']
     : type === 'investment' ? ['Stocks', 'Mutual Funds', 'Fixed Deposit', 'Real Estate', 'Gold', 'Crypto', 'Other']
@@ -606,7 +622,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
             <button onClick={() => {
                 const count = [filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, search].filter(Boolean).length;
                 if (count > 0) {
-                  setSearch(''); setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setSortField('date'); setSortDir('desc');
+                  setSearch(''); setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setCreditOnly(false); setSortField('date'); setSortDir('desc');
                   setShowFilters(false);
                 } else {
                   setShowFilters(!showFilters);
@@ -617,6 +633,9 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                 const count = [filterCategory, filterDateFrom, filterDateTo, filterMinAmount, filterMaxAmount, search].filter(Boolean).length;
                 return count > 0 ? <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{count}</span> : null;
               })()}
+            </button>
+            <button onClick={() => setCreditOnly(c => !c)} className={cn("h-9 px-3 rounded-lg border flex items-center justify-center transition-colors text-xs gap-1.5", creditOnly ? "border-orange-300 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400" : "border-slate-200 dark:border-brand-muted text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-brand-muted/50")} type="button" title={transText('credit.filterTitle')}>
+              <CreditCard className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Credit</span>
             </button>
             <button onClick={() => { setSortField('date'); setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }} className="h-9 px-3 rounded-lg border border-slate-200 dark:border-brand-muted flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-brand-muted/50 transition-colors text-xs gap-1.5" type="button" title={sortDir === 'desc' ? 'Newest first' : 'Oldest first'}>
               <ArrowUpDown className="h-3.5 w-3.5" />
@@ -715,7 +734,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                 <option value="desc">Newest / Highest</option>
                 <option value="asc">Oldest / Lowest</option>
               </select>
-              <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setSortField('date'); setSortDir('desc'); }} className="text-xs text-red-500 px-1.5">
+              <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmount(''); setFilterMaxAmount(''); setCreditOnly(false); setSortField('date'); setSortDir('desc'); }} className="text-xs text-red-500 px-1.5">
                 Clear All Filters
               </Button>
             </div>
@@ -728,7 +747,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
         <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm">
           {/* Mobile List View */}
           <div className="md:hidden divide-y divide-slate-100 dark:divide-brand-muted">
-            {filtered.length === 0 && (
+            {displayRows.length === 0 && (
               <div className="px-6 py-16 text-center">
                 <TrendingUp className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No transactions yet</p>
@@ -740,7 +759,8 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                 <div className="px-4 py-2 bg-slate-50 dark:bg-brand-muted/50 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   {getGroupLabel(groupKey, groupBy)}
                 </div>
-                {txns.map((t, idx) => (
+                {txns.map((t) => {
+                  return (
                   <div key={t.id} className="px-4 py-2.5 flex items-center justify-between active:bg-slate-50 dark:active:bg-brand-muted/20 cursor-pointer" onClick={() => setShowDetail(t)}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span className={cn("shrink-0", type === 'income' ? "text-green-500" : "text-red-500")}>
@@ -752,6 +772,8 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                           <span className="px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-brand-muted text-slate-500 dark:text-slate-400 font-medium">{t.category}</span>
                         )}{t.account && ACCOUNT_BADGE[t.account] && (
                           <span className={cn("px-1.5 py-0.5 rounded-full font-medium", ACCOUNT_BADGE[t.account].cls)}>{ACCOUNT_BADGE[t.account].label}</span>
+                        )}{isCreditSettlementRow(t) && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium">{transText('credit.settledBadge')}</span>
                         )}</p>
                       </div>
                     </div>
@@ -772,14 +794,15 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
-            {filtered.length > 0 && (
+            {displayRows.length > 0 && (
               <div className="px-4 py-3 bg-slate-50 dark:bg-brand-muted border-t border-slate-200 dark:border-slate-600 flex items-center justify-between text-sm">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Total · {filtered.length} entries</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Total · {displayRows.length} entries</span>
                 <span className={cn("font-bold", type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
-                  {formatCurrency(filtered.reduce((s, t) => s + t.amount, 0))}
+                  {formatCurrency(sectionTotal)}
                 </span>
               </div>
             )}
@@ -803,7 +826,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {filtered.length === 0 && (
+              {displayRows.length === 0 && (
                 <tr><td colSpan={5} className="px-6 py-16 text-center">
                   <TrendingUp className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
                   <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No transactions yet</p>
@@ -817,7 +840,8 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                       {getGroupLabel(groupKey, groupBy)}
                     </td>
                   </tr>
-                  {txns.map((t, idx) => (
+                  {txns.map((t, idx) => {
+                    return (
                     <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                       <td className="px-6 py-4 text-sm text-center text-slate-400 dark:text-slate-500 font-mono">{idx + 1}</td>
                       <td className="px-6 py-4">
@@ -830,6 +854,9 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                             <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0", ACCOUNT_BADGE[t.account].cls)}>{ACCOUNT_BADGE[t.account].label}</span>
                           )}
                           {t.partnerAccountId && <span className="px-2 py-0.5 rounded-full bg-brand-secondary/20 dark:bg-brand-muted/30 text-brand dark:text-brand-secondary text-[11px] font-medium shrink-0">{partners.find(p => p.id === t.partnerAccountId)?.name || 'Party'}</span>}
+                          {isCreditSettlementRow(t) && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-[11px] font-medium shrink-0">{transText('credit.settledBadge')}</span>
+                          )}
                         </div>
                       </td>
                       <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
@@ -854,17 +881,18 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </React.Fragment>
               ))}
             </tbody>
-            {filtered.length > 0 && (
+            {displayRows.length > 0 && (
               <tfoot className="bg-slate-50 dark:bg-brand-muted border-t border-slate-200 dark:border-slate-600">
                 <tr>
                   <td colSpan={2} className="px-6 py-4 text-sm font-semibold text-slate-700 dark:text-slate-300">Total</td>
-                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{filtered.length} entries</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{displayRows.length} entries</td>
                   <td className={cn("px-6 py-4 text-sm font-bold text-right", type === 'income' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
-                    {formatCurrency(filtered.reduce((s, t) => s + t.amount, 0))}
+                    {formatCurrency(sectionTotal)}
                   </td>
                   <td></td>
                 </tr>
@@ -953,10 +981,10 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                     <option value="credit">{type === 'expense' ? 'Credit (buy on credit)' : 'Credit (sale on credit)'}</option>
                   </select>
                   {form.account === 'credit' && type === 'expense' && (
-                    <p className="text-xs text-orange-500 dark:text-orange-400">Bought on credit — money owed. Choose the Party (shop) you owe. It will not count as an expense until you pay.</p>
+                    <p className="text-xs text-orange-500 dark:text-orange-400">Bought on credit — counts in expenses now. A payment-pending adjustment is added; settling updates it to paid.</p>
                   )}
                   {form.account === 'credit' && type === 'income' && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Sold on credit — this party owes you. Choose the Party. It will not count as income until they pay.</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Sold on credit — counts in income now. A payment-pending adjustment is added; settling updates it to received.</p>
                   )}
                 </div>
               )}

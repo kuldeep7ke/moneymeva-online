@@ -44,9 +44,9 @@ export default function PinPrompt({ open, onClose, onSuccess, title, message }: 
           </div>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="password" inputMode="numeric" autoFocus maxLength={4} value={pin}
+          <input type="text" inputMode="numeric" autoComplete="off" autoCorrect="off" spellCheck={false} autoFocus maxLength={4} value={pin}
             onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(false); }}
-            className={cn("w-full text-center text-2xl tracking-[0.5em] px-4 py-3 rounded-lg border outline-none focus:ring-2",
+            className={cn("w-full text-center text-2xl tracking-[0.5em] px-4 py-3 rounded-lg border outline-none focus:ring-2 pin-mask",
               error ? "border-red-500 focus:ring-red-500 bg-red-50" : "border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 focus:ring-brand"
             )} placeholder="••••" />
           {error && <p className="text-xs text-red-500 font-medium">Invalid PIN. Try another one.</p>}

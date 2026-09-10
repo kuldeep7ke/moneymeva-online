@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Info, AlertTriangle, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { BROADCAST_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API } from '@/lib/env';
 import { isWithinPeriod } from '@/lib/utils';
@@ -47,8 +47,29 @@ function BroadcastPill({ data, onDismiss }: { data: BroadcastData; onDismiss: ()
   const Wrapper = data.link ? 'a' : 'div';
   const wrapperProps = data.link ? { href: data.link, target: '_blank', rel: 'noopener noreferrer' } : {};
 
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const startX = useRef<number | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent) => { startX.current = e.clientX; setDragging(true); };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging || startX.current === null) return;
+    setDragX(Math.min(0, e.clientX - startX.current));
+  };
+  const onPointerUp = () => {
+    if (!dragging) return;
+    setDragging(false);
+    startX.current = null;
+    if (dragX <= -70) { setLeaving(true); setTimeout(onDismiss, 250); }
+    else setDragX(0);
+  };
+
   return (
-    <div className={`fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`} style={{ top: '8px' }}>
+    <div
+      onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
+      className={`fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2 touch-pan-y select-none${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+      style={{ top: '8px', transform: `translateX(calc(-50% + ${leaving ? -140 : dragX}px))`, opacity: 1 - (leaving ? 1 : Math.min(Math.abs(dragX) / 160, 0.6)), transition: dragging ? 'none' : 'transform 0.25s ease, opacity 0.25s ease' }}>
       <Wrapper {...wrapperProps} className="contents">
         <span className="shrink-0">{ICONS[type]}</span>
         <span className="flex-1 min-w-0 truncate">
