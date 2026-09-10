@@ -116,6 +116,15 @@ The sync email + password are **your cloud account credentials** — a fresh acc
 3. Tap **Connect**.
 4. Your cloud data appears on this device. From now on, changes sync live between devices.
 
+### 5.2b Link-only backup (Anonymous mode — no email/password)
+
+Want a cloud backup **without creating an account**? Tick **Anonymous mode** in
+Settings → Multi-Device Sync, then connect with just the URL + anon key. One-time
+setup is done by your app provider (see `CLOUD-SYNC-GUIDE.md`). Note this is a
+**link-only backup** for this browser — because there's nothing to sign in with,
+you can't pull the same data into a different browser/device later. For real
+cross-device sync, create an email + password cloud account instead.
+
 ### 5.3 Everyday sync behavior
 
 - Sync runs **automatically in the background** (live sync) while connected.

@@ -29,6 +29,28 @@ keeps it in sync across your devices — privately, per account.
 3. Tap **Connect**
 4. Your data appears on this device too
 
+### Link-only sync (Anonymous mode — no email/password)
+
+Want to back up your data to the cloud **without creating an email + password account**?
+
+1. Open **Settings → Multi-Device Sync**
+2. Fill in the **Supabase URL** and **anon key**
+3. Tick **Anonymous mode** (URL + anon key only — email/password fields hide)
+4. Tap **Connect (Anonymous)**
+
+**One-time project setup (owner/developer):** Anonymous sign-ins must be enabled in
+your Supabase dashboard — **Authentication → Sign In / Providers → Anonymous sign-ins →
+Enable**. Until it's on, connect will fail with a clear message telling you to flip it.
+
+> **How it works / limits**
+> - Anonymous mode creates a **throwaway cloud user** owned by that browser — no login
+>   to remember, data is private and row-level-secured like any other account.
+> - Because there's nothing to sign in with, you can **not** pull those rows into a
+>   different browser/device later by typing credentials. It's a **link-only backup**:
+>   perfect for a single device or a quick safety copy.
+> - For **real cross-device sync**, use the email + password account (Create account &
+>   sync) — that data follows you everywhere.
+
 ### Everyday use
 
 - The app works **fully offline** — sync is optional and happens in the background
@@ -62,6 +84,18 @@ keeps it in sync across your devices — privately, per account.
 > Users can also paste a different URL + anon key in Settings manually
 > (overrides the baked-in values) — e.g. for testing another project.
 
+### Enabling anonymous (link-only) sync
+
+If you want users to be able to back up without an email/password (Settings →
+Multi-Device Sync → **Anonymous mode**), enable it once per project:
+
+1. **Supabase dashboard** → Authentication → Sign In / Providers → **Anonymous sign-ins**
+2. Toggle it **On** → Save
+3. Users can now connect with URL + anon key only (no sign-in popup, no email).
+
+> Anonymous users get a throwaway auth role and their own private RLS row space.
+> If you later turn "Anonymous" off, those sessions keep working until they re-login.
+
 ### Enabling "Continue with Google" (login page)
 
 The app has a Google sign-in button on the login page (web/PWA only — not in the Android APK).
@@ -87,6 +121,7 @@ The app has a Google sign-in button on the login page (web/PWA only — not in t
 | "Table 'sync_docs' not found" | Run `supabase/schema.sql` in the project's SQL Editor |
 | "Email rate limit exceeded" | Disable "Confirm email" in Authentication settings |
 | Sign-in says invalid credentials | User must tap **Create account & sync** first (or confirm their email) |
+| "Anonymous sign-ins are not enabled" on connect | Enable Authentication → Sign In / Providers → Anonymous sign-ins in the Supabase dashboard |
 | Data missing on other device | Check both devices use the same email + password |
 | Realtime updates not arriving | `ALTER PUBLICATION supabase_realtime ADD TABLE sync_docs;` + `REPLICA IDENTITY FULL` (both are in `schema.sql`) |
 

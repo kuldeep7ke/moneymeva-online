@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [syncKey, setSyncKey] = useState('');
   const [syncEmail, setSyncEmail] = useState('');
   const [syncPassword, setSyncPassword] = useState('');
+  const [syncAnonymous, setSyncAnonymous] = useState(false);
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [syncing, setSyncing] = useState(false);
@@ -281,12 +282,12 @@ export default function SettingsPage() {
   const handleConnect = async () => {
     const url = syncUrl.trim().replace(/\/+$/, '');
     if (!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url)) { setSyncError('Enter a valid Supabase project URL (e.g. https://xxxx.supabase.co)'); return; }
-    if (!syncKey.trim() || !syncEmail.trim() || !syncPassword.trim()) { setSyncError('Enter your anon key, sync email, and password'); return; }
+    if (!syncKey.trim() || (!syncAnonymous && (!syncEmail.trim() || !syncPassword.trim()))) { setSyncError('Enter your anon key, sync email, and password'); return; }
     setSyncStatus('connecting');
     setSyncError('');
     dispatchSyncEvent({ status: 'started', message: 'Connecting to Supabase…' });
     try {
-      const { ok, error: connErr } = await connectRemote(url, syncKey.trim(), syncEmail.trim(), syncPassword);
+      const { ok, error: connErr } = await connectRemote(url, syncKey.trim(), syncEmail.trim(), syncPassword, syncAnonymous);
       if (ok) {
         saveSyncUrlHistory(url);
         setSyncUrlHistory(getSyncUrlHistory());
@@ -543,8 +544,19 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* Email + password rows */}
+                {/* Anonymous mode toggle */}
                 {!syncConnected && (
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={syncAnonymous} onChange={e => { setSyncAnonymous(e.target.checked); setSyncError(''); }} className="mt-0.5 accent-sky-600 h-3.5 w-3.5" />
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      <span className="font-medium">Anonymous mode</span> — connect with URL + anon key only,{' '}
+                      <span className="text-slate-400 dark:text-slate-500">no email/password</span>
+                    </span>
+                  </label>
+                )}
+
+                {/* Email + password rows */}
+                {!syncConnected && !syncAnonymous && (
                   <>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
@@ -575,6 +587,15 @@ export default function SettingsPage() {
                       same Google email to get cloud credentials.
                     </p>
                   </>
+                )}
+
+                {/* Anonymous mode note */}
+                {!syncConnected && syncAnonymous && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 text-xs space-y-1">
+                    <p className="font-semibold text-amber-800 dark:text-amber-300">Enable Anonymous sign-ins on this Supabase project first (one-time, dashboard):</p>
+                    <p className="font-mono text-amber-700 dark:text-amber-400 leading-relaxed">Dashboard → Authentication → Sign In / Providers → Anonymous sign-ins → <span className="font-bold">Enable</span></p>
+                    <p className="text-amber-700/80 dark:text-amber-400/80">Anonymous mode creates a throwaway cloud space keyed to this device — link only, no email/password. To access the same data on another device, use that device's browser (local app data stays in the browser). For real cross-device sync, use an email + password account instead.</p>
+                  </div>
                 )}
 
                 {/* Saved URLs */}
@@ -609,12 +630,14 @@ export default function SettingsPage() {
                     </>
                   ) : (
                     <>
-                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim() || !syncKey.trim() || !syncEmail.trim() || !syncPassword.trim()}>
-                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Connect
+                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim() || !syncKey.trim() || (!syncAnonymous && (!syncEmail.trim() || !syncPassword.trim()))}>
+                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> {syncAnonymous ? 'Connect (Anonymous)' : 'Connect'}
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleCreateAccount} disabled={syncStatus === 'connecting'}>
-                        Create account &amp; sync
-                      </Button>
+                      {!syncAnonymous && (
+                        <Button size="sm" variant="outline" onClick={handleCreateAccount} disabled={syncStatus === 'connecting'}>
+                          Create account &amp; sync
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -630,7 +653,7 @@ export default function SettingsPage() {
         <Reveal delay={300}>
           <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-2xl p-4 space-y-2">
             <p className="text-xs text-sky-700 dark:text-sky-400 leading-relaxed">
-              Enter the same Supabase project URL, anon key, and your email + password on each device to sync all your data across devices. Each account gets its own private data space. First time here? Tap <strong>Create account &amp; sync</strong> — you pick the email + password (min 6 characters); that is your cloud account. Run <code className="font-mono">supabase/schema.sql</code> in your project&apos;s SQL Editor once before connecting. Data syncs in real-time once connected.
+              Enter the same Supabase project URL, anon key, and your email + password on each device to sync all your data across devices. Each account gets its own private data space. First time here? Tap <strong>Create account &amp; sync</strong> — you pick the email + password (min 6 characters); that is your cloud account. Prefer no login? Tick <strong>Anonymous mode</strong> to connect with just URL + anon key (link-only backup; Anonymous sign-ins must be enabled in the Supabase dashboard). Run <code className="font-mono">supabase/schema.sql</code> in your project&apos;s SQL Editor once before connecting. Data syncs in real-time once connected.
             </p>
           </div>
         </Reveal>
