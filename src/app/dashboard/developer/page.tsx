@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
 import { clearRemote, getConfig, checkConnection, getRemoteStats, getRemoteRows, manualSync, connectRemote, disconnectRemote, ensureConnected, connected } from '@/lib/pouchdb';
 import { downloadBlob } from '@/lib/download';
-import { AlertTriangle, Trash2, Loader2, Download, Upload, Key, Eye, EyeOff, Database, HardDrive, Search, Wifi, Palette, User, FileUp, Megaphone } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, Download, Upload, Eye, EyeOff, Cloud, Activity, ShieldAlert, Palette, User, FileUp, Megaphone, RefreshCw } from 'lucide-react';
 import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore';
 import { cn } from '@/lib/utils';
 import { getSession } from '@/lib/localAuth';
@@ -19,7 +19,9 @@ import { BROADCAST_BIN_ID, BANNER_BIN_ID, JSONBIN_BASE, ANNOUNCEMENTS_API, BASE_
 import { RELEASE_NOTES, getLastSeenVersion } from '@/lib/whats-new';
 import { exportCustomDataExcel, type CustomExportSection } from '@/lib/export';
 import * as XLSX from 'xlsx';
+import Reveal from '@/components/Reveal';
 
+const inputCls = 'w-full px-3 py-2 rounded-lg bg-white dark:bg-brand-dark border border-slate-200 dark:border-brand-muted text-sm text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-brand font-mono placeholder:text-slate-400 placeholder:font-sans';
 const mask = (s: string) => (s && s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s);
 
 function readRemoteAccount(cfg: { url: string; key: string }): string {
@@ -501,332 +503,410 @@ export default function DeveloperPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-12 px-4 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Developer Zone</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Tools and diagnostics</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-            <p className="text-xs text-brand font-mono">{appVersion || 'v?.?.?.?'}</p>
-            <p className="text-xs text-slate-400 font-mono">Release notes: {RELEASE_NOTES.version} · seen: {getLastSeenVersion() || 'never'}</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-mono">Session expires in {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</p>
-          </div>
-        </div>
-
-        {/* Import from File */}
-        <Section icon={FileUp} title="Import from File" iconColor="text-brand">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Select a JSON or XLSX export file to preview and import. XLSX files from the Custom Export (Excel) round-trip with original IDs.</p>
-          <input ref={fileInputRef} type="file" accept=".json,.xlsx,.xls" onChange={handleFileSelect} className="hidden" />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full gap-2"><Upload className="h-4 w-4" /> Choose File</Button>
-          {importFileName && <p className="text-xs text-slate-500">Selected: {importFileName}</p>}
-          {importData !== null && (
-            <div className="text-xs space-y-2">
-              <p className="text-slate-400 font-medium">Preview</p>
-              {Object.entries(importData).map(([key, items]) => (
-                Array.isArray(items) && <div key={key} className="flex justify-between border-b border-slate-100 dark:border-brand-muted/30 py-1">
-                  <span className="text-slate-500 capitalize">{key.replace('_', ' ')}</span>
-                  <span className="font-mono text-slate-700 dark:text-slate-300">{items.length}</span>
-                </div>
-              ))}
-              <Button onClick={handleFileImport} className="w-full gap-2 mt-2"><Download className="h-4 w-4" /> Import Data</Button>
-            </div>
-          )}
-          {status && <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm text-green-700 dark:text-green-300">{status}</div>}
-        </Section>
-
-        {/* DB Stats */}
-        <Section icon={Database} title="DB Stats" iconColor="text-emerald-500">
-          <Button variant="outline" onClick={loadDbStats} className="w-full text-xs">{dbStats ? 'Refresh' : 'Load Stats'}</Button>
-          {dbStats && (
-            <div className="text-xs space-y-1">
-              {Object.entries(dbStats).map(([k, v]) => (
-                <div key={k} className="flex justify-between border-b border-slate-100 dark:border-brand-muted/30 py-1">
-                  <span className="text-slate-500 capitalize">{k.replace('_', ' ')}</span>
-                  <span className="font-mono text-slate-700 dark:text-slate-300">{v < 0 ? 'err' : v}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Storage Usage */}
-        <Section icon={HardDrive} title="Storage Usage" iconColor="text-purple-500">
-          {(() => {
-            let lsSize = 0;
-            try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsSize += (k.length + (localStorage.getItem(k) || '').length) * 2; } } catch {}
-            return (
-              <div className="text-xs space-y-1">
-                <div className="flex justify-between py-1"><span className="text-slate-500">localStorage</span><span className="font-mono text-slate-700 dark:text-slate-300">{(lsSize / 1024).toFixed(1)} KB</span></div>
-                <div className="flex justify-between py-1"><span className="text-slate-500">IndexedDB</span><span className="font-mono text-slate-700 dark:text-slate-300">(auto-managed)</span></div>
-              </div>
-            );
-          })()}
-        </Section>
-
-        {/* localStorage Inspector */}
-        <Section icon={Search} title="localStorage Inspector" iconColor="text-cyan-500">
-          <Button variant="outline" onClick={loadLsInspector} className="w-full text-xs">{lsData ? 'Refresh' : 'Browse Keys'}</Button>
-          {lsData && (
-            <div className="text-[10px] max-h-40 overflow-y-auto space-y-2">
-              {lsData.map((item, i) => (
-                <div key={i} className="border-b border-slate-100 dark:border-brand-muted/30 pb-1">
-                  <div className="font-mono text-slate-700 dark:text-slate-300 break-all">{item.key}</div>
-                  <div className="text-slate-400 break-all">{item.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Export Data */}
-        <Section icon={Download} title="Export Data" iconColor="text-amber-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Download a full raw JSON backup (all tables), or export the sections below for a period — Excel (XLSX) now also embeds re-importable raw sheets, or plain JSON.</p>
-
-          <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full text-xs gap-2"><Download className="h-3.5 w-3.5" /> Export Raw Data (JSON)</Button>
-
-          <div className="border-t border-slate-100 dark:border-brand-muted/30" />
-
-          <p className="text-xs text-slate-500 dark:text-slate-400">Custom Export — selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="custom-export-from" className="text-xs font-medium text-slate-500 block mb-1">From date</label>
-              <input id="custom-export-from" name="custom-export-from" type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-sm" />
-            </div>
-            <div>
-              <label htmlFor="custom-export-to" className="text-xs font-medium text-slate-500 block mb-1">To date</label>
-              <input id="custom-export-to" name="custom-export-to" type="date" value={exportTo} onChange={e => setExportTo(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-sm" />
+      <div className="space-y-8">
+        <Reveal>
+          <div className="mb-2">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 hidden md:block">Developer Zone</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-base font-semibold md:font-normal md:text-sm block md:hidden">Tools, diagnostics, and database management</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm md:mt-1 hidden md:block">Tools, diagnostics, and database management</p>
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300"><span className="font-mono">{appVersion || 'v?.?.?.?'}</span></span>
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300">Release {RELEASE_NOTES.version} · seen {getLastSeenVersion() || '—'}</span>
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-mono">inactivity {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}</span>
             </div>
           </div>
-          <div className="text-xs">
-            <p className="text-slate-400 font-medium mb-1.5">Sections — select one or all</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'investments', l: 'Investments' }, { k: 'categories', l: 'Categories' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }, { k: 'works', l: 'Works' }, { k: 'goals', l: 'Goals' }, { k: 'accounts', l: 'Accounts' }, { k: 'partnership', l: 'Partnership' }].map(s => (
-                <label key={s.k} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition-colors",
-                  exportSections[s.k] ? "border-brand/50 bg-brand-secondary dark:bg-brand-muted/40 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
-                  <input type="checkbox" checked={!!exportSections[s.k]} onChange={() => setExportSections({ ...exportSections, [s.k]: !exportSections[s.k] })} className="accent-brand" />
-                  {s.l}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {[
-              { k: 'xlsx', l: 'Excel (XLSX)' },
-              { k: 'json', l: 'JSON (re-importable)' },
-            ].map(f => (
-              <button key={f.k} type="button" onClick={() => setExportFormat(f.k as 'xlsx' | 'json')}
-                className={cn("px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
-                  exportFormat === f.k ? "border-brand/50 bg-brand-secondary dark:bg-brand-muted/40 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
-                {f.l}
-              </button>
-            ))}
-          </div>
-          <Button variant="outline" onClick={handleCustomExport} disabled={exporting} className="w-full gap-2">
-            {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4" /> Export Custom ({exportFormat.toUpperCase()})</>}
-          </Button>
-        </Section>
+        </Reveal>
 
-        {/* Sync Diagnostics */}
-        <Section icon={Wifi} title="Sync Diagnostics" iconColor="text-sky-500">
-          {(() => {
-            const cfg = getConfig();
-            const sbAccount = readRemoteAccount(cfg);
-            const lastEv = getLastSyncEvent();
-            return (
-              <>
-                <div className="text-xs space-y-1 mb-3">
-                  <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url ? mask(cfg.url) : '(none)'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Sync account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbAccount}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Status</span><span className={cn('font-mono', syncOk === true ? 'text-green-500' : syncOk === false ? 'text-red-500' : 'text-slate-400')}>{syncOk === null ? 'untested' : syncOk ? 'connected' : 'failed'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Last sync event</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{lastEv ? `${lastEv.status}${lastEv.message ? ` · ${lastEv.message}` : ''}` : '—'}</span></div>
-                  <p className="text-[10px] text-slate-400 pt-1">Realtime push ≈ seconds · periodic pull every 2 min · reconnect watchdog 30 s</p>
-                </div>
-                <Button variant="outline" onClick={testSync} disabled={syncing} className="w-full text-xs">
-                  {syncing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Connection'}
-                </Button>
-              </>
-            );
-          })()}
-        </Section>
-
-        {/* Remote Announcements */}
-        <Section icon={Megaphone} title="Remote Announcements" iconColor="text-orange-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Broadcast pills &amp; banner are fetched live from jsonbin.io on every dashboard load — edit them online, no app update needed (see docs/BROADCAST-GUIDE.md).</p>
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between"><span className="text-slate-500">Broadcast bin</span><span className="font-mono text-slate-700 dark:text-slate-300">{mask(BROADCAST_BIN_ID)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Banner bin</span><span className="font-mono text-slate-700 dark:text-slate-300">{mask(BANNER_BIN_ID)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Dismissed pills (this device)</span><span className="font-mono text-slate-700 dark:text-slate-300">{dismissedCount}</span></div>
-          </div>
-          {annTest && (
-            <div className={cn('p-3 rounded-xl text-sm', annTest.includes('FAILED') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300')}>
-              {annTest}
-            </div>
-          )}
-          <Button variant="outline" onClick={testAnnouncements} disabled={annTesting} className="w-full text-xs">
-            {annTesting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Bin Fetch'}
-          </Button>
-          <Button variant="outline" onClick={clearDismissed} disabled={!dismissedCount} className="w-full text-xs">
-            Clear Dismissed Pills
-          </Button>
-        </Section>
-
-        {/* Quick Brand Switcher */}
-        <Section icon={Palette} title="Quick Brand Switcher" iconColor="text-pink-500">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Current: <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">{brand}</span></p>
-          <Button variant="outline" onClick={handleBrandCycle} className="w-full text-xs">Next Brand</Button>
-        </Section>
-
-        {/* Session Info */}
-        <Section icon={User} title="Session Info" iconColor="text-indigo-500">
-          <div className="text-xs space-y-1">
-            <div className="flex justify-between"><span className="text-slate-500">ID</span><span className="font-mono text-slate-700 dark:text-slate-300">{session?.user?.id || 'unknown'}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Name</span><span className="font-mono text-slate-700 dark:text-slate-300">{session?.user?.full_name || session?.user?.email || 'unknown'}</span></div>
-          </div>
-        </Section>
-
-        {/* User PINs */}
-        {hasPins() && (
-          <Section icon={Key} title="User PINs" iconColor="text-amber-500" right={<span className="text-xs text-slate-400">{getRemainingPins()} remaining</span>}>
-            <div className="flex flex-wrap gap-2">
-              {getPins().map((pin, i) => (
-                <span key={i} className={cn('font-mono text-sm px-3 py-1.5 rounded-lg border', i < getUsedIndex() ? 'bg-slate-100 dark:bg-brand-muted text-slate-400 dark:text-slate-500 line-through border-slate-200 dark:border-brand-muted' : 'bg-amber-50 dark:bg-amber-900/20 text-slate-900 dark:text-slate-100 border-amber-200 dark:border-amber-800/40')}>
-                  {showPins ? pin : '••••'}
+        {/* Database & Cloud Sync */}
+        <Reveal delay={100}>
+          <DevCard
+            icon={Cloud}
+            cardClass="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 border border-sky-200 dark:border-sky-800"
+            tileClass="bg-gradient-to-br from-sky-500 to-blue-600"
+            title="Database & Cloud Sync"
+            subtitle="Connect to your Supabase project, inspect remote data, and sync between devices."
+            right={
+              <button onClick={() => { setSyncOk(null); checkConnection().then(ok => setSyncOk(ok)); }} className="flex items-center gap-1.5 shrink-0 select-none cursor-pointer" title="Re-test connection">
+                <div className={cn('w-2.5 h-2.5 rounded-full', syncOk === true ? 'bg-green-500' : syncOk === false ? 'bg-red-500' : 'bg-slate-300 animate-pulse')} />
+                <span className={cn('text-xs font-semibold', syncOk === true ? 'text-green-600 dark:text-green-400' : syncOk === false ? 'text-red-500 dark:text-red-400' : 'text-slate-400')}>
+                  {syncOk === null ? 'Checking…' : syncOk ? 'Connected' : 'Offline'}
                 </span>
-              ))}
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setShowPins(!showPins)} className="text-xs gap-2">
-              {showPins ? <><EyeOff className="h-3.5 w-3.5" /> Hide PINs</> : <><Eye className="h-3.5 w-3.5" /> Reveal PINs</>}
-            </Button>
-          </Section>
-        )}
-
-        {/* Database Control */}
-        <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-emerald-500" />
-              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Database Control</h2>
-            </div>
-            <button onClick={() => { setSyncOk(null); checkConnection().then(ok => setSyncOk(ok)); }} className={cn('text-[10px] font-mono px-2 py-0.5 rounded-full cursor-pointer transition-colors', syncOk === true ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200' : syncOk === false ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200')}>
-              {syncOk === null ? 'Checking…' : syncOk ? '● Connected' : '● Disconnected'}
-            </button>
-          </div>
-
-          {/* Connect Form */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Quick Connect — test with any Supabase project</p>
-            <input type="text" placeholder="Supabase URL (https://xxx.supabase.co)" value={connectUrl} onChange={e => setConnectUrl(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs font-mono" />
-            <input type="text" placeholder="Anon Key (required for URL + anon and email/password modes)" value={connectKey} onChange={e => setConnectKey(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs font-mono" />
-            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 dark:text-slate-300">
-              <input type="checkbox" checked={connectAnonymous} onChange={e => setConnectAnonymous(e.target.checked)} className="accent-brand h-3.5 w-3.5" />
-              <span><span className="font-medium">Anonymous mode</span> — connect with URL + anon key only, <span className="text-slate-400">no email/password</span></span>
-            </label>
-            {connectAnonymous && (
-              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-[10px] text-amber-700 dark:text-amber-300 space-y-1">
-                <p className="font-semibold">Enable Anonymous sign-ins on this Supabase project first (one-time, dashboard):</p>
-                <p className="font-mono">Dashboard → Authentication → Sign In / Providers → Anonymous sign-ins → <span className="font-bold">Enable</span></p>
-                <p>Then paste the URL + anon key above and click Connect — no email/password needed.</p>
-              </div>
-            )}
-            {!connectAnonymous && (
-              <>
-                <input type="email" placeholder="Email" value={connectEmail} onChange={e => setConnectEmail(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs" />
-                <input type="password" placeholder="Password" value={connectPassword} onChange={e => setConnectPassword(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs" />
-              </>
-            )}
-            {connectStatus && (
-              <p className={cn('text-[10px] font-mono break-all', connectStatus.includes('success') || connectStatus.includes('Connected') ? 'text-green-600 dark:text-green-400' : connectStatus.includes('Disconnected') ? 'text-slate-500' : 'text-red-500')}>{connectStatus}</p>
-            )}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleConnect} disabled={connecting || disconnecting} className="flex-1 text-xs">
-                {connecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Connecting…</> : connectAnonymous ? 'Connect (Anonymous)' : 'Connect'}
-              </Button>
-              <Button variant="outline" onClick={handleDisconnect} disabled={connecting || disconnecting || syncOk === false} className="flex-1 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
-                {disconnecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Disconnecting…</> : 'Disconnect'}
-              </Button>
-            </div>
-            <p className="text-[10px] text-slate-400">Connects temporarily — does not overwrite saved Settings config. Link-only uses a fresh anonymous user (your rows get that user&#39;s ID).</p>
-          </div>
-
-          {/* Current Config */}
-          {(() => {
-            const cfg = getConfig();
-            const sbAccount = readRemoteAccount(cfg);
-            return (
-              <div className="text-xs space-y-1">
-                <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url ? mask(cfg.url) : '(none)'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbAccount}</span></div>
-              </div>
-            );
-          })()}
-
-          {/* Stats + Browse */}
-          <div className="text-xs space-y-1">
-            {remoteStats && (
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1">
-                <div className="flex justify-between font-medium"><span className="text-slate-600 dark:text-slate-400">Total</span><span className="font-mono text-slate-900 dark:text-slate-100">{remoteStats.total}</span></div>
-                {Object.entries(remoteStats.byEntity).sort((a, b) => b[1] - a[1]).map(([entity, count]) => (
-                  <div key={entity} className="flex justify-between"><span className="text-slate-500 capitalize">{entity.replace('_', ' ')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{count}</span></div>
-                ))}
-              </div>
-            )}
-            {remoteRows && (
-              <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                {remoteRows.length === 0 && <p className="text-slate-400 text-center py-2">No remote rows</p>}
-                {remoteRows.map((row, i) => (
-                  <div key={i} className="flex justify-between border-b border-slate-100 dark:border-slate-700/50 pb-1 last:border-0">
-                    <span className="text-slate-500 truncate mr-2">{row.id}</span>
-                    <span className="text-slate-400 font-mono shrink-0">{row.entity}</span>
+              </button>
+            }
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Quick Connect</p>
+              <div className="p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-brand-muted/40 space-y-3">
+                <Field label="Supabase URL">
+                  <input type="text" placeholder="https://xxx.supabase.co" value={connectUrl} onChange={e => setConnectUrl(e.target.value)} className={inputCls} />
+                </Field>
+                <Field label="Anon key">
+                  <input type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" value={connectKey} onChange={e => setConnectKey(e.target.value)} className={inputCls} />
+                </Field>
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 dark:text-slate-300">
+                  <input type="checkbox" checked={connectAnonymous} onChange={e => setConnectAnonymous(e.target.checked)} className="accent-brand h-4 w-4" />
+                  <span><span className="font-semibold">Anonymous mode</span> — connect with URL + anon key only, no email/password</span>
+                </label>
+                {connectAnonymous && (
+                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                    <p className="font-bold">Enable Anonymous sign-ins first (one-time, Supabase dashboard):</p>
+                    <p className="font-mono">Authentication → Sign In / Providers → Anonymous sign-ins → Enable</p>
+                    <p>Then paste the URL + anon key above and click Connect — no email/password needed.</p>
                   </div>
+                )}
+                {!connectAnonymous && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label="Email">
+                      <input type="email" placeholder="you@example.com" value={connectEmail} onChange={e => setConnectEmail(e.target.value)} className={inputCls} />
+                    </Field>
+                    <Field label="Password">
+                      <input type="password" placeholder="••••••••" value={connectPassword} onChange={e => setConnectPassword(e.target.value)} className={inputCls} />
+                    </Field>
+                  </div>
+                )}
+                {connectStatus && (
+                  <p className={cn('text-xs font-mono break-all', connectStatus.includes('success') || connectStatus.includes('Connected') ? 'text-green-600 dark:text-green-400' : connectStatus.includes('Disconnected') ? 'text-slate-500' : 'text-red-500')}>{connectStatus}</p>
+                )}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={handleConnect} disabled={connecting || disconnecting} className="flex-1">
+                    {connecting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Connecting…</> : connectAnonymous ? 'Connect (Anonymous)' : 'Connect'}
+                  </Button>
+                  <Button variant="outline" onClick={handleDisconnect} disabled={connecting || disconnecting || syncOk === false} className="flex-1 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    {disconnecting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Disconnecting…</> : 'Disconnect'}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400">Temporary connection — does not overwrite saved Settings config. Link-only uses a fresh anonymous user (your rows get that user's ID).</p>
+              </div>
+            </div>
+
+            {(() => {
+              const cfg = getConfig();
+              const sbAccount = readRemoteAccount(cfg);
+              return (
+                <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Config</p>
+                  <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                    <StatRow label="URL" value={cfg.url ? mask(cfg.url) : '(none)'} />
+                    <StatRow label="Account" value={sbAccount} />
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Remote Data</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={loadRemoteStats} disabled={dbLoading} className="w-full">
+                  {dbLoading && !remoteStats ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Loading…</> : remoteStats ? 'Refresh Stats' : 'Load Stats'}
+                </Button>
+                <Button variant="outline" onClick={loadRemoteRows} disabled={dbLoading} className="w-full">
+                  {dbLoading && !remoteRows ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Loading…</> : remoteRows ? 'Refresh Rows' : 'Browse Rows'}
+                </Button>
+              </div>
+              {remoteStats && (
+                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3 space-y-0.5">
+                  <StatRow label="Total" value={remoteStats.total} />
+                  {Object.entries(remoteStats.byEntity).sort((a, b) => b[1] - a[1]).map(([entity, count]) => (
+                    <StatRow key={entity} label={entity.replace('_', ' ')} value={count} />
+                  ))}
+                </div>
+              )}
+              {remoteRows && (
+                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 overflow-hidden">
+                  <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-brand-muted/20">
+                    {remoteRows.length === 0 && <p className="text-xs text-slate-400 text-center py-3">No remote rows</p>}
+                    {remoteRows.map((row, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                        <span className="text-xs text-slate-600 dark:text-slate-300 font-mono truncate">{row.id}</span>
+                        <span className="text-xs text-slate-400 font-mono shrink-0">{row.entity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sync Operations</p>
+              <Button variant="outline" onClick={handlePull} disabled={pullLoading || pushLoading || freshLoading} className="w-full">
+                {pullLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Pulling…</> : <><Download className="h-3.5 w-3.5 mr-1.5" /> Pull Remote → Local</>}
+              </Button>
+              <Button variant="outline" onClick={handlePush} disabled={pullLoading || pushLoading || freshLoading} className="w-full">
+                {pushLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Pushing…</> : <><Upload className="h-3.5 w-3.5 mr-1.5" /> Push Local → Remote</>}
+              </Button>
+              <p className="text-xs text-slate-400">Realtime push ≈ seconds · periodic pull every 2 min · reconnect watchdog 30 s</p>
+            </div>
+          </DevCard>
+        </Reveal>
+
+        {/* Data Management */}
+        <Reveal delay={150}>
+          <DevCard
+            icon={FileUp}
+            cardClass="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800"
+            tileClass="bg-gradient-to-br from-emerald-500 to-teal-600"
+            title="Data Management"
+            subtitle="Import a backup, export raw data, or download custom reports."
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Import</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Select a JSON or XLSX export file to preview and import. XLSX files from the Custom Export (Excel) round-trip with original IDs.</p>
+              <input ref={fileInputRef} type="file" accept=".json,.xlsx,.xls" onChange={handleFileSelect} className="hidden" />
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1"><Upload className="h-3.5 w-3.5 mr-1.5" /> Choose File</Button>
+                {importFileName && <span className="text-xs text-slate-500 truncate">{importFileName}</span>}
+              </div>
+              {importData !== null && (
+                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3 text-xs space-y-1.5">
+                  <p className="font-bold text-slate-500 dark:text-slate-400">Preview</p>
+                  {Object.entries(importData).map(([key, items]) =>
+                    Array.isArray(items) && (
+                      <div key={key} className="flex justify-between border-b border-slate-100 dark:border-brand-muted/20 py-1 last:border-0">
+                        <span className="text-slate-600 dark:text-slate-300 capitalize">{key.replace('_', ' ')}</span>
+                        <span className="font-mono text-slate-800 dark:text-slate-200">{items.length}</span>
+                      </div>
+                    )
+                  )}
+                  <Button onClick={handleFileImport} className="w-full mt-2"><Download className="h-3.5 w-3.5 mr-1.5" /> Import Data</Button>
+                </div>
+              )}
+              {status && <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-700 dark:text-green-300">{status}</div>}
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Export</p>
+              <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full"><Download className="h-3.5 w-3.5 mr-1.5" /> Export Raw Data (JSON)</Button>
+              <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">Custom Export — selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="From date">
+                  <input id="custom-export-from" name="custom-export-from" type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)} className={inputCls} />
+                </Field>
+                <Field label="To date">
+                  <input id="custom-export-to" name="custom-export-to" type="date" value={exportTo} onChange={e => setExportTo(e.target.value)} className={inputCls} />
+                </Field>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Sections — select one or all</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'investments', l: 'Investments' }, { k: 'categories', l: 'Categories' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }, { k: 'works', l: 'Works' }, { k: 'goals', l: 'Goals' }, { k: 'accounts', l: 'Accounts' }, { k: 'partnership', l: 'Partnership' }].map(s => (
+                    <label key={s.k} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition-colors text-xs",
+                      exportSections[s.k] ? "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-900/30 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
+                      <input type="checkbox" checked={!!exportSections[s.k]} onChange={() => setExportSections({ ...exportSections, [s.k]: !exportSections[s.k] })} className="accent-emerald-600" />
+                      {s.l}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { k: 'xlsx', l: 'Excel (XLSX)' },
+                  { k: 'json', l: 'JSON (re-importable)' },
+                ].map(f => (
+                  <button key={f.k} type="button" onClick={() => setExportFormat(f.k as 'xlsx' | 'json')}
+                    className={cn("px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
+                      exportFormat === f.k ? "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-900/30 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
+                    {f.l}
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={loadRemoteStats} disabled={dbLoading} className="w-full text-xs">
-              {dbLoading && !remoteStats ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Loading...</> : remoteStats ? 'Refresh Stats' : 'Load Stats'}
-            </Button>
-            <Button variant="outline" onClick={loadRemoteRows} disabled={dbLoading} className="w-full text-xs">
-              {dbLoading && !remoteRows ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Loading...</> : remoteRows ? 'Refresh Rows' : 'Browse Remote'}
-            </Button>
-          </div>
-
-          {/* Sync Operations */}
-          <div className="border-t border-slate-100 dark:border-brand-muted/30 pt-4 space-y-2">
-            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Sync Operations</p>
-            <Button variant="outline" onClick={handlePull} disabled={pullLoading || pushLoading || freshLoading} className="w-full text-xs gap-2">
-              {pullLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Pulling...</> : <><Download className="h-3.5 w-3.5" /> Pull Remote → Local</>}
-            </Button>
-            <Button variant="outline" onClick={handlePush} disabled={pullLoading || pushLoading || freshLoading} className="w-full text-xs gap-2">
-              {pushLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Pushing...</> : <><Upload className="h-3.5 w-3.5" /> Push Local → Remote</>}
-            </Button>
-          </div>
-
-          {/* Danger Zone */}
-          <div className="border-t border-red-200 dark:border-red-900/40 pt-4 space-y-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Trash2 className="h-3.5 w-3.5 text-red-500" />
-              <p className="text-[10px] text-red-500 uppercase tracking-wider font-bold">Danger Zone</p>
+              <Button variant="outline" onClick={handleCustomExport} disabled={exporting} className="w-full">
+                {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4 mr-1.5" /> Export Custom ({exportFormat.toUpperCase()})</>}
+              </Button>
             </div>
-            <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="w-full text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20">
-              {freshLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Processing...</> : 'Start Fresh: Clear + Push Local'}
-            </Button>
-            <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
-              Clear Remote Only
-            </Button>
-            <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
-              {clearLocalLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Clearing...</> : 'Clear Local Only'}
-            </Button>
-            <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
-              {clearing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Clearing...</> : 'Clear ALL Data (Local + Remote)'}
-            </Button>
-          </div>
-        </div>
+          </DevCard>
+        </Reveal>
+
+        {/* Diagnostics */}
+        <Reveal delay={200}>
+          <DevCard
+            icon={Activity}
+            cardClass="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800"
+            tileClass="bg-gradient-to-br from-amber-500 to-orange-600"
+            title="Diagnostics"
+            subtitle="Sync health, local database stats, and storage usage."
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sync Health</p>
+              <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                {(() => {
+                  const cfg = getConfig();
+                  const sbAccount = readRemoteAccount(cfg);
+                  const lastEv = getLastSyncEvent();
+                  return (
+                    <>
+                      <StatRow label="URL" value={cfg.url ? mask(cfg.url) : '(none)'} />
+                      <StatRow label="Sync account" value={sbAccount} />
+                      <StatRow mono={false} label="Status" value={<span className={cn('font-mono', syncOk === true ? 'text-green-600 dark:text-green-400' : syncOk === false ? 'text-red-500' : 'text-slate-400')}>{syncOk === null ? 'untested' : syncOk ? 'connected' : 'failed'}</span>} />
+                      <StatRow label="Last sync event" value={lastEv ? `${lastEv.status}${lastEv.message ? ` · ${lastEv.message}` : ''}` : '—'} />
+                    </>
+                  );
+                })()}
+              </div>
+              <Button variant="outline" onClick={testSync} disabled={syncing} className="w-full">
+                {syncing ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Testing...</> : 'Test Connection'}
+              </Button>
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Local Database</p>
+              <Button variant="outline" onClick={loadDbStats} className="w-full">{dbStats ? 'Refresh Stats' : 'Load Stats'}</Button>
+              {dbStats && (
+                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                    {Object.entries(dbStats).map(([k, v]) => (
+                      <StatRow key={k} label={k.replace('_', ' ')} value={v < 0 ? 'err' : v} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Storage</p>
+              <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                {(() => {
+                  let lsSize = 0;
+                  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k) lsSize += (k.length + (localStorage.getItem(k) || '').length) * 2; } } catch {}
+                  return (
+                    <>
+                      <StatRow label="localStorage" value={`${(lsSize / 1024).toFixed(1)} KB`} />
+                      <StatRow label="IndexedDB" value="(auto-managed)" />
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">localStorage Keys</p>
+              <Button variant="outline" onClick={loadLsInspector} className="w-full">{lsData ? 'Refresh Keys' : 'Browse Keys'}</Button>
+              {lsData && (
+                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 overflow-hidden">
+                  <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-brand-muted/20 text-[11px]">
+                    {lsData.map((item, i) => (
+                      <div key={i} className="px-3 py-2 space-y-0.5">
+                        <div className="font-mono text-slate-700 dark:text-slate-300 break-all">{item.key}</div>
+                        <div className="text-slate-400 dark:text-slate-500 break-all">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </DevCard>
+        </Reveal>
+
+        {/* Announcements */}
+        <Reveal delay={250}>
+          <DevCard
+            icon={Megaphone}
+            cardClass="bg-gradient-to-r from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200 dark:border-orange-800"
+            tileClass="bg-gradient-to-br from-orange-500 to-rose-600"
+            title="Announcements"
+            subtitle="Broadcast pills & banner are fetched live from jsonbin.io on every dashboard load — edit them online, no app update needed."
+          >
+            <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+              <StatRow label="Broadcast bin" value={mask(BROADCAST_BIN_ID)} />
+              <StatRow label="Banner bin" value={mask(BANNER_BIN_ID)} />
+              <StatRow label="Dismissed pills (this device)" value={dismissedCount} />
+            </div>
+            {annTest && (
+              <div className={cn('p-3 rounded-xl text-sm', annTest.includes('FAILED') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800')}>
+                {annTest}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button variant="outline" onClick={testAnnouncements} disabled={annTesting} className="w-full">
+                {annTesting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Testing...</> : 'Test Bin Fetch'}
+              </Button>
+              <Button variant="outline" onClick={clearDismissed} disabled={!dismissedCount} className="w-full">
+                Clear Dismissed Pills
+              </Button>
+            </div>
+          </DevCard>
+        </Reveal>
+
+        {/* App & Session */}
+        <Reveal delay={300}>
+          <DevCard
+            icon={User}
+            cardClass="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800"
+            tileClass="bg-gradient-to-br from-purple-500 to-pink-600"
+            title="App & Session"
+            subtitle="Active session, theme brand, and recovery PINs."
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Session</p>
+              <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                <StatRow label="ID" value={session?.user?.id || 'unknown'} />
+                <StatRow label="Name" value={session?.user?.full_name || session?.user?.email || 'unknown'} />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Theme Brand</p>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{brand}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Active theme brand ({brands.length} available)</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleBrandCycle}><Palette className="h-3.5 w-3.5 mr-1.5" /> Next Brand</Button>
+              </div>
+            </div>
+
+            {hasPins() && (
+              <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Recovery PINs</p>
+                  <span className="text-xs text-slate-400">{getRemainingPins()} remaining</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getPins().map((pin, i) => (
+                    <span key={i} className={cn('font-mono text-sm px-3 py-1.5 rounded-lg border', i < getUsedIndex() ? 'bg-slate-100 dark:bg-brand-muted text-slate-400 dark:text-slate-500 line-through border-slate-200 dark:border-brand-muted' : 'bg-amber-50 dark:bg-amber-900/20 text-slate-900 dark:text-slate-100 border-amber-200 dark:border-amber-800/40')}>
+                      {showPins ? pin : '••••'}
+                    </span>
+                  ))}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowPins(!showPins)} className="text-xs">
+                  {showPins ? <><EyeOff className="h-3.5 w-3.5 mr-1.5" /> Hide PINs</> : <><Eye className="h-3.5 w-3.5 mr-1.5" /> Reveal PINs</>}
+                </Button>
+              </div>
+            )}
+          </DevCard>
+        </Reveal>
+
+        {/* Danger Zone */}
+        <Reveal delay={350}>
+          <DevCard
+            icon={ShieldAlert}
+            cardClass="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800"
+            tileClass="bg-gradient-to-br from-red-500 to-rose-600"
+            title="Danger Zone"
+            subtitle="Destructive actions. Read each warning carefully before proceeding."
+          >
+            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-950/30 p-4 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-red-700 dark:text-red-300">Irreversible operations</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">These actions permanently delete data. Export a backup first if in doubt.</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="w-full text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+                {freshLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Processing...</> : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Start Fresh: Clear Remote + Push Local</>}
+              </Button>
+              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear Remote Only
+              </Button>
+              <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                {clearLocalLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear Local Only</>}
+              </Button>
+              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
+                {clearing ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear ALL Data (Local + Remote)</>}
+              </Button>
+            </div>
+          </DevCard>
+        </Reveal>
       </div>
 
       {confirmBox && (
@@ -945,17 +1025,50 @@ export default function DeveloperPage() {
   );
 }
 
-function Section({ icon: Icon, title, children, iconColor, right }: { icon: any; title: string; children: React.ReactNode; iconColor?: string; right?: React.ReactNode }) {
+function DevCard({ icon: Icon, cardClass, tileClass, title, subtitle, right, children }: {
+  icon: any;
+  cardClass: string;
+  tileClass: string;
+  title: string;
+  subtitle: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className={cn('h-4 w-4', iconColor || 'text-slate-500')} />
-          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">{title}</h2>
+    <div className={cn('rounded-2xl p-6', cardClass)}>
+      <div className="flex items-start gap-4">
+        <div className={cn('p-3 rounded-xl shadow-sm', tileClass)}>
+          <Icon className="h-6 w-6 text-white" />
         </div>
-        {right}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{title}</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{subtitle}</p>
+            </div>
+            {right}
+          </div>
+          <div className="mt-4">{children}</div>
+        </div>
       </div>
-      {children}
     </div>
+  );
+}
+
+function StatRow({ label, value, mono = true }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={cn('text-xs text-slate-800 dark:text-slate-200 text-right truncate', mono && 'font-mono')}>{value}</span>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block min-w-0">
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">{label}</span>
+      {children}
+    </label>
   );
 }
