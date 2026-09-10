@@ -935,27 +935,28 @@ const loadRemoteRows = async () => {
             cardClass="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800"
             tileClass="bg-gradient-to-br from-red-500 to-rose-600"
             title="Danger Zone"
-            subtitle="Destructive actions. Read each warning carefully before proceeding."
+            subtitle="Destructive actions that cannot be undone"
           >
-            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-950/30 p-4 flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-red-700 dark:text-red-300">Irreversible operations</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">These actions permanently delete data. Export a backup first if in doubt.</p>
-              </div>
+            <div className="bg-white dark:bg-red-900/30 rounded-xl p-4 text-sm space-y-2 border border-red-100 dark:border-red-800">
+              <p className="font-medium text-red-700 dark:text-red-300">Before proceeding:</p>
+              <ul className="list-disc list-inside text-red-600 dark:text-red-400 space-y-1">
+                <li>All actions <strong>cannot be reversed</strong></li>
+                <li>Make sure to <strong>export your data</strong> first (see Data Management above)</li>
+                <li><strong>Disable cloud sync</strong> on other devices first to avoid conflicts</li>
+              </ul>
             </div>
-            <div className="space-y-2 max-w-sm">
-              <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="w-full justify-start text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
-                {freshLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Processing...</> : <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Start Fresh: Clear Remote + Push Local</>}
+            <div className="flex flex-wrap gap-3">
+              <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="gap-2 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+                {freshLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><RefreshCw className="h-4 w-4" /> Start Fresh: Clear Remote + Push Local</>}
               </Button>
-              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full justify-start text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear Remote Only
+              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Trash2 className="h-4 w-4" /> Clear Remote Only
               </Button>
-              <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="w-full justify-start text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
-                {clearLocalLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear Local Only</>}
+              <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                {clearLocalLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <><Trash2 className="h-4 w-4" /> Clear Local Only</>}
               </Button>
-              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="w-full justify-start text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
-                {clearing ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Clearing...</> : <><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Clear ALL Data (Local + Remote)</>}
+              <Button variant="danger" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="gap-2 font-bold">
+                {clearing ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <><Trash2 className="h-4 w-4" /> Clear ALL Data (Local + Remote)</>}
               </Button>
             </div>
           </DevCard>
