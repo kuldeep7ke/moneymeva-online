@@ -372,7 +372,19 @@ export default function DeveloperPage() {
     try {
       const { pushAllToPouch } = await import('@/lib/store');
       const count = await pushAllToPouch();
-      overlay.finish(`Push complete — ${count} item(s) sent`, () => overlay.close());
+      overlay.update('Uploading to remote…', 1, 2);
+      const { ok, pushed, pushErr } = await manualSync();
+      if (ok) {
+        if (pushed > 0) {
+          overlay.finish(`Push complete — ${pushed} item(s) uploaded to remote`, () => overlay.close());
+        } else if (count > 0) {
+          overlay.error(`Staged ${count} item(s) locally but 0 reached remote${pushErr ? ` (${pushErr})` : ''} — reconnect and retry`, () => overlay.close());
+        } else {
+          overlay.finish('Push complete — nothing to send', () => overlay.close());
+        }
+      } else {
+        overlay.error('Push failed — remote not connected', () => overlay.close());
+      }
     } catch {
       overlay.error('Push failed', () => overlay.close());
     }
@@ -384,12 +396,18 @@ export default function DeveloperPage() {
     setFreshLoading(true);
     const overlay = createProgressOverlay('Starting fresh…');
     try {
-      overlay.update('Clearing remote database…', 1, 2);
+      overlay.update('Clearing remote database…', 1, 3);
       await clearRemote();
-      overlay.update('Pushing local data to remote…', 2, 2);
+      overlay.update('Staging local data…', 2, 3);
       const { pushAllToPouch } = await import('@/lib/store');
-      const count = await pushAllToPouch();
-      overlay.finish(`Done — pushed ${count} item(s). Local data is now the source of truth.`, () => {
+      await pushAllToPouch();
+      overlay.update('Uploading to remote…', 3, 3);
+      const { ok, pushed } = await manualSync();
+      if (!ok) {
+        overlay.error('Push failed — remote not connected', () => overlay.close());
+        return;
+      }
+      overlay.finish(`Done — pushed ${pushed} item(s). Local data is now the source of truth.`, () => {
         window.location.reload();
       });
     } catch {
