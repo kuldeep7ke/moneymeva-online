@@ -4,8 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, Trash2, Pencil, X, TrendingUp, TrendingDown, IndianRupee } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
-import { getPartnerships, addPartnership, updatePartnership, deletePartnership, getPartnershipEntries, addPartnershipEntry, deletePartnershipEntry, getPartnershipSummary, getPartnerNameSafe, getPartners, isStoreReady, getTransactions } from '@/lib/store';
-import type { Partnership, PartnershipMember, SeasonType } from '@/types';
+import { getPartnerships, addPartnership, updatePartnership, deletePartnership, getPartnershipEntries, addPartnershipEntry, deletePartnershipEntry, getPartnershipSummary, getPartnerNameSafe, getPartners, isStoreReady, getTransactions, payerValueForMember, PSEUDO_PARTY_PREFIX } from '@/lib/store';
+import type { Partnership, PartnershipMember, PartnershipEntry, SeasonType } from '@/types';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -14,6 +14,15 @@ import { useToast } from '@/components/Toast';
 import { useTranslation } from '@/lib/i18n';
 
 const SEASONS = ['kharif', 'rabi', 'summer', 'annual'] as const;
+
+function entryPayerLabel(members: PartnershipMember[], pid?: string): string {
+  if (!pid) return '';
+  if (pid.startsWith(PSEUDO_PARTY_PREFIX)) {
+    const m = members.find(x => payerValueForMember(x) === pid);
+    return m ? m.name : '';
+  }
+  return getPartnerNameSafe(pid);
+}
 
 export default function PartnershipTab() {
   const toast = useToast();
@@ -223,7 +232,7 @@ export default function PartnershipTab() {
                           <div className="min-w-0">
                             <p className="text-sm text-slate-900 dark:text-slate-100 truncate">{e.description}</p>
                             <p className="text-[11px] text-slate-400">
-                              {e.date}{e.type === 'expense' && e.paidByPartyId ? ` · ${t('ps.paidByEntry').replace('{name}', getPartnerNameSafe(e.paidByPartyId))}` : ''}
+                              {e.date}{e.type === 'expense' && e.paidByPartyId ? ` · ${t('ps.paidByEntry').replace('{name}', entryPayerLabel(ps.members, e.paidByPartyId))}` : ''}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 ml-2">
@@ -392,7 +401,7 @@ export default function PartnershipTab() {
       {entryFor && (() => {
         const ps = list.find(p => p.id === entryFor);
         if (!ps) return null;
-        const memberPartyIds = ps.members.filter(m => m.partyId).map(m => m.partyId);
+        const memberOptions = ps.members.filter(m => (m.name || '').trim()).map(m => ({ value: payerValueForMember(m), label: getPartnerNameSafe(m.partyId) || m.name }));
         return (
           <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full p-6 shadow-2xl my-4">
@@ -420,7 +429,7 @@ export default function PartnershipTab() {
                     <select required value={entryForm.paidByPartyId} onChange={e => setEntryForm({ ...entryForm, paidByPartyId: e.target.value })}
                       className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
                       <option value="">{t('ps.selectPayer')}</option>
-                      {memberPartyIds.map(pid => <option key={pid} value={pid}>{getPartnerNameSafe(pid)}</option>)}
+                      {memberOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                     <p className="text-[11px] text-slate-400">{t('ps.paidByHint')}</p>
                   </div>

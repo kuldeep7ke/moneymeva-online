@@ -1403,6 +1403,15 @@ export function recordWorkPayment(workId: string, payment: { date: string; amoun
 }
 
 // ─── Partnership (भागीदारी) — shared crop accounting ─────────
+export const PSEUDO_PARTY_PREFIX = '__ps:';
+
+// Value used for a partnership member in "Who paid?" — a real party id when the
+// member is linked to a partner, otherwise a stable pseudo id so free-text
+// members can also be attributed payments.
+export function payerValueForMember(m: PartnershipMember): string {
+  return m.partyId || `${PSEUDO_PARTY_PREFIX}${m.id}`;
+}
+
 export function getPartnerships(): Partnership[] {
   return cache.partnerships.filter(p => !p.deletedAt);
 }
@@ -1464,7 +1473,7 @@ export function addPartnershipEntry(e: Omit<PartnershipEntry, 'id' | 'transition
       description: `${ps.title} · ${e.description}`,
       date: e.date,
       amount: e.amount,
-      partnerAccountId: e.type === 'expense' ? e.paidByPartyId : undefined,
+      partnerAccountId: e.type === 'expense' && e.paidByPartyId && !e.paidByPartyId.startsWith(PSEUDO_PARTY_PREFIX) ? e.paidByPartyId : undefined,
       isRecurring: false,
     });
   }
@@ -1539,7 +1548,7 @@ export function getPartnershipSummary(partnershipId: string): PartnershipSummary
   const members: PartnershipMember[] = ps?.members || [];
   const rows: PartnershipMemberRow[] = members.map(m => {
     const share = m.sharePct / 100;
-    const paid = entries.filter(e => e.type === 'expense' && e.paidByPartyId && e.paidByPartyId === m.partyId).reduce((s, e) => s + e.amount, 0);
+    const paid = entries.filter(e => e.type === 'expense' && e.paidByPartyId && e.paidByPartyId === payerValueForMember(m)).reduce((s, e) => s + e.amount, 0);
     const incomeShare = totalIncome * share;
     const expenseShare = totalExpense * share;
     return { memberId: m.id, name: m.name, sharePct: m.sharePct, incomeShare, expenseShare, paid, balance: incomeShare + paid - expenseShare };
