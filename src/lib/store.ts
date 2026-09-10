@@ -97,6 +97,74 @@ async function migrateFromLocalStorage() {
   }
 }
 
+const MIGRATION_PARTNER_GROUPS_KEY = 'mm_partner_groups_v2';
+
+const GROUP_MIGRATION_MAP: Record<string, string> = {
+  vendor: 'business',
+  customer: 'business',
+  contact: 'personal',
+};
+
+const TYPE_MIGRATION_MAP: Record<string, Record<string, string>> = {
+  contact: {
+    individual: 'other',
+    friend: 'friend',
+    employer: 'employer',
+    company: 'other',
+    employee: 'other',
+    landlord: 'other',
+    investor: 'other',
+    partner: 'other',
+    consultant: 'other',
+  },
+  vendor: {
+    supplier: 'supplier',
+    wholesaler: 'wholesaler',
+    contractor: 'contractor',
+    service_provider: 'service_provider',
+    manufacturer: 'other',
+    freelancer: 'freelancer',
+    shop: 'shop',
+  },
+  customer: {
+    client: 'client',
+    retail: 'other',
+    wholesale_buyer: 'other',
+    regular: 'other',
+    corporate: 'client',
+  },
+};
+
+async function migratePartnerGroups() {
+  try {
+    if (typeof window !== 'undefined' && localStorage.getItem(MIGRATION_PARTNER_GROUPS_KEY)) return;
+    const partners = await db.partners.toArray();
+    if (partners.length === 0) {
+      if (typeof window !== 'undefined') localStorage.setItem(MIGRATION_PARTNER_GROUPS_KEY, '1');
+      return;
+    }
+    let changed = 0;
+    const updated = partners.map(p => {
+      if (GROUP_MIGRATION_MAP[p.group]) {
+        changed++;
+        const newGroup = GROUP_MIGRATION_MAP[p.group] as PartnerAccount['group'];
+        const typeMap = TYPE_MIGRATION_MAP[p.group] || {};
+        const newType = typeMap[p.type] || p.type;
+        return { ...p, group: newGroup, type: newType };
+      }
+      return p;
+    });
+    if (changed > 0) {
+      await db.partners.clear();
+      await db.partners.bulkPut(updated);
+      cache.partners = updated;
+    }
+    if (typeof window !== 'undefined') localStorage.setItem(MIGRATION_PARTNER_GROUPS_KEY, '1');
+  } catch (e) {
+    console.warn('[Store] Partner groups migration failed:', e);
+  }
+}
+
 function deduplicatePartners(partners: PartnerAccount[]): PartnerAccount[] {
   const seen = new Map<string, PartnerAccount>();
   for (const p of partners) {
@@ -140,6 +208,8 @@ export async function initDB() {
       await db.partners.bulkPut(deduped);
     }
     await autoDeleteExpiredArchived();
+    // Migrate partner groups from old (vendor/customer/contact) to new system
+    await migratePartnerGroups();
   } catch (e) {
     console.warn('[Store] initDB failed — continuing with empty cache:', e);
   }

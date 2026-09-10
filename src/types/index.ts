@@ -26,7 +26,7 @@ export interface PartnerAccount {
   transitionId: string;
   name: string;
   type: string;
-  group: 'customer' | 'vendor' | 'contact';
+  group: 'personal' | 'services' | 'financial' | 'business' | 'government' | 'agriculture' | 'office';
   description: string;
   budgetWindowStart: string;
   budgetWindowEnd: string;

@@ -9,6 +9,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import NotificationPanel from '@/components/NotificationPanel';
 import { Button } from '@/components/ui/button';
 import { getTransactions, getMonthlySummary, getAggregates, getCarryForward, getRecurring, getGoals, getPartners, addTransaction, addGoal, updateGoal, deleteGoal, addPartner, isStoreReady, advanceRecurring, getPartnerships, getPartnershipSummary, getCreditBalance } from '@/lib/store';
+import { PARTY_GROUPS, PARTY_TYPES_BY_GROUP, type PartyGroup } from '@/lib/parties';
 import { useAuth } from '@/components/AuthProvider';
 import { hasPins } from '@/lib/pinStore';
 import Reveal from '@/components/Reveal';
@@ -87,7 +88,7 @@ export default function DashboardPage() {
   const [txCatHighlight, setTxCatHighlight] = useState(-1);
   const catRef = useRef<HTMLDivElement>(null);
   const [showAddParty, setShowAddParty] = useState(false);
-  const [partyForm, setPartyForm] = useState({ name: '', group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
+  const [partyForm, setPartyForm] = useState({ name: '', group: 'personal' as PartyGroup, type: 'friend', description: '' });
   const [showCalculator, setShowCalculator] = useState(false);
   const [recurringList, setRecurringList] = useState<any[]>([]);
   const [confirmTx, setConfirmTx] = useState<any>(null);
@@ -258,14 +259,14 @@ export default function DashboardPage() {
     const existing = getPartners().find((p: any) => !p.deletedAt && p.name.toLowerCase() === partyForm.name.trim().toLowerCase());
     if (existing) {
       setShowAddParty(false);
-      setPartyForm({ name: '', group: 'contact', type: 'individual', description: '' });
+      setPartyForm({ name: '', group: 'personal', type: 'friend', description: '' });
       setToast(`"${existing.name}" already exists`);
       setTimeout(() => setToast(null), 3000);
       return;
     }
     addPartner({ name: partyForm.name, type: partyForm.type, group: partyForm.group, description: partyForm.description, budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
     setShowAddParty(false);
-    setPartyForm({ name: '', group: 'contact', type: 'individual', description: '' });
+    setPartyForm({ name: '', group: 'personal', type: 'friend', description: '' });
     refreshDashboard();
   };
 
@@ -1155,23 +1156,20 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Group</label>
-                  <select value={partyForm.group} onChange={e => setPartyForm({ ...partyForm, group: e.target.value as 'customer' | 'vendor' | 'contact' })}
+                  <select value={partyForm.group} onChange={e => { const newGroup = e.target.value as PartyGroup; setPartyForm({ ...partyForm, group: newGroup, type: PARTY_TYPES_BY_GROUP[newGroup]?.[0]?.value || 'other' }); }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
-                    <option value="contact">Contact</option>
-                    <option value="customer">Customer</option>
-                    <option value="vendor">Vendor</option>
+                    {PARTY_GROUPS.map(g => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-400 block mb-1">Type</label>
                   <select value={partyForm.type} onChange={e => setPartyForm({ ...partyForm, type: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand text-sm">
-                    <option value="individual">Individual</option>
-                    <option value="friend">Friend / Family</option>
-                    <option value="employer">Employer / Company</option>
-                    <option value="company">Company / Organization</option>
-                    <option value="client">Client</option>
-                    <option value="supplier">Supplier</option>
+                    {(PARTY_TYPES_BY_GROUP[partyForm.group] || PARTY_TYPES_BY_GROUP.personal).map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>

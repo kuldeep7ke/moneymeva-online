@@ -15,39 +15,7 @@ import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
 import PartnershipTab from '@/components/PartnershipTab';
 import { useTranslation } from '@/lib/i18n';
-
-const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> = {
-  vendor: [
-    { value: 'supplier', label: 'Supplier' },
-    { value: 'wholesaler', label: 'Wholesaler' },
-    { value: 'contractor', label: 'Contractor' },
-    { value: 'service_provider', label: 'Service Provider' },
-    { value: 'manufacturer', label: 'Manufacturer' },
-    { value: 'freelancer', label: 'Freelancer' },
-    { value: 'shop', label: 'Shop / Retailer' },
-    { value: 'other', label: 'Other' },
-  ],
-  customer: [
-    { value: 'client', label: 'Client' },
-    { value: 'retail', label: 'Retail Customer' },
-    { value: 'wholesale_buyer', label: 'Wholesale Buyer' },
-    { value: 'regular', label: 'Regular' },
-    { value: 'corporate', label: 'Corporate' },
-    { value: 'other', label: 'Other' },
-  ],
-  contact: [
-    { value: 'individual', label: 'Individual / Person' },
-    { value: 'friend', label: 'Friend / Family' },
-    { value: 'employer', label: 'Employer / Company' },
-    { value: 'company', label: 'Company / Organization' },
-    { value: 'employee', label: 'Employee / Staff' },
-    { value: 'landlord', label: 'Landlord / Tenant' },
-    { value: 'investor', label: 'Investor' },
-    { value: 'partner', label: 'Joint Venture Partner' },
-    { value: 'consultant', label: 'Consultant' },
-    { value: 'other', label: 'Other' },
-  ],
-};
+import { PARTY_GROUPS, PARTY_TYPES_BY_GROUP, getGroupLabel, getTypeLabel, type PartyGroup } from '@/lib/parties';
 
 export default function PartnersPage() {
   const toast = useToast();
@@ -70,7 +38,7 @@ export default function PartnersPage() {
     return () => window.removeEventListener('store-ready', onReady);
   }, []);
 
-  const [activeGroup, setActiveGroup] = useState<'all' | 'customer' | 'vendor' | 'contact'>('all');
+  const [activeGroup, setActiveGroup] = useState<'all' | PartyGroup>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showTxModal, setShowTxModal] = useState<string | null>(null);
@@ -84,7 +52,7 @@ export default function PartnersPage() {
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
   const [dupWarning, setDupWarning] = useState<any | null>(null);
 
-  const [form, setForm] = useState({ name: '', type: 'supplier', group: 'vendor' as 'customer' | 'vendor' | 'contact', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
+  const [form, setForm] = useState({ name: '', type: 'other', group: 'personal' as PartyGroup, description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
   const [txForm, setTxForm] = useState({ amount: '', type: 'income' as 'income' | 'expense', category: '', description: '', date: todayStr(), account: 'cash' as 'cash' | 'bank' | 'upi' | 'credit' });
 
   const filteredPartners = activeGroup === 'all' ? partners : partners.filter(p => p.group === activeGroup);
@@ -131,7 +99,7 @@ export default function PartnersPage() {
     }
     setShowAddModal(false);
     setEditingId(null);
-    setForm({ name: '', type: 'supplier', group: 'vendor', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
+    setForm({ name: '', type: 'other', group: 'personal', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' });
     refresh();
   };
 
@@ -289,15 +257,10 @@ export default function PartnersPage() {
             </div>
 
             {/* Group Tabs */}
-            <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap mb-6">
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'vendor', label: 'Vendors' },
-                { key: 'customer', label: 'Customers' },
-                { key: 'contact', label: 'Contacts' },
-              ].map(g => (
+            <div className="flex items-center justify-start gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
+              {[{ key: 'all', label: 'All' }, ...PARTY_GROUPS.map(g => ({ key: g.value, label: g.label }))].map(g => (
                 <button key={g.key} onClick={() => setActiveGroup(g.key as any)}
-                  className={cn("px-3 py-2 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-colors",
+                  className={cn("px-3 py-2 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-colors whitespace-nowrap",
                     activeGroup === g.key ? "bg-brand text-white shadow-sm" : "bg-white dark:bg-[#2A2522] border border-slate-200 dark:border-brand-muted text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   )}>
                   {g.label}
@@ -320,7 +283,7 @@ export default function PartnersPage() {
         <div className="grid grid-cols-1 gap-6">
           {filteredPartners.length === 0 && partners.length > 0 && (
             <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted shadow-sm p-8 text-center">
-              <p className="text-slate-400 dark:text-slate-500">No {activeGroup}s found in this group.</p>
+              <p className="text-slate-400 dark:text-slate-500">No {getGroupLabel(activeGroup)} parties found.</p>
             </div>
           )}
           {filteredPartners.map((partner) => (
@@ -331,7 +294,7 @@ export default function PartnersPage() {
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{partner.name}</h3>
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-brand-muted rounded-full text-xs font-medium">{((PARTY_TYPES_BY_GROUP[partner.group] || []).find(t => t.value === partner.type)?.label || partner.type)}</span>
+                      <span className="px-2 py-0.5 bg-slate-100 dark:bg-brand-muted rounded-full text-xs font-medium">{getTypeLabel(partner.group, partner.type)}</span>
                     </div>
                   </div>
                 </div>
@@ -422,18 +385,18 @@ export default function PartnersPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">Group</label>
-                  <select value={form.group} onChange={e => { const newGroup = e.target.value as 'vendor' | 'customer' | 'contact'; setForm({ ...form, group: newGroup, type: PARTY_TYPES_BY_GROUP[newGroup]?.[0]?.value || 'other' }); }}
+                  <select value={form.group} onChange={e => { const newGroup = e.target.value as PartyGroup; setForm({ ...form, group: newGroup, type: PARTY_TYPES_BY_GROUP[newGroup]?.[0]?.value || 'other' }); }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
-                    <option value="contact">Contact</option>
-                    <option value="vendor">Vendor</option>
-                    <option value="customer">Customer</option>
+                    {PARTY_GROUPS.map(g => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">Type</label>
                   <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
-                    {(PARTY_TYPES_BY_GROUP[form.group] || PARTY_TYPES_BY_GROUP.contact).map(t => (
+                    {(PARTY_TYPES_BY_GROUP[form.group] || PARTY_TYPES_BY_GROUP.personal).map(t => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
@@ -450,7 +413,7 @@ export default function PartnersPage() {
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder="Optional notes..." />
               </div>
               <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => { setShowAddModal(false); setEditingId(null); setForm({ name: '', type: 'supplier', group: 'vendor', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' }); }}>Cancel</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowAddModal(false); setEditingId(null); setForm({ name: '', type: 'other', group: 'personal', description: '', budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: '' }); }}>Cancel</Button>
                 <Button type="submit" size="sm">{editingId ? 'Save' : 'Create'}</Button>
               </div>
             </form>

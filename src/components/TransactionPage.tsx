@@ -7,6 +7,7 @@ import { Plus, Search, Trash2, Undo2, AlertTriangle, ArrowUpDown, X, Archive, Sl
 import { formatCurrency, cn, getSortedCategories, todayStr } from '@/lib/utils';
 import { TransactionType, Transaction } from '@/types';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, permanentDeleteTransaction, getArchivedTransactions, getPartners, addPartner, checkDuplicateTransaction, addAdjustment, isStoreReady } from '@/lib/store';
+import { PARTY_GROUPS, PARTY_TYPES_BY_GROUP, type PartyGroup } from '@/lib/parties';
 import InvestmentCalculator from '@/components/InvestmentCalculator';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
@@ -107,7 +108,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
   const [partyHighlightIndex, setPartyHighlightIndex] = useState(-1);
   const partyRef = useRef<HTMLDivElement>(null);
   const [showCreateParty, setShowCreateParty] = useState<string | null>(null);
-  const [createPartyForm, setCreatePartyForm] = useState({ group: 'contact' as 'customer' | 'vendor' | 'contact', type: 'individual', description: '' });
+  const [createPartyForm, setCreatePartyForm] = useState({ group: 'personal' as PartyGroup, type: 'friend', description: '' });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -170,36 +171,6 @@ export default function TransactionPage({ type, title, description, titleKey }: 
   const [showInvestDetails, setShowInvestDetails] = useState(false);
   const [showEditInvestDetails, setShowEditInvestDetails] = useState(false);
 
-  const PARTY_TYPES: Record<string, { value: string; label: string }[]> = {
-    vendor: [
-      { value: 'supplier', label: 'Supplier' },
-      { value: 'wholesaler', label: 'Wholesaler' },
-      { value: 'contractor', label: 'Contractor' },
-      { value: 'service_provider', label: 'Service Provider' },
-      { value: 'freelancer', label: 'Freelancer' },
-      { value: 'shop', label: 'Shop / Retailer' },
-      { value: 'other', label: 'Other' },
-    ],
-    customer: [
-      { value: 'client', label: 'Client' },
-      { value: 'retail', label: 'Retail Customer' },
-      { value: 'regular', label: 'Regular' },
-      { value: 'corporate', label: 'Corporate' },
-      { value: 'other', label: 'Other' },
-    ],
-    contact: [
-      { value: 'individual', label: 'Individual / Person' },
-      { value: 'friend', label: 'Friend / Family' },
-      { value: 'employer', label: 'Employer / Company' },
-      { value: 'company', label: 'Company / Organization' },
-      { value: 'employee', label: 'Employee / Staff' },
-      { value: 'landlord', label: 'Landlord / Tenant' },
-      { value: 'investor', label: 'Investor' },
-      { value: 'consultant', label: 'Consultant' },
-      { value: 'other', label: 'Other' },
-    ],
-  };
-
   const handleCreateParty = () => {
     if (!showCreateParty) return;
     const existing = getPartners().find((p: any) => !p.deletedAt && p.name.toLowerCase() === showCreateParty.trim().toLowerCase());
@@ -213,7 +184,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
         setPartySearch(existing.name);
       }
       setShowCreateParty(null);
-      setCreatePartyForm({ group: 'contact', type: 'individual', description: '' });
+      setCreatePartyForm({ group: 'personal', type: 'friend', description: '' });
       return;
     }
     const result = addPartner({ name: showCreateParty, type: createPartyForm.type, group: createPartyForm.group, description: createPartyForm.description, budgetWindowStart: '', budgetWindowEnd: '', initialInvestment: 0 });
@@ -227,7 +198,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
       }
     }
     setShowCreateParty(null);
-    setCreatePartyForm({ group: 'contact', type: 'individual', description: '' });
+    setCreatePartyForm({ group: 'personal', type: 'friend', description: '' });
   };
 
   const handleEdit = () => {
@@ -1492,18 +1463,18 @@ export default function TransactionPage({ type, title, description, titleKey }: 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Group</label>
-                  <select value={createPartyForm.group} onChange={e => { const g = e.target.value as 'vendor' | 'customer' | 'contact'; setCreatePartyForm({ ...createPartyForm, group: g, type: PARTY_TYPES[g]?.[0]?.value || 'other' }); }}
+                  <select value={createPartyForm.group} onChange={e => { const g = e.target.value as PartyGroup; setCreatePartyForm({ ...createPartyForm, group: g, type: PARTY_TYPES_BY_GROUP[g]?.[0]?.value || 'other' }); }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-sm outline-none focus:ring-2 focus:ring-brand">
-                    <option value="contact">Contact</option>
-                    <option value="vendor">Vendor</option>
-                    <option value="customer">Customer</option>
+                    {PARTY_GROUPS.map(g => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Type</label>
                   <select value={createPartyForm.type} onChange={e => setCreatePartyForm({ ...createPartyForm, type: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-sm outline-none focus:ring-2 focus:ring-brand">
-                    {(PARTY_TYPES[createPartyForm.group] || PARTY_TYPES.contact).map(t => (
+                    {(PARTY_TYPES_BY_GROUP[createPartyForm.group] || PARTY_TYPES_BY_GROUP.personal).map(t => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
@@ -1515,7 +1486,7 @@ export default function TransactionPage({ type, title, description, titleKey }: 
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted text-sm outline-none focus:ring-2 focus:ring-brand" placeholder="Optional notes..." />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => { setShowCreateParty(null); setCreatePartyForm({ group: 'contact', type: 'individual', description: '' }); }}>Cancel</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowCreateParty(null); setCreatePartyForm({ group: 'personal', type: 'friend', description: '' }); }}>Cancel</Button>
                 <Button size="sm" onClick={handleCreateParty}>Create & Select</Button>
               </div>
             </div>

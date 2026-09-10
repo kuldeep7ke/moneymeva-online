@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { User, Briefcase, Target, Users, CheckCircle, ArrowRight, ArrowLeft, Wallet, BarChart3, Upload } from 'lucide-react';
 import { updateProfile } from '@/lib/localAuth';
 import { addGoal, addPartner } from '@/lib/store';
+import { PARTY_GROUPS, PARTY_TYPES_BY_GROUP, type PartyGroup } from '@/lib/parties';
 import { cn } from '@/lib/utils';
 import Reveal from '@/components/Reveal';
 import { Capacitor } from '@capacitor/core';
@@ -93,39 +94,6 @@ const PROFESSION_CATEGORIES: Record<string, { income: string[]; expense: string[
   },
 };
 
-const PARTY_TYPES_BY_GROUP: Record<string, { value: string; label: string }[]> = {
-  vendor: [
-    { value: 'supplier', label: 'Supplier' },
-    { value: 'wholesaler', label: 'Wholesaler' },
-    { value: 'contractor', label: 'Contractor' },
-    { value: 'service_provider', label: 'Service Provider' },
-    { value: 'manufacturer', label: 'Manufacturer' },
-    { value: 'freelancer', label: 'Freelancer' },
-    { value: 'shop', label: 'Shop / Retailer' },
-    { value: 'other', label: 'Other' },
-  ],
-  customer: [
-    { value: 'client', label: 'Client' },
-    { value: 'retail', label: 'Retail Customer' },
-    { value: 'wholesale_buyer', label: 'Wholesale Buyer' },
-    { value: 'regular', label: 'Regular' },
-    { value: 'corporate', label: 'Corporate' },
-    { value: 'other', label: 'Other' },
-  ],
-  contact: [
-    { value: 'individual', label: 'Individual / Person' },
-    { value: 'friend', label: 'Friend / Family' },
-    { value: 'employer', label: 'Employer / Company' },
-    { value: 'company', label: 'Company / Organization' },
-    { value: 'employee', label: 'Employee / Staff' },
-    { value: 'landlord', label: 'Landlord / Tenant' },
-    { value: 'investor', label: 'Investor' },
-    { value: 'partner', label: 'Joint Venture Partner' },
-    { value: 'consultant', label: 'Consultant' },
-    { value: 'other', label: 'Other' },
-  ],
-};
-
 export default function OnboardingPage() {
   const { user, profile, loading: authLoading, refreshAuth } = useAuth();
   const router = useRouter();
@@ -144,7 +112,7 @@ export default function OnboardingPage() {
   });
   const [goalName, setGoalName] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
-  const [partnerForm, setPartnerForm] = useState<{ name: string; group: 'vendor' | 'customer' | 'contact'; type: string; description: string } | null>(null);
+  const [partnerForm, setPartnerForm] = useState<{ name: string; group: PartyGroup; type: string; description: string } | null>(null);
   const [importMessage, setImportMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -512,7 +480,7 @@ export default function OnboardingPage() {
               </div>
               {!partnerForm ? (
                 <div className="text-center py-4">
-                  <Button variant="outline" onClick={() => setPartnerForm({ name: '', group: 'contact', type: 'individual', description: '' })}>
+                  <Button variant="outline" onClick={() => setPartnerForm({ name: '', group: 'personal', type: 'friend', description: '' })}>
                     <Users className="h-4 w-4 mr-2" /> Add a Party Account
                   </Button>
                 </div>
@@ -526,18 +494,18 @@ export default function OnboardingPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Group</label>
-                      <select value={partnerForm.group} onChange={e => { const newGroup = e.target.value as 'vendor' | 'customer' | 'contact'; setPartnerForm({ ...partnerForm, group: newGroup, type: PARTY_TYPES_BY_GROUP[newGroup]?.[0]?.value || 'other' }); }}
+                      <select value={partnerForm.group} onChange={e => { const newGroup = e.target.value as PartyGroup; setPartnerForm({ ...partnerForm, group: newGroup, type: PARTY_TYPES_BY_GROUP[newGroup]?.[0]?.value || 'other' }); }}
                         className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand">
-                        <option value="contact">Contact</option>
-                        <option value="vendor">Vendor</option>
-                        <option value="customer">Customer</option>
+                        {PARTY_GROUPS.map(g => (
+                          <option key={g.value} value={g.value}>{g.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block mb-1">Type</label>
                       <select value={partnerForm.type} onChange={e => setPartnerForm({ ...partnerForm, type: e.target.value })}
                         className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark dark:text-slate-100 outline-none focus:ring-2 focus:ring-brand">
-                        {(PARTY_TYPES_BY_GROUP[partnerForm.group] || PARTY_TYPES_BY_GROUP.contact).map(t => (
+                        {(PARTY_TYPES_BY_GROUP[partnerForm.group] || PARTY_TYPES_BY_GROUP.personal).map(t => (
                           <option key={t.value} value={t.value}>{t.label}</option>
                         ))}
                       </select>
