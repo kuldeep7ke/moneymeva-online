@@ -12,6 +12,7 @@ import { hasPins } from '@/lib/pinStore';
 import Reveal from '@/components/Reveal';
 import { useToast } from '@/components/Toast';
 import { useTranslation } from '@/lib/i18n';
+import { useAuth } from '@/components/AuthProvider';
 
 const SEASONS = ['kharif', 'rabi', 'summer', 'annual'] as const;
 
@@ -27,6 +28,7 @@ function entryPayerLabel(members: PartnershipMember[], pid?: string): string {
 export default function PartnershipTab() {
   const toast = useToast();
   const { t } = useTranslation();
+  const { profile } = useAuth();
   const [list, setList] = useState<Partnership[]>([]);
   const [partnersList, setPartnersList] = useState<any[]>([]);
 
@@ -51,10 +53,14 @@ export default function PartnershipTab() {
   const [pinDeleteId, setPinDeleteId] = useState<string | null>(null);
   const [showPinSetup, setShowPinSetup] = useState<string | null>(null);
 
-  const emptyForm = () => ({
-    title: '', crop: '', season: 'kharif', year: String(new Date().getFullYear()), description: '',
-    members: [{ id: 'm1', name: '', partyId: '', sharePct: '' }] as { id: string; name: string; partyId: string; sharePct: string }[],
-  });
+  const emptyForm = () => {
+    const meName = (profile?.full_name || '').trim();
+    const myPartyId = meName ? (partnersList.find((x: any) => !x.deletedAt && x.name.toLowerCase() === meName.toLowerCase())?.id || '') : '';
+    const members = meName
+      ? [{ id: 'm1', name: meName, partyId: myPartyId, sharePct: '' }]
+      : [{ id: 'm1', name: '', partyId: '', sharePct: '' }];
+    return { title: '', crop: '', season: 'kharif', year: String(new Date().getFullYear()), description: '', members };
+  };
   const [form, setForm] = useState(emptyForm);
   const emptyEntry = { type: 'expense' as 'income' | 'expense', amount: '', date: todayStr(), description: '', paidByPartyId: '', alsoLedger: true };
   const [entryForm, setEntryForm] = useState(emptyEntry);
