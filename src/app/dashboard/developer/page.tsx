@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
-import { clearRemote, getConfig, checkConnection, getRemoteStats, getRemoteRows, manualSync } from '@/lib/pouchdb';
+import { clearRemote, getConfig, checkConnection, getRemoteStats, getRemoteRows, manualSync, connectRemote, disconnectRemote, connected } from '@/lib/pouchdb';
 import { downloadBlob } from '@/lib/download';
 import { AlertTriangle, Trash2, Loader2, Download, Upload, Key, Eye, EyeOff, Database, HardDrive, Search, Wifi, Palette, User, FileUp, Megaphone } from 'lucide-react';
 import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore';
@@ -59,11 +59,20 @@ export default function DeveloperPage() {
   const [clearLocalConfirm, setClearLocalConfirm] = useState(false);
   const [clearLocalStage, setClearLocalStage] = useState(0);
   const [clearLocalLoading, setClearLocalLoading] = useState(false);
+  const [connectUrl, setConnectUrl] = useState('');
+  const [connectKey, setConnectKey] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [connectStatus, setConnectStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const m = document.querySelector('meta[name="app-version"]');
     if (m) setAppVersion(m.getAttribute('content') || '');
     refreshDismissed();
+    const cfg = getConfig();
+    if (cfg.url) setConnectUrl(cfg.url);
+    if (cfg.key) setConnectKey(cfg.key);
+    checkConnection().then(ok => setSyncOk(ok));
   }, []);
 
   const readDismissed = (): string[] => {
@@ -400,6 +409,36 @@ export default function DeveloperPage() {
     setClearLocalLoading(false);
   };
 
+  const handleConnect = async () => {
+    if (!connectUrl.trim()) { setConnectStatus('URL is required'); return; }
+    setConnecting(true);
+    setConnectStatus('Connecting…');
+    try {
+      const result = await connectRemote(connectUrl.trim(), connectKey.trim());
+      if (result.ok) {
+        setSyncOk(true);
+        setConnectStatus('Connected successfully');
+        toast('Supabase connected', 'success');
+      } else {
+        setSyncOk(false);
+        setConnectStatus(result.error || 'Connection failed');
+      }
+    } catch (e: any) {
+      setSyncOk(false);
+      setConnectStatus(e?.message || 'Connection failed');
+    }
+    setConnecting(false);
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    disconnectRemote();
+    setSyncOk(false);
+    setConnectStatus('Disconnected');
+    setDisconnecting(false);
+    toast('Supabase disconnected', 'info');
+  };
+
   if (!warnDismissed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-[#1A1615] p-4">
@@ -631,10 +670,33 @@ export default function DeveloperPage() {
               <Database className="h-4 w-4 text-emerald-500" />
               <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Database Control</h2>
             </div>
-            <span className={cn('text-[10px] font-mono px-2 py-0.5 rounded-full', syncOk === true ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : syncOk === false ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')}>
-              {syncOk === null ? 'Unknown' : syncOk ? 'Connected' : 'Disconnected'}
-            </span>
+            <button onClick={() => { setSyncOk(null); checkConnection().then(ok => setSyncOk(ok)); }} className={cn('text-[10px] font-mono px-2 py-0.5 rounded-full cursor-pointer transition-colors', syncOk === true ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200' : syncOk === false ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200')}>
+              {syncOk === null ? 'Checking…' : syncOk ? '● Connected' : '● Disconnected'}
+            </button>
           </div>
+
+          {/* Connect Form */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-2">
+            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Quick Connect — test with any Supabase project</p>
+            <input type="text" placeholder="Supabase URL (https://xxx.supabase.co)" value={connectUrl} onChange={e => setConnectUrl(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs font-mono" />
+            <input type="text" placeholder="Anon Key" value={connectKey} onChange={e => setConnectKey(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs font-mono" />
+            {connectStatus && (
+              <p className={cn('text-[10px] font-mono', connectStatus.includes('success') || connectStatus.includes('Connected') ? 'text-green-600 dark:text-green-400' : connectStatus.includes('Disconnected') ? 'text-slate-500' : 'text-red-500')}>{connectStatus}</p>
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleConnect} disabled={connecting || disconnecting} className="flex-1 text-xs">
+                {connecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Connecting…</> : 'Connect'}
+              </Button>
+              <Button variant="outline" onClick={handleDisconnect} disabled={connecting || disconnecting || syncOk === false} className="flex-1 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
+                {disconnecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Disconnecting…</> : 'Disconnect'}
+              </Button>
+            </div>
+            <p className="text-[10px] text-slate-400">Connects temporarily — does not overwrite saved Settings config. Use for testing only.</p>
+          </div>
+
+          {/* Current Config */}
           {(() => {
             const cfg = getConfig();
             let sbEmail: string | null = null;
