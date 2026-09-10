@@ -705,9 +705,9 @@ export function updateTransaction(id: string, updates: Partial<Transaction>): Tr
   const detail = partnerName ? `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category} · ${partnerName}` : `${cache.transactions[idx].type} ₹${cache.transactions[idx].amount} · ${cache.transactions[idx].category}`;
   logMutation('transaction', id, tId, action, detail);
   if (prev.account === 'credit' && prev.category !== CREDIT_SETTLEMENT_CATEGORY) {
-    const linked = cache.adjustments.filter(a => a.sourceTransactionId === id && !a.deletedAt);
-    if (updates.deletedAt) linked.forEach(a => updateAdjustment(a.id, { deletedAt: now() }));
-    else if (updates.deletedAt === undefined && prev.deletedAt) linked.forEach(a => restoreAdjustment(a.id));
+    const linked = cache.adjustments.filter(a => a.sourceTransactionId === id);
+    if (updates.deletedAt) linked.filter(a => !a.deletedAt).forEach(a => updateAdjustment(a.id, { deletedAt: now() }));
+    else if (updates.deletedAt === undefined && prev.deletedAt) linked.filter(a => a.deletedAt).forEach(a => restoreAdjustment(a.id));
   }
   return cache.transactions[idx];
 }
