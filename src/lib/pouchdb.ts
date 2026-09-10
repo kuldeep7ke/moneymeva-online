@@ -612,3 +612,28 @@ export async function pullPinsFromRemote(): Promise<string[] | null> {
     return await readPinsFromPouch();
   } catch { return null; }
 }
+
+// ─── Developer helpers ─────────────────────────────────────────
+
+export async function getRemoteStats(): Promise<{ total: number; byEntity: Record<string, number> }> {
+  if (!supabase) return { total: 0, byEntity: {} };
+  try {
+    const { data: rows, error } = await supabase.from(SYNC_TABLE).select('entity');
+    if (error || !rows) return { total: 0, byEntity: {} };
+    const byEntity: Record<string, number> = {};
+    for (const row of rows) {
+      const e = row.entity || 'unknown';
+      byEntity[e] = (byEntity[e] || 0) + 1;
+    }
+    return { total: rows.length, byEntity };
+  } catch { return { total: 0, byEntity: {} }; }
+}
+
+export async function getRemoteRows(): Promise<{ id: string; entity: string; updated_at: string; deleted_at: string | null }[]> {
+  if (!supabase) return [];
+  try {
+    const { data: rows, error } = await supabase.from(SYNC_TABLE).select('id, entity, updated_at, deleted_at').order('updated_at', { ascending: false });
+    if (error || !rows) return [];
+    return rows;
+  } catch { return []; }
+}

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/db';
-import { clearRemote, getConfig, checkConnection } from '@/lib/pouchdb';
+import { clearRemote, getConfig, checkConnection, getRemoteStats, getRemoteRows, manualSync } from '@/lib/pouchdb';
 import { downloadBlob } from '@/lib/download';
 import { AlertTriangle, Trash2, Loader2, Download, Upload, Key, Eye, EyeOff, Database, HardDrive, Search, Wifi, Palette, User, FileUp, Megaphone } from 'lucide-react';
 import { getPins, getUsedIndex, getRemainingPins, hasPins } from '@/lib/pinStore';
@@ -48,6 +48,17 @@ export default function DeveloperPage() {
   const [exportSections, setExportSections] = useState<Record<string, boolean>>({ income: true, expenses: true, parties: true, recurring: false, investments: false, categories: true, works: false, goals: false, accounts: true, partnership: false });
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'json'>('xlsx');
   const [exporting, setExporting] = useState(false);
+  const [remoteStats, setRemoteStats] = useState<{ total: number; byEntity: Record<string, number> } | null>(null);
+  const [remoteRows, setRemoteRows] = useState<{ id: string; entity: string; updated_at: string; deleted_at: string | null }[] | null>(null);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [freshConfirm, setFreshConfirm] = useState(false);
+  const [freshStage, setFreshStage] = useState(0);
+  const [pullLoading, setPullLoading] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [freshLoading, setFreshLoading] = useState(false);
+  const [clearLocalConfirm, setClearLocalConfirm] = useState(false);
+  const [clearLocalStage, setClearLocalStage] = useState(0);
+  const [clearLocalLoading, setClearLocalLoading] = useState(false);
 
   useEffect(() => {
     const m = document.querySelector('meta[name="app-version"]');
@@ -306,6 +317,89 @@ export default function DeveloperPage() {
     }
   };
 
+  // ─── Database Control Handlers ──────────────────────────────────
+
+  const loadRemoteStats = async () => {
+    setDbLoading(true);
+    const stats = await getRemoteStats();
+    setRemoteStats(stats);
+    setDbLoading(false);
+  };
+
+  const loadRemoteRows = async () => {
+    setDbLoading(true);
+    const rows = await getRemoteRows();
+    setRemoteRows(rows);
+    setDbLoading(false);
+  };
+
+  const handlePull = async () => {
+    setPullLoading(true);
+    const overlay = createProgressOverlay('Pulling remote data…');
+    try {
+      const { ok } = await manualSync();
+      if (ok) {
+        overlay.update('Applying remote changes…', 1, 2);
+        const { processRemoteChanges } = await import('@/lib/store');
+        await processRemoteChanges();
+        overlay.finish('Pull complete — local data updated', () => {
+          window.location.reload();
+        });
+      } else {
+        overlay.error('Pull failed — check connection', () => overlay.close());
+      }
+    } catch {
+      overlay.error('Pull failed', () => overlay.close());
+    }
+    setPullLoading(false);
+  };
+
+  const handlePush = async () => {
+    setPushLoading(true);
+    const overlay = createProgressOverlay('Pushing local data…');
+    try {
+      const { pushAllToPouch } = await import('@/lib/store');
+      const count = await pushAllToPouch();
+      overlay.finish(`Push complete — ${count} item(s) sent`, () => overlay.close());
+    } catch {
+      overlay.error('Push failed', () => overlay.close());
+    }
+    setPushLoading(false);
+  };
+
+  const handleStartFresh = async () => {
+    setFreshConfirm(false);
+    setFreshLoading(true);
+    const overlay = createProgressOverlay('Starting fresh…');
+    try {
+      overlay.update('Clearing remote database…', 1, 2);
+      await clearRemote();
+      overlay.update('Pushing local data to remote…', 2, 2);
+      const { pushAllToPouch } = await import('@/lib/store');
+      const count = await pushAllToPouch();
+      overlay.finish(`Done — pushed ${count} item(s). Local data is now the source of truth.`, () => {
+        window.location.reload();
+      });
+    } catch {
+      overlay.error('Start fresh failed', () => overlay.close());
+    }
+    setFreshLoading(false);
+  };
+
+  const handleClearLocal = async () => {
+    setClearLocalConfirm(false);
+    setClearLocalLoading(true);
+    const overlay = createProgressOverlay('Clearing local data…');
+    try {
+      const { clearAllDB } = await import('@/lib/store');
+      await clearAllDB((label, done, total) => overlay.update(label, done, total));
+      overlay.finish('Local data cleared — reloading', () => window.location.reload());
+    } catch {
+      overlay.error('Failed to clear local data', () => overlay.close());
+    }
+    setClearLocalLoading(false);
+  };
+
   if (!warnDismissed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-[#1A1615] p-4">
@@ -474,9 +568,6 @@ export default function DeveloperPage() {
                 <Button variant="outline" onClick={testSync} disabled={syncing} className="w-full text-xs">
                   {syncing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Testing...</> : 'Test Connection'}
                 </Button>
-                <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
-                  Clear Remote Data
-                </Button>
               </>
             );
           })()}
@@ -533,20 +624,93 @@ export default function DeveloperPage() {
           </Section>
         )}
 
-        {/* Danger Zone */}
-        <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-red-200 dark:border-red-900/40 p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Trash2 className="h-4 w-4 text-red-500" />
-            <h2 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Danger Zone</h2>
+        {/* Database Control */}
+        <div className="bg-white dark:bg-[#2A2522] rounded-2xl border border-slate-200 dark:border-brand-muted p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-emerald-500" />
+              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Database Control</h2>
+            </div>
+            <span className={cn('text-[10px] font-mono px-2 py-0.5 rounded-full', syncOk === true ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : syncOk === false ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')}>
+              {syncOk === null ? 'Unknown' : syncOk ? 'Connected' : 'Disconnected'}
+            </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Wipes all data from local storage, IndexedDB, and your cloud sync rows (Supabase).</p>
-{cleared ? (
-            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-700 dark:text-amber-300">Data cleared. Refresh the app.</div>
-          ) : (
-<Button variant="danger" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing} className="w-full">
-                  {clearing ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Clearing...</> : 'Clear All Data'}
+          {(() => {
+            const cfg = getConfig();
+            let sbEmail: string | null = null;
+            try {
+              const ref = (cfg.url || '').replace(/^https?:\/\//, '').replace(/\.supabase\.co.*$/, '');
+              sbEmail = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`) || 'null')?.user?.email || null;
+            } catch {}
+            return (
+              <div className="text-xs space-y-1">
+                <div className="flex justify-between"><span className="text-slate-500">URL</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{cfg.url ? mask(cfg.url) : '(none)'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Account</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate ml-2">{sbEmail || 'not signed in'}</span></div>
+              </div>
+            );
+          })()}
+
+          {/* Stats + Browse */}
+          <div className="text-xs space-y-1">
+            {remoteStats && (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1">
+                <div className="flex justify-between font-medium"><span className="text-slate-600 dark:text-slate-400">Total</span><span className="font-mono text-slate-900 dark:text-slate-100">{remoteStats.total}</span></div>
+                {Object.entries(remoteStats.byEntity).sort((a, b) => b[1] - a[1]).map(([entity, count]) => (
+                  <div key={entity} className="flex justify-between"><span className="text-slate-500 capitalize">{entity.replace('_', ' ')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{count}</span></div>
+                ))}
+              </div>
+            )}
+            {remoteRows && (
+              <div className="max-h-40 overflow-y-auto space-y-1 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                {remoteRows.length === 0 && <p className="text-slate-400 text-center py-2">No remote rows</p>}
+                {remoteRows.map((row, i) => (
+                  <div key={i} className="flex justify-between border-b border-slate-100 dark:border-slate-700/50 pb-1 last:border-0">
+                    <span className="text-slate-500 truncate mr-2">{row.id}</span>
+                    <span className="text-slate-400 font-mono shrink-0">{row.entity}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" onClick={loadRemoteStats} disabled={dbLoading} className="w-full text-xs">
+              {dbLoading && !remoteStats ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Loading...</> : remoteStats ? 'Refresh Stats' : 'Load Stats'}
             </Button>
-          )}
+            <Button variant="outline" onClick={loadRemoteRows} disabled={dbLoading} className="w-full text-xs">
+              {dbLoading && !remoteRows ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Loading...</> : remoteRows ? 'Refresh Rows' : 'Browse Remote'}
+            </Button>
+          </div>
+
+          {/* Sync Operations */}
+          <div className="border-t border-slate-100 dark:border-brand-muted/30 pt-4 space-y-2">
+            <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Sync Operations</p>
+            <Button variant="outline" onClick={handlePull} disabled={pullLoading || pushLoading || freshLoading} className="w-full text-xs gap-2">
+              {pullLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Pulling...</> : <><Download className="h-3.5 w-3.5" /> Pull Remote → Local</>}
+            </Button>
+            <Button variant="outline" onClick={handlePush} disabled={pullLoading || pushLoading || freshLoading} className="w-full text-xs gap-2">
+              {pushLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Pushing...</> : <><Upload className="h-3.5 w-3.5" /> Push Local → Remote</>}
+            </Button>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="border-t border-red-200 dark:border-red-900/40 pt-4 space-y-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Trash2 className="h-3.5 w-3.5 text-red-500" />
+              <p className="text-[10px] text-red-500 uppercase tracking-wider font-bold">Danger Zone</p>
+            </div>
+            <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="w-full text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+              {freshLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Processing...</> : 'Start Fresh: Clear + Push Local'}
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
+              Clear Remote Only
+            </Button>
+            <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
+              {clearLocalLoading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Clearing...</> : 'Clear Local Only'}
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="w-full text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold">
+              {clearing ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Clearing...</> : 'Clear ALL Data (Local + Remote)'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -586,6 +750,76 @@ export default function DeveloperPage() {
                 <Button variant="danger" size="sm" className="gap-1.5" onClick={confirmPrimary}>
                   <Trash2 className="h-3.5 w-3.5" />
                   {confirmBox.mode === 'clear' && confirmBox.stage === 1 ? 'Continue' : 'Yes, Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {freshConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border-2 border-amber-400 dark:border-amber-600 overflow-hidden my-4">
+            <div className="bg-gradient-to-r from-amber-600 to-amber-700 px-6 py-5 text-center">
+              <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+                <AlertTriangle className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                {freshStage === 1 ? 'Start Fresh?' : 'Confirm Start Fresh'}
+              </h3>
+              <p className="text-sm text-amber-100 mt-1">Clear remote, then push local data</p>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="bg-amber-50 dark:bg-amber-950/40 rounded-xl p-4 border border-amber-200 dark:border-amber-800 space-y-2">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                    {freshStage === 1
+                      ? 'This will delete ALL remote Supabase data, then push your current local data as the new source of truth.'
+                      : 'Are you absolutely sure? Remote data will be erased and replaced with local data.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setFreshConfirm(false)}>Cancel</Button>
+                <Button variant="danger" size="sm" className="gap-1.5" onClick={() => { if (freshStage === 1) setFreshStage(2); else handleStartFresh(); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {freshStage === 1 ? 'Continue' : 'Yes, Start Fresh'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {clearLocalConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md overflow-y-auto flex items-start sm:items-center justify-center z-[130] p-4">
+          <div className="bg-white dark:bg-[#2A2522] rounded-2xl max-w-md w-full shadow-2xl border-2 border-red-400 dark:border-red-600 overflow-hidden my-4">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 text-center">
+              <div className="mx-auto w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3">
+                <AlertTriangle className="h-7 w-7 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-white">
+                {clearLocalStage === 1 ? 'Clear Local Data?' : 'Confirm Clear Local'}
+              </h3>
+              <p className="text-sm text-red-100 mt-1">This cannot be undone</p>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="bg-red-50 dark:bg-red-950/40 rounded-xl p-4 border border-red-200 dark:border-red-800 space-y-2">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                  <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                    {clearLocalStage === 1
+                      ? 'Delete ALL local data (IndexedDB, PouchDB cache)? Remote data stays untouched.'
+                      : 'Are you absolutely sure? All local data will be erased.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setClearLocalConfirm(false)}>Cancel</Button>
+                <Button variant="danger" size="sm" className="gap-1.5" onClick={() => { if (clearLocalStage === 1) setClearLocalStage(2); else handleClearLocal(); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {clearLocalStage === 1 ? 'Continue' : 'Yes, Clear Local'}
                 </Button>
               </div>
             </div>
