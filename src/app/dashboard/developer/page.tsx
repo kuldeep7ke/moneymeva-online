@@ -61,6 +61,9 @@ export default function DeveloperPage() {
   const [clearLocalLoading, setClearLocalLoading] = useState(false);
   const [connectUrl, setConnectUrl] = useState('');
   const [connectKey, setConnectKey] = useState('');
+  const [connectEmail, setConnectEmail] = useState('');
+  const [connectPassword, setConnectPassword] = useState('');
+  const [connectAnonymous, setConnectAnonymous] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [connectStatus, setConnectStatus] = useState<string | null>(null);
@@ -411,10 +414,12 @@ export default function DeveloperPage() {
 
   const handleConnect = async () => {
     if (!connectUrl.trim()) { setConnectStatus('URL is required'); return; }
+    if (!connectAnonymous && !connectKey.trim()) { setConnectStatus('Anon key is required'); return; }
+    if (!connectAnonymous && (!connectEmail.trim() || !connectPassword.trim())) { setConnectStatus('Email + password are required (or use anonymous mode)'); return; }
     setConnecting(true);
     setConnectStatus('Connecting…');
     try {
-      const result = await connectRemote(connectUrl.trim(), connectKey.trim());
+      const result = await connectRemote(connectUrl.trim(), connectKey.trim(), connectEmail.trim(), connectPassword, connectAnonymous);
       if (result.ok) {
         setSyncOk(true);
         setConnectStatus('Connected successfully');
@@ -680,20 +685,39 @@ export default function DeveloperPage() {
             <p className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">Quick Connect — test with any Supabase project</p>
             <input type="text" placeholder="Supabase URL (https://xxx.supabase.co)" value={connectUrl} onChange={e => setConnectUrl(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs font-mono" />
-            <input type="text" placeholder="Anon Key" value={connectKey} onChange={e => setConnectKey(e.target.value)}
+            <input type="text" placeholder="Anon Key (required for URL + anon and email/password modes)" value={connectKey} onChange={e => setConnectKey(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs font-mono" />
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked={connectAnonymous} onChange={e => setConnectAnonymous(e.target.checked)} className="accent-brand h-3.5 w-3.5" />
+              <span><span className="font-medium">Anonymous mode</span> — connect with URL + anon key only, <span className="text-slate-400">no email/password</span></span>
+            </label>
+            {connectAnonymous && (
+              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-[10px] text-amber-700 dark:text-amber-300 space-y-1">
+                <p className="font-semibold">Enable Anonymous sign-ins on this Supabase project first (one-time, dashboard):</p>
+                <p className="font-mono">Dashboard → Authentication → Sign In / Providers → Anonymous sign-ins → <span className="font-bold">Enable</span></p>
+                <p>Then paste the URL + anon key above and click Connect — no email/password needed.</p>
+              </div>
+            )}
+            {!connectAnonymous && (
+              <>
+                <input type="email" placeholder="Email" value={connectEmail} onChange={e => setConnectEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs" />
+                <input type="password" placeholder="Password" value={connectPassword} onChange={e => setConnectPassword(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted dark:bg-brand-dark outline-none focus:ring-2 focus:ring-brand text-xs" />
+              </>
+            )}
             {connectStatus && (
-              <p className={cn('text-[10px] font-mono', connectStatus.includes('success') || connectStatus.includes('Connected') ? 'text-green-600 dark:text-green-400' : connectStatus.includes('Disconnected') ? 'text-slate-500' : 'text-red-500')}>{connectStatus}</p>
+              <p className={cn('text-[10px] font-mono break-all', connectStatus.includes('success') || connectStatus.includes('Connected') ? 'text-green-600 dark:text-green-400' : connectStatus.includes('Disconnected') ? 'text-slate-500' : 'text-red-500')}>{connectStatus}</p>
             )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleConnect} disabled={connecting || disconnecting} className="flex-1 text-xs">
-                {connecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Connecting…</> : 'Connect'}
+                {connecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Connecting…</> : connectAnonymous ? 'Connect (Anonymous)' : 'Connect'}
               </Button>
               <Button variant="outline" onClick={handleDisconnect} disabled={connecting || disconnecting || syncOk === false} className="flex-1 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20">
                 {disconnecting ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Disconnecting…</> : 'Disconnect'}
               </Button>
             </div>
-            <p className="text-[10px] text-slate-400">Connects temporarily — does not overwrite saved Settings config. Use for testing only.</p>
+            <p className="text-[10px] text-slate-400">Connects temporarily — does not overwrite saved Settings config. Link-only uses a fresh anonymous user (your rows get that user&#39;s ID).</p>
           </div>
 
           {/* Current Config */}

@@ -336,7 +336,7 @@ export async function getOAuthSessionUser(url?: string): Promise<{ email: string
   }
 }
 
-export async function connectRemote(url: string, key?: string, email?: string, password?: string): Promise<{ ok: boolean; error?: string }> {
+export async function connectRemote(url: string, key?: string, email?: string, password?: string, anonymous?: boolean): Promise<{ ok: boolean; error?: string }> {
   await initPouchDB();
   disconnectRemote();
   if (!localDB) return { ok: false, error: 'Local database not initialized' };
@@ -345,12 +345,22 @@ export async function connectRemote(url: string, key?: string, email?: string, p
   if (!cleanUrl || !anonKey) return { ok: false, error: 'Supabase URL and anon key are required' };
   try {
     const client = createClient(cleanUrl, anonKey);
-    if (email && password) {
+    if (anonymous) {
+      // No email/password needed — Supabase creates a throwaway anonymous user.
+      // Requires: Supabase Dashboard → Authentication → Sign In / Providers → Anonymous.
+      const { error: anonErr } = await client.auth.signInAnonymously();
+      if (anonErr) {
+        if (/anonymous/i.test(anonErr.message)) {
+          return { ok: false, error: 'Anonymous sign-ins are not enabled on this project — turn them on in Supabase → Authentication → Sign In / Providers → Anonymous, then retry.' };
+        }
+        return { ok: false, error: anonErr.message };
+      }
+    } else if (email && password) {
       const { error: signInErr } = await client.auth.signInWithPassword({ email, password });
       if (signInErr) return { ok: false, error: signInErr.message };
     } else {
       const { data: sessionData } = await client.auth.getSession();
-      if (!sessionData.session) return { ok: false, error: 'No active session — sign in with email and password' };
+      if (!sessionData.session) return { ok: false, error: 'No active session — sign in with email + password, or use the anonymous (link-only) mode' };
     }
     const ping = await pingRemote(client);
     if (!ping.ok) return { ok: false, error: ping.error };
