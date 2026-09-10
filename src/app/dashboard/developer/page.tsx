@@ -584,8 +584,85 @@ const loadRemoteRows = async () => {
           </div>
         </Reveal>
 
-        {/* Database & Cloud Sync */}
+        {/* Data Management */}
         <Reveal delay={100}>
+          <DevCard
+            icon={FileUp}
+            cardClass="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800"
+            tileClass="bg-gradient-to-br from-emerald-500 to-teal-600"
+            title="Data Management"
+            subtitle="Import a backup, export raw data, or download custom reports."
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Import</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Select a JSON or XLSX export file to preview and import. XLSX files from the Custom Export (Excel) round-trip with original IDs.</p>
+              <input ref={fileInputRef} type="file" accept=".json,.xlsx,.xls" onChange={handleFileSelect} className="hidden" />
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1"><Upload className="h-3.5 w-3.5 mr-1.5" /> Choose File</Button>
+                {importFileName && <span className="text-xs text-slate-500 truncate">{importFileName}</span>}
+              </div>
+              {importData !== null && (
+                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3 text-xs space-y-1.5">
+                  <p className="font-bold text-slate-500 dark:text-slate-400">Preview</p>
+                  {Object.entries(importData).map(([key, items]) =>
+                    Array.isArray(items) && (
+                      <div key={key} className="flex justify-between border-b border-slate-100 dark:border-brand-muted/20 py-1 last:border-0">
+                        <span className="text-slate-600 dark:text-slate-300 capitalize">{key.replace('_', ' ')}</span>
+                        <span className="font-mono text-slate-800 dark:text-slate-200">{items.length}</span>
+                      </div>
+                    )
+                  )}
+                  <Button onClick={handleFileImport} className="w-full mt-2"><Download className="h-3.5 w-3.5 mr-1.5" /> Import Data</Button>
+                </div>
+              )}
+              {status && <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-700 dark:text-green-300">{status}</div>}
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Export</p>
+              <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full"><Download className="h-3.5 w-3.5 mr-1.5" /> Export Raw Data (JSON)</Button>
+              <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">Custom Export — selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="From date" htmlFor="custom-export-from">
+                  <input id="custom-export-from" name="custom-export-from" type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)} className={inputCls} />
+                </Field>
+                <Field label="To date" htmlFor="custom-export-to">
+                  <input id="custom-export-to" name="custom-export-to" type="date" value={exportTo} onChange={e => setExportTo(e.target.value)} className={inputCls} />
+                </Field>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Sections — select one or all</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'investments', l: 'Investments' }, { k: 'categories', l: 'Categories' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }, { k: 'works', l: 'Works' }, { k: 'goals', l: 'Goals' }, { k: 'accounts', l: 'Accounts' }, { k: 'partnership', l: 'Partnership' }].map(s => (
+                    <label key={s.k} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition-colors text-xs",
+                      exportSections[s.k] ? "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-900/30 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
+                      <input type="checkbox" checked={!!exportSections[s.k]} onChange={() => setExportSections({ ...exportSections, [s.k]: !exportSections[s.k] })} className="accent-emerald-600" />
+                      {s.l}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { k: 'xlsx', l: 'Excel (XLSX)' },
+                  { k: 'json', l: 'JSON (re-importable)' },
+                ].map(f => (
+                  <button key={f.k} type="button" onClick={() => setExportFormat(f.k as 'xlsx' | 'json')}
+                    className={cn("px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
+                      exportFormat === f.k ? "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-900/30 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
+                    {f.l}
+                  </button>
+                ))}
+              </div>
+              <Button variant="outline" onClick={handleCustomExport} disabled={exporting} className="w-full">
+                {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4 mr-1.5" /> Export Custom ({exportFormat.toUpperCase()})</>}
+              </Button>
+            </div>
+          </DevCard>
+        </Reveal>
+
+        {/* Database & Cloud Sync */}
+        <Reveal delay={150}>
           <DevCard
             icon={Cloud}
             cardClass="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 border border-sky-200 dark:border-sky-800"
@@ -711,83 +788,6 @@ const loadRemoteRows = async () => {
                 {pushLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Pushing…</> : <><Upload className="h-3.5 w-3.5 mr-1.5" /> Push Local → Remote</>}
               </Button>
               <p className="text-xs text-slate-400">Realtime push ≈ seconds · periodic pull every 2 min · reconnect watchdog 30 s</p>
-            </div>
-          </DevCard>
-        </Reveal>
-
-        {/* Data Management */}
-        <Reveal delay={150}>
-          <DevCard
-            icon={FileUp}
-            cardClass="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800"
-            tileClass="bg-gradient-to-br from-emerald-500 to-teal-600"
-            title="Data Management"
-            subtitle="Import a backup, export raw data, or download custom reports."
-          >
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Import</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Select a JSON or XLSX export file to preview and import. XLSX files from the Custom Export (Excel) round-trip with original IDs.</p>
-              <input ref={fileInputRef} type="file" accept=".json,.xlsx,.xls" onChange={handleFileSelect} className="hidden" />
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1"><Upload className="h-3.5 w-3.5 mr-1.5" /> Choose File</Button>
-                {importFileName && <span className="text-xs text-slate-500 truncate">{importFileName}</span>}
-              </div>
-              {importData !== null && (
-                <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3 text-xs space-y-1.5">
-                  <p className="font-bold text-slate-500 dark:text-slate-400">Preview</p>
-                  {Object.entries(importData).map(([key, items]) =>
-                    Array.isArray(items) && (
-                      <div key={key} className="flex justify-between border-b border-slate-100 dark:border-brand-muted/20 py-1 last:border-0">
-                        <span className="text-slate-600 dark:text-slate-300 capitalize">{key.replace('_', ' ')}</span>
-                        <span className="font-mono text-slate-800 dark:text-slate-200">{items.length}</span>
-                      </div>
-                    )
-                  )}
-                  <Button onClick={handleFileImport} className="w-full mt-2"><Download className="h-3.5 w-3.5 mr-1.5" /> Import Data</Button>
-                </div>
-              )}
-              {status && <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-700 dark:text-green-300">{status}</div>}
-            </div>
-
-            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Export</p>
-              <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full"><Download className="h-3.5 w-3.5 mr-1.5" /> Export Raw Data (JSON)</Button>
-              <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">Custom Export — selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="From date" htmlFor="custom-export-from">
-                  <input id="custom-export-from" name="custom-export-from" type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)} className={inputCls} />
-                </Field>
-                <Field label="To date" htmlFor="custom-export-to">
-                  <input id="custom-export-to" name="custom-export-to" type="date" value={exportTo} onChange={e => setExportTo(e.target.value)} className={inputCls} />
-                </Field>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Sections — select one or all</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[{ k: 'income', l: 'Income' }, { k: 'expenses', l: 'Expenses' }, { k: 'investments', l: 'Investments' }, { k: 'categories', l: 'Categories' }, { k: 'parties', l: 'Party' }, { k: 'recurring', l: 'Recurring' }, { k: 'works', l: 'Works' }, { k: 'goals', l: 'Goals' }, { k: 'accounts', l: 'Accounts' }, { k: 'partnership', l: 'Partnership' }].map(s => (
-                    <label key={s.k} className={cn("flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer select-none transition-colors text-xs",
-                      exportSections[s.k] ? "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-900/30 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
-                      <input type="checkbox" checked={!!exportSections[s.k]} onChange={() => setExportSections({ ...exportSections, [s.k]: !exportSections[s.k] })} className="accent-emerald-600" />
-                      {s.l}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {[
-                  { k: 'xlsx', l: 'Excel (XLSX)' },
-                  { k: 'json', l: 'JSON (re-importable)' },
-                ].map(f => (
-                  <button key={f.k} type="button" onClick={() => setExportFormat(f.k as 'xlsx' | 'json')}
-                    className={cn("px-3 py-2 rounded-lg border text-xs font-medium transition-colors",
-                      exportFormat === f.k ? "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-900/30 text-slate-900 dark:text-slate-100" : "border-slate-200 dark:border-brand-muted text-slate-500")}>
-                    {f.l}
-                  </button>
-                ))}
-              </div>
-              <Button variant="outline" onClick={handleCustomExport} disabled={exporting} className="w-full">
-                {exporting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Exporting...</> : <><Download className="h-4 w-4 mr-1.5" /> Export Custom ({exportFormat.toUpperCase()})</>}
-              </Button>
             </div>
           </DevCard>
         </Reveal>
@@ -960,27 +960,38 @@ const loadRemoteRows = async () => {
             title="Danger Zone"
             subtitle="Destructive actions that cannot be undone"
           >
-            <div className="bg-white dark:bg-red-900/30 rounded-xl p-4 text-sm space-y-2 border border-red-100 dark:border-red-800">
-              <p className="font-medium text-red-700 dark:text-red-300">Before proceeding:</p>
-              <ul className="list-disc list-inside text-red-600 dark:text-red-400 space-y-1">
-                <li>All actions <strong>cannot be reversed</strong></li>
-                <li>Make sure to <strong>export your data</strong> first (see Data Management above)</li>
-                <li><strong>Disable cloud sync</strong> on other devices first to avoid conflicts</li>
-              </ul>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="gap-2 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
-                {freshLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><RefreshCw className="h-4 w-4" /> Start Fresh: Clear Remote + Push Local</>}
-              </Button>
-              <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
-                <Trash2 className="h-4 w-4" /> Clear Remote Only
-              </Button>
-              <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
-                {clearLocalLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <><Trash2 className="h-4 w-4" /> Clear Local Only</>}
-              </Button>
-              <Button variant="danger" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="gap-2 font-bold">
-                {clearing ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <><Trash2 className="h-4 w-4" /> Clear ALL Data (Local + Remote)</>}
-              </Button>
+            <div className="space-y-5">
+              <div className="bg-white dark:bg-red-900/30 rounded-xl p-4 sm:p-5 border border-red-100 dark:border-red-800">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-3">Before proceeding:</p>
+                <ul className="space-y-2.5 text-xs text-red-600 dark:text-red-400">
+                  <li className="flex items-start gap-2.5">
+                    <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                    <span>All actions <strong>cannot be reversed</strong></span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                    <span>Make sure to <strong>export your data</strong> first (see Data Management above)</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                    <span><strong>Disable cloud sync</strong> on other devices first to avoid conflicts</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="outline" onClick={() => { setFreshConfirm(true); setFreshStage(1); }} disabled={freshLoading || pullLoading || pushLoading} className="gap-2 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+                  {freshLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><RefreshCw className="h-4 w-4" /> Start Fresh: Clear Remote + Push Local</>}
+                </Button>
+                <Button variant="outline" onClick={() => setConfirmBox({ mode: 'clearRemote', stage: 1 })} className="gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <Trash2 className="h-4 w-4" /> Clear Remote Only
+                </Button>
+                <Button variant="outline" onClick={() => { setClearLocalConfirm(true); setClearLocalStage(1); }} disabled={clearLocalLoading || pullLoading || pushLoading || freshLoading} className="gap-2 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  {clearLocalLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <><Trash2 className="h-4 w-4" /> Clear Local Only</>}
+                </Button>
+                <Button variant="danger" onClick={() => setConfirmBox({ mode: 'clear', stage: 1 })} disabled={clearing || pullLoading || pushLoading || freshLoading} className="gap-2 font-bold">
+                  {clearing ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <><Trash2 className="h-4 w-4" /> Clear ALL Data (Local + Remote)</>}
+                </Button>
+              </div>
             </div>
           </DevCard>
         </Reveal>
