@@ -537,14 +537,14 @@ export default function DeveloperPage() {
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Quick Connect</p>
               <div className="p-3 sm:p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-brand-muted/40 space-y-3">
-                <Field label="Supabase URL">
-                  <input type="text" placeholder="https://xxx.supabase.co" value={connectUrl} onChange={e => setConnectUrl(e.target.value)} className={inputCls} />
+                <Field label="Supabase URL" htmlFor="dev-connect-url">
+                  <input id="dev-connect-url" name="devConnectUrl" type="text" placeholder="https://xxx.supabase.co" value={connectUrl} onChange={e => setConnectUrl(e.target.value)} className={inputCls} />
                 </Field>
-                <Field label="Anon key">
-                  <input type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" value={connectKey} onChange={e => setConnectKey(e.target.value)} className={inputCls} />
+                <Field label="Anon key" htmlFor="dev-connect-key">
+                  <input id="dev-connect-key" name="devConnectKey" type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" value={connectKey} onChange={e => setConnectKey(e.target.value)} className={inputCls} />
                 </Field>
                 <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 dark:text-slate-300">
-                  <input type="checkbox" checked={connectAnonymous} onChange={e => setConnectAnonymous(e.target.checked)} className="accent-brand h-4 w-4" />
+                  <input id="dev-connect-anonymous" name="devConnectAnonymous" type="checkbox" checked={connectAnonymous} onChange={e => setConnectAnonymous(e.target.checked)} className="accent-brand h-4 w-4" />
                   <span><span className="font-semibold">Anonymous mode</span> — connect with URL + anon key only, no email/password</span>
                 </label>
                 {connectAnonymous && (
@@ -556,11 +556,11 @@ export default function DeveloperPage() {
                 )}
                 {!connectAnonymous && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Email">
-                      <input type="email" placeholder="you@example.com" value={connectEmail} onChange={e => setConnectEmail(e.target.value)} className={inputCls} />
+                    <Field label="Email" htmlFor="dev-connect-email">
+                      <input id="dev-connect-email" name="devConnectEmail" type="email" placeholder="you@example.com" value={connectEmail} onChange={e => setConnectEmail(e.target.value)} className={inputCls} />
                     </Field>
-                    <Field label="Password">
-                      <input type="password" placeholder="••••••••" value={connectPassword} onChange={e => setConnectPassword(e.target.value)} className={inputCls} />
+                    <Field label="Password" htmlFor="dev-connect-password">
+                      <input id="dev-connect-password" name="devConnectPassword" type="password" placeholder="••••••••" value={connectPassword} onChange={e => setConnectPassword(e.target.value)} className={inputCls} />
                     </Field>
                   </div>
                 )}
@@ -678,10 +678,10 @@ export default function DeveloperPage() {
               <Button variant="outline" onClick={handleExportRaw} disabled={exporting} className="w-full"><Download className="h-3.5 w-3.5 mr-1.5" /> Export Raw Data (JSON)</Button>
               <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">Custom Export — selected sections for a specific period. Dates are optional — leave both empty for all time.</p>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="From date">
+                <Field label="From date" htmlFor="custom-export-from">
                   <input id="custom-export-from" name="custom-export-from" type="date" value={exportFrom} onChange={e => setExportFrom(e.target.value)} className={inputCls} />
                 </Field>
-                <Field label="To date">
+                <Field label="To date" htmlFor="custom-export-to">
                   <input id="custom-export-to" name="custom-export-to" type="date" value={exportTo} onChange={e => setExportTo(e.target.value)} className={inputCls} />
                 </Field>
               </div>
@@ -1064,9 +1064,9 @@ function StatRow({ label, value, mono = true }: { label: string; value: React.Re
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
   return (
-    <label className="block min-w-0">
+    <label htmlFor={htmlFor} className="block min-w-0">
       <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">{label}</span>
       {children}
     </label>
