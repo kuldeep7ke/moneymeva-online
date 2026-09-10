@@ -661,8 +661,87 @@ const loadRemoteRows = async () => {
           </DevCard>
         </Reveal>
 
-        {/* Database & Cloud Sync */}
+        {/* Announcements */}
         <Reveal delay={150}>
+          <DevCard
+            icon={Megaphone}
+            cardClass="bg-gradient-to-r from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200 dark:border-orange-800"
+            tileClass="bg-gradient-to-br from-orange-500 to-rose-600"
+            title="Announcements"
+            subtitle="Broadcast pills & banner are fetched live from jsonbin.io on every dashboard load — edit them online, no app update needed."
+          >
+            <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+              <StatRow label="Broadcast bin" value={mask(BROADCAST_BIN_ID)} />
+              <StatRow label="Banner bin" value={mask(BANNER_BIN_ID)} />
+              <StatRow label="Dismissed pills (this device)" value={dismissedCount} />
+            </div>
+            {annTest && (
+              <div className={cn('p-3 rounded-xl text-sm', annTest.includes('FAILED') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800')}>
+                {annTest}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button variant="outline" onClick={testAnnouncements} disabled={annTesting} className="w-full">
+                {annTesting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Testing...</> : 'Test Bin Fetch'}
+              </Button>
+              <Button variant="outline" onClick={clearDismissed} disabled={!dismissedCount} className="w-full">
+                Clear Dismissed Pills
+              </Button>
+            </div>
+          </DevCard>
+        </Reveal>
+
+        {/* App & Session */}
+        <Reveal delay={200}>
+          <DevCard
+            icon={User}
+            cardClass="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800"
+            tileClass="bg-gradient-to-br from-purple-500 to-pink-600"
+            title="App & Session"
+            subtitle="Active session, theme brand, and recovery PINs."
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Session</p>
+              <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                <StatRow label="ID" value={session?.user?.id || 'unknown'} />
+                <StatRow label="Name" value={session?.user?.full_name || session?.user?.email || 'unknown'} />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Theme Brand</p>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{brand}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Active theme brand ({brands.length} available)</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleBrandCycle}><Palette className="h-3.5 w-3.5 mr-1.5" /> Next Brand</Button>
+              </div>
+            </div>
+
+            {hasPins() && (
+              <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Recovery PINs</p>
+                  <span className="text-xs text-slate-400">{getRemainingPins()} remaining</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {getPins().map((pin, i) => (
+                    <span key={i} className={cn('font-mono text-sm px-3 py-1.5 rounded-lg border', i < getUsedIndex() ? 'bg-slate-100 dark:bg-brand-muted text-slate-400 dark:text-slate-500 line-through border-slate-200 dark:border-brand-muted' : 'bg-amber-50 dark:bg-amber-900/20 text-slate-900 dark:text-slate-100 border-amber-200 dark:border-amber-800/40')}>
+                      {showPins ? pin : '••••'}
+                    </span>
+                  ))}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowPins(!showPins)} className="text-xs">
+                  {showPins ? <><EyeOff className="h-3.5 w-3.5 mr-1.5" /> Hide PINs</> : <><Eye className="h-3.5 w-3.5 mr-1.5" /> Reveal PINs</>}
+                </Button>
+              </div>
+            )}
+          </DevCard>
+        </Reveal>
+
+        {/* Database & Cloud Sync */}
+        <Reveal delay={250}>
           <DevCard
             icon={Cloud}
             cardClass="bg-gradient-to-r from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 border border-sky-200 dark:border-sky-800"
@@ -793,7 +872,7 @@ const loadRemoteRows = async () => {
         </Reveal>
 
         {/* Diagnostics */}
-        <Reveal delay={200}>
+        <Reveal delay={300}>
           <DevCard
             icon={Activity}
             cardClass="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800"
@@ -869,85 +948,6 @@ const loadRemoteRows = async () => {
                 </div>
               )}
             </div>
-          </DevCard>
-        </Reveal>
-
-        {/* Announcements */}
-        <Reveal delay={250}>
-          <DevCard
-            icon={Megaphone}
-            cardClass="bg-gradient-to-r from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200 dark:border-orange-800"
-            tileClass="bg-gradient-to-br from-orange-500 to-rose-600"
-            title="Announcements"
-            subtitle="Broadcast pills & banner are fetched live from jsonbin.io on every dashboard load — edit them online, no app update needed."
-          >
-            <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
-              <StatRow label="Broadcast bin" value={mask(BROADCAST_BIN_ID)} />
-              <StatRow label="Banner bin" value={mask(BANNER_BIN_ID)} />
-              <StatRow label="Dismissed pills (this device)" value={dismissedCount} />
-            </div>
-            {annTest && (
-              <div className={cn('p-3 rounded-xl text-sm', annTest.includes('FAILED') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800')}>
-                {annTest}
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Button variant="outline" onClick={testAnnouncements} disabled={annTesting} className="w-full">
-                {annTesting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Testing...</> : 'Test Bin Fetch'}
-              </Button>
-              <Button variant="outline" onClick={clearDismissed} disabled={!dismissedCount} className="w-full">
-                Clear Dismissed Pills
-              </Button>
-            </div>
-          </DevCard>
-        </Reveal>
-
-        {/* App & Session */}
-        <Reveal delay={300}>
-          <DevCard
-            icon={User}
-            cardClass="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800"
-            tileClass="bg-gradient-to-br from-purple-500 to-pink-600"
-            title="App & Session"
-            subtitle="Active session, theme brand, and recovery PINs."
-          >
-            <div className="space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Session</p>
-              <div className="rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
-                <StatRow label="ID" value={session?.user?.id || 'unknown'} />
-                <StatRow label="Name" value={session?.user?.full_name || session?.user?.email || 'unknown'} />
-              </div>
-            </div>
-
-            <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Theme Brand</p>
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-brand-muted/40 bg-white/60 dark:bg-white/5 p-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 capitalize">{brand}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Active theme brand ({brands.length} available)</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={handleBrandCycle}><Palette className="h-3.5 w-3.5 mr-1.5" /> Next Brand</Button>
-              </div>
-            </div>
-
-            {hasPins() && (
-              <div className="border-t border-slate-200/60 dark:border-brand-muted/40 pt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Recovery PINs</p>
-                  <span className="text-xs text-slate-400">{getRemainingPins()} remaining</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {getPins().map((pin, i) => (
-                    <span key={i} className={cn('font-mono text-sm px-3 py-1.5 rounded-lg border', i < getUsedIndex() ? 'bg-slate-100 dark:bg-brand-muted text-slate-400 dark:text-slate-500 line-through border-slate-200 dark:border-brand-muted' : 'bg-amber-50 dark:bg-amber-900/20 text-slate-900 dark:text-slate-100 border-amber-200 dark:border-amber-800/40')}>
-                      {showPins ? pin : '••••'}
-                    </span>
-                  ))}
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => setShowPins(!showPins)} className="text-xs">
-                  {showPins ? <><EyeOff className="h-3.5 w-3.5 mr-1.5" /> Hide PINs</> : <><Eye className="h-3.5 w-3.5 mr-1.5" /> Reveal PINs</>}
-                </Button>
-              </div>
-            )}
           </DevCard>
         </Reveal>
 
