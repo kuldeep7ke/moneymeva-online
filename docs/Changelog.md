@@ -1,5 +1,11 @@
 # Changelog
 
+## v7.3.4 (2026-09-11) — Android Sync Mismatch Fix
+- **Root cause found** — the old (≤ v7.1.x) sync replicated one shared CouchDB to every device with no accounts; the Supabase migration (v7.2.0) made sync per-user (`user_id = auth.uid()` RLS). A device on a different project URL or a different sign-in (anonymous vs email) now legitimately sees an empty cloud — which the app reported as a confusing silent "0 pulled".
+- **APK ships the same default project** — `build-apk.yml` now bakes `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` from repo secrets, exactly like the Cloudflare/Pages web deploys (previously the APK had a blank default, inviting a wrong-URL connection).
+- **Mismatch warning in Settings** — when the connected account has 0 cloud rows, the sync panel now says so explicitly and tells you to compare the project URL + "Signed in as" values on both devices.
+- **Anonymous label clarified** — anonymous mode is now labelled as a separate empty account that won't see email-account data.
+
 ## v7.3.3 (2026-09-11) — Partnership Type Field
 - **Partnerships are no longer farm-only.** The Add/Edit form has a **Partnership Type** picker with 11 options: Farm, Livestock/Poultry, Business, Startup, Shop, Transport, Contractor, Freelance/Services, Investment/Trading, Rental/Property, Other.
 - **Conditional fields** — Farm keeps crop + season + year (previous behavior); every other type hides crop/season and shows a generic year, using the Notes field for industry/description.

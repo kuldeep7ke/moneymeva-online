@@ -656,7 +656,7 @@ export default function SettingsPage() {
                     <input type="checkbox" checked={syncAnonymous} onChange={e => { setSyncAnonymous(e.target.checked); setSyncError(''); }} className="mt-0.5 accent-sky-600 h-3.5 w-3.5" />
                     <span className="text-sm text-slate-600 dark:text-slate-300">
                       <span className="font-medium">Anonymous mode</span> — connect with URL + anon key only,{' '}
-                      <span className="text-slate-400 dark:text-slate-500">no email/password</span>
+                      <span className="text-slate-400 dark:text-slate-500">no email/password (separate empty account — won't see your email-account data)</span>
                     </span>
                   </label>
                 )}
@@ -762,6 +762,13 @@ export default function SettingsPage() {
                       <span className="font-medium">Cloud rows for this account:</span>
                       <span className="font-semibold text-slate-700 dark:text-slate-200">{syncRemoteTotal === null ? '…' : String(syncRemoteTotal)}</span>
                     </p>
+                    {syncRemoteTotal === 0 && (
+                      <p className="pt-1 text-amber-600 dark:text-amber-400">
+                        This account has no cloud data. If another device has your data, this device is on a
+                        different project URL or a different sign-in (anonymous vs email) — compare the URL and
+                        "Signed in as" values on both devices, then reconnect with the same ones.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

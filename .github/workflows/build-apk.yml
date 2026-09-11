@@ -23,6 +23,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Bake the same default cloud-sync project as the web deploys so the
+      # Android app talks to the same database out of the box (otherwise the
+      # APK ships with a blank project and syncs against whatever URL the
+      # user pastes — a classic "connected but empty" mismatch).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
