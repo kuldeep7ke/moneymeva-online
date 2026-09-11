@@ -22,7 +22,7 @@ import { db } from '@/lib/db';
 import { BASE_PATH } from '@/lib/env';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser, getStoredCloudUser, getRemoteStats } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser, getStoredCloudUser, getRemoteStats, getCurrentUserId } from '@/lib/pouchdb';
 import { dispatchSyncEvent, listenSyncEvents } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
 import { NOTIFICATION_KEYS, POPUP_KEYS, getNotifyPrefs, setNotifyPref, resetNotifyPrefs } from '@/lib/notification-prefs';
@@ -60,6 +60,7 @@ export default function SettingsPage() {
   const [syncError, setSyncError] = useState('');
   const [syncFailCount, setSyncFailCount] = useState(0);
   const [syncAccountEmail, setSyncAccountEmail] = useState('');
+  const [syncUserId, setSyncUserId] = useState('');
   const [syncRemoteTotal, setSyncRemoteTotal] = useState<number | null>(null);
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
   const [syncUrlHistory, setSyncUrlHistory] = useState<string[]>([]);
@@ -401,13 +402,18 @@ export default function SettingsPage() {
     setSyncConnected(false);
     setSyncFailCount(0);
     setSyncAccountEmail('');
+    setSyncUserId('');
     setSyncRemoteTotal(null);
   };
 
   const refreshSyncDiagnostics = async () => {
-    const cloudUser = await getStoredCloudUser().catch(() => null);
-    const stats = await getRemoteStats().catch(() => null);
+    const [cloudUser, stats, uid] = await Promise.all([
+      getStoredCloudUser().catch(() => null),
+      getRemoteStats().catch(() => null),
+      getCurrentUserId().catch(() => null),
+    ]);
     setSyncAccountEmail(cloudUser?.email || '');
+    setSyncUserId(uid || '');
     setSyncRemoteTotal(stats && stats.ok ? stats.total : null);
   };
 
@@ -755,8 +761,16 @@ export default function SettingsPage() {
                     <p className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 shrink-0" />
                       <span className="font-medium">Signed in as:</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'session active (no profile email)'}</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'Anonymous account (this device only)'}</span>
                     </p>
+                    {syncUserId ? (
+                      <p className="flex items-center gap-1.5">
+                        <Key className="h-3.5 w-3.5 shrink-0" />
+                        <span className="font-medium">Account ID:</span>
+                        <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{syncUserId.slice(0, 8)}…</span>
+                        <span className="text-slate-400">(must match on both devices)</span>
+                      </p>
+                    ) : null}
                     <p className="flex items-center gap-1.5">
                       <Database className="h-3.5 w-3.5 shrink-0" />
                       <span className="font-medium">Cloud rows for this account:</span>

@@ -160,7 +160,7 @@ export async function initPouchDB() {
   return localDB;
 }
 
-async function getCurrentUserId(): Promise<string | null> {
+export async function getCurrentUserId(): Promise<string | null> {
   if (!supabase) return null;
   try {
     const { data } = await supabase.auth.getUser();

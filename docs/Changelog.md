@@ -1,5 +1,9 @@
 # Changelog
 
+## v7.3.5 (2026-09-11) — Anonymous-Account Visibility
+- **Sync panel shows the Account ID** (first 8 chars) next to "Signed in as", labelled "must match on both devices" — anonymous mode mints a different throwaway id per device, which is why two "anonymous" devices each see an empty cloud.
+- **Anonymous sessions labelled honestly** — "Anonymous account (this device only)" instead of "session active".
+
 ## v7.3.4 (2026-09-11) — Android Sync Mismatch Fix
 - **Root cause found** — the old (≤ v7.1.x) sync replicated one shared CouchDB to every device with no accounts; the Supabase migration (v7.2.0) made sync per-user (`user_id = auth.uid()` RLS). A device on a different project URL or a different sign-in (anonymous vs email) now legitimately sees an empty cloud — which the app reported as a confusing silent "0 pulled".
 - **APK ships the same default project** — `build-apk.yml` now bakes `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` from repo secrets, exactly like the Cloudflare/Pages web deploys (previously the APK had a blank default, inviting a wrong-URL connection).
