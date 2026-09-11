@@ -95,8 +95,9 @@ New entity `WorkEntry` + Dexie v5 table `works` (`src/app/dashboard/works/page.t
 - Work-type input = free text + datalist of profile presets; stored value is the translated label (human-readable).
 
 ### 10. Partnership Module (भागीदारी) — Shared Work With Settlements
-Entities `Partnership` (members[] with `sharePct`) + `PartnershipEntry`; Dexie v5 tables `partnerships`/`partnership_entries`; UI = tab inside Party Accounts page (`Accounts | भागीदारी` segmented control, `src/components/PartnershipTab.tsx`).
+Entities `Partnership` (members[] with `sharePct`, optional `kind`) + `PartnershipEntry`; Dexie v5 tables `partnerships`/`partnership_entries`; UI = tab inside Party Accounts page (`Accounts | भागीदारी` segmented control, `src/components/PartnershipTab.tsx`).
 - **Share validation**: members' percentages must total exactly 100% to save.
+- **Kind picker (v7.3.0.27)**: `PARTNERSHIP_KINDS` (11) + `PartnershipKind` type — farm/livestock/business/startup/shop/transport/contractor/freelance/investment/rental/other, label keys `ps.kind.*` (mr/hi/en). `kind === 'farm'` (or missing → treat as farm for legacy) shows crop+season+year grid; all other kinds hide crop/season and show only year — Notes carries industry/description. Card header renders a color-coded kind badge and switches its subtitle (crop·season·year vs year·members·description). `kind` flows through `addPartnership`/`updatePartnership` payload as a plain optional field (no schema change, no migration).
 - **Settlement math** (`getPartnershipSummary`): per member `balance = incomeShare + paid − expenseShare` (shares = `total × sharePct/100`). Positive → member should receive from pool; negative → member owes pool. Income assumed collected centrally by the owner.
 - **Ledger mirroring**: entry save can auto-create a main-ledger transaction (category **"Partnership"**, description `"{title} · {detail}"`); edits/deletes keep the mirror in step via `linkedTransactionId`.
 - **Sync**: all three new entities wired through PouchDB `EntityType` + prefixes, archive (restore/permanent delete/empty-all), backup export/import tables, and `clearAllDB`. `processRemoteChanges` maps `partnership_entries` → cache key `partnershipEntries`.
@@ -305,6 +306,14 @@ npm run android:apk          # build → version → gradle assembleDebug
 ---
 
 ## Recent Changes
+
+### v7.3.0.27 (2026-09-11) — Partnership Type Field (Non-Farm Partnerships)
+- **Partnerships are no longer farm-only.** The Add/Edit modal now opens with a **Partnership Type** chip row — 11 kinds: Farm, Livestock/Poultry, Business, Startup, Shop, Transport, Contractor, Freelance/Services, Investment/Trading, Rental/Property, Other.
+- **Conditional fields**: Farm keeps crop + season + year (previous behavior); every other kind hides crop/season and shows a generic year only — the free Notes field carries the industry/description. A hint under the picker switches contextually (`ps.farmHint` vs `ps.businessHint`).
+- **Cards**: color-coded kind badge in the header; subtitle switches from `crop · season year · members` (farm) to `year · members · description` (non-farm).
+- **Data model**: new optional `kind` field on `Partnership` (type `PartnershipKind` in `src/types/index.ts`, `PARTNERSHIP_KINDS` constant in `PartnershipTab.tsx`); absent → treated as `farm`, so pre-existing partnerships are untouched. Flows through `addPartnership`/`updatePartnership` as a plain JSONB field on the `partnership` sync doc — no schema change, no Dexie migration, no backfill.
+- **i18n**: `ps.kind.*` (11 kinds), `ps.kindLabel`, `ps.farmHint`, `ps.businessHint` added in mr/hi/en; `ps.titlePlaceholder` made type-neutral ("Sugarcane share or Startup – Me + Ramesh").
+- **Verified**: tsc clean, no new eslint errors (only repo-wide `any` baseline), bundle check confirmed all 11 kind labels + picker in served `out/`; all 4 pipelines green on the v7.3.0.27 tag.
 
 ### v7.3.0.24–25 (2026-09-11) — Recurring Category Fix + Broadcast Placement Fix
 - **Recurring categories follow the selected type** — the New Recurring modal's category dropdown now swaps its suggestion set when Type changes: income → Salary/Business/Freelance/Interest/Dividend/Rental/Pension…, expense → Bills/Premium/Prepaid/Add-ons/Subscription/Shopping/Credit Card/Rent/Insurance… Switching type clears the category and reopens the dropdown. `useSortedCategories` now recomputes on `[type]` (was wired with an empty deps array, so it froze at the first render's type — category suggestions stayed "expense" even when Type = Income). `form.txType` widened to `'expense' | 'income'` to satisfy the new comparison.

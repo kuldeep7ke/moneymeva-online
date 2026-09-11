@@ -1,5 +1,13 @@
 # Changelog
 
+## v7.3.3 (2026-09-11) — Partnership Type Field
+- **Partnerships are no longer farm-only.** The Add/Edit form has a **Partnership Type** picker with 11 options: Farm, Livestock/Poultry, Business, Startup, Shop, Transport, Contractor, Freelance/Services, Investment/Trading, Rental/Property, Other.
+- **Conditional fields** — Farm keeps crop + season + year (previous behavior); every other type hides crop/season and shows a generic year, using the Notes field for industry/description.
+- **Card badges** — each partnership shows its type as a small colored badge; the subtitle adapts (farm: crop · season · year; others: year · members · description).
+- **Backward compatible** — `kind` is optional; existing partnerships without it render as Farm. No schema change, no migration.
+- **i18n** — `ps.kind.*` labels added in Marathi, Hindi, English (e.g. शेती/खेती/Farm, व्यवसाय/धंदा/Business, गुंतवणूक/निवेश/Investment).
+- **Verification** — tsc clean, no new lint errors, all four pipelines green on v7.3.0.27.
+
 ## v7.3.2 (2026-09-11) — Recurring Category Type-Awareness + Broadcast Pill Placement
 - **Recurring category suggestions follow the selected Type** — the New Recurring Transaction modal now shows income categories (Salary, Business, Freelance, Interest, Dividend, Rental, Pension…) when Type = Income and expense categories (Bills, Premium, Subscription, Shopping, Credit Card…) when Type = Expense. Switching Type clears the field and reopens the dropdown. (Previously the list always came from the expense set, even for Income.)
 - **Broadcast pill placement fixed** — the pill was rendering a full width off-center because Tailwind v4's `-translate-x-1/2` utility (CSS `translate` property) and an inline `translateX(calc(-50% + …))` swipe style were **adding** instead of the inline replacing the class. Centering now lives on a wrapper (`left-1/2 md:left-[calc(50%+8rem)]` so desktop pills center over the content area, past the sidebar); the pill only carries its swipe-to-dismiss transform. Multiple broadcasts stack correctly at 44px apart.

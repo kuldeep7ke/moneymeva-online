@@ -68,6 +68,7 @@ Three transaction types: **Income · Expense · Investment**.
 - When the party settles the payment (or you receive it), that adjustment updates automatically — **FIFO**: a partial payment keeps it Pending (with the amount paid so far), a full payment flips it to **Settled**. You'll always see "who still owes what" in Adjustments.
 - **Settlement rows never double-count** — the real cash/bank/UPI payment appears in your lists, and the opposite section shows it as a visible row with an amber **"Credit settled"** badge; totals always exclude settlement rows (use the **Credit only** filter to see just credit entries).
 - Optional per-party **credit limit** (default ₹10,000) and **settle-within days** (default 30) — the card shows a **Near Limit** / **Limit Reached** badge when you're getting close.
+- **Partnership (भागीदारी) tab** — a Partnership is shared work split between members with % shares (they must total 100%). When you create one, you're added as a member automatically. For farm partnerships keep the **Farm** type and set crop + season + year; for a business, startup, shop, transport or any other kind, pick that type from the chips instead — crop/season hide and you describe the venture in Notes. Cards show the type as a badge. Entries carry "who paid" info and the settlement table tells you who gets/owes what; optionally mirror entries into your main ledger.
 
 ### Recurring
 

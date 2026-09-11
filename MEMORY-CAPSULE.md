@@ -101,7 +101,12 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
   shared income/expense entries with "who paid" tracking, automatic settlement balances.
   New partnerships auto-add the current user as the first member; "Who paid?" lists all
   members (a free-text member uses a `__ps:<memberId>` payer value) and the settlement
-  math attributes `paid` correctly for them.
+  math attributes `paid` correctly for them. **Type-aware** since v7.3.0.27: the Add/Edit
+  modal opens with a Partnership Type chip row (Farm, Livestock, Business, Startup, Shop,
+  Transport, Contractor, Freelance, Investment, Rental, Other) — Farm keeps crop+season;
+  every other kind hides them and uses the Notes field for industry/description. The
+  `kind` field is optional on the doc (absent = Farm) so existing partnerships render
+  unchanged.
 - **Works (कामे)** — work register for farm jobs, labour, hired work. Profession-driven:
   each onboarding profession maps to a matching work profile (Employee, Employer,
   Freelancer, Student, Homemaker, Investor, Retired, Shop/Business, Farmer, General),
@@ -200,6 +205,11 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 
 ## What Changed Recently (v7.3.x)
 
+- **Partnership Type field** — partnerships are no longer farm-only: the Add/Edit modal
+  has an 11-option kind picker (Farm/Livestock/Business/Startup/Shop/Transport/Contractor/
+  Freelance/Investment/Rental/Other). Farm shows crop+season+year; the rest show a generic
+  year and use Notes for the industry/description; cards show a kind badge. Legacy docs
+  without `kind` default to Farm (i18n `ps.kind.*` in mr/hi/en)
 - **Accrual credit model** — credit purchases/sales count in totals at record time, not
   at settlement; every credit entry auto-creates a payment-pending Adjustment; settling
   FIFO-updates them (partial → Pending with tracked amount, full → Settled)

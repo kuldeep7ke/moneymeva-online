@@ -81,7 +81,7 @@ Define all data entities. Key types:
 - **`Goal`** — id, userId, transitionId, name, target, saved, deletedAt?, createdAt
 - **`MutationLog`** — id, transitionId, entityType, entityId, action, timestamp, userId, detail?
 - **`WorkEntry`** — id, userId, transitionId, direction ('receivable'|'payable'), partyId?, partnershipId?, profile (WORK_PROFILES key), workType, crop?, season ('kharif'|'rabi'|'summer'|'annual'), year, area? {value, unit}, startDate, endDate?, agreedAmount, paidAmount, payments[] {id, date, amount, note?, linkedTransactionId?}, dueDate?, notes?, deletedAt?, createdAt, updatedAt
-- **`Partnership`** — id, userId, transitionId, title, crop, season, year, members[] {id, partyId?, name, sharePct}, notes?, description?, deletedAt?, createdAt, updatedAt
+- **`Partnership`** — id, userId, transitionId, title, kind? (PartnershipKind — 'farm'|'livestock'|'business'|'startup'|'shop'|'transport'|'contractor'|'freelance'|'investment'|'rental'|'other'; absent → treated as 'farm' for legacy data), crop, season, year, members[] {id, partyId?, name, sharePct}, notes?, description?, deletedAt?, createdAt, updatedAt
 - **`PartnershipEntry`** — id, userId, transitionId, partnershipId, type ('income'|'expense'), description, amount, date, paidByPartyId?, linkedTransactionId?, deletedAt?, createdAt, updatedAt
 - **`ArchivedItem`** — id, type, label, subtitle, amount, deletedAt, original
 - **`UserProfile`** — id, full_name, currency, onboarding_completed, email?, phone?, monthly_income?, etc.
@@ -862,6 +862,8 @@ Recurring 🔄 buttons open a modal form instead of directly writing to the ledg
 ### Partnership Module (भागीदारी)
 - **Placement**: tab inside the Party Accounts page (`Accounts | भागीदारी` segmented control) — component `src/components/PartnershipTab.tsx`.
 - **Model**: a Partnership has members with `sharePct` (validated to total 100% on save); entries are shared income/expense records. Expenses track `paidByPartyId` (which member fronted the money).
+- **Type (kind) picker**: the Add/Edit modal opens with a **Partnership Type** chip row — 11 kinds via `PARTNERSHIP_KINDS` / `PartnershipKind` (`farm, livestock, business, startup, shop, transport, contractor, freelance, investment, rental, other`). `farm` shows crop + season + year (legacy behavior); every other kind hides crop/season and shows a generic year field — the free Notes field carries the industry/description. Cards show a color-coded kind badge; subtitle switches between `crop · season year` (farm) and `year · members · description` (non-farm).
+- **Backward compatible**: `kind` is optional on the doc; any partnership without it renders/treats as `farm`, so pre-existing data is untouched. Syncs as a plain field on the `partnership` entity (no schema change).
 - **Settlement math** (`getPartnershipSummary`): per member `balance = incomeShare + paid − expenseShare` where shares are `total × sharePct/100`. Positive → member should receive; negative → member owes the pool.
 - **Ledger mirror**: entry save can auto-create a main-ledger transaction (category "Partnership", description `"{title} · {detail}"`); edits/deletes keep the mirror in step via `linkedTransactionId`.
 - **Works link**: the Add Work form shows a Partnership dropdown when partnerships exist; the work keeps its own `partyId` too.
