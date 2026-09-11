@@ -38,7 +38,7 @@ export default function RecurringPage() {
   }, []);
 
   const [form, setForm] = useState({
-    title: '', amount: '', category: '', txType: 'expense' as const, frequency: 'monthly' as const,
+    title: '', amount: '', category: '', txType: 'expense' as 'expense' | 'income', frequency: 'monthly' as const,
     startDate: todayStr(), endDate: '', reminderDays: '3 days',
   });
 
@@ -87,7 +87,12 @@ export default function RecurringPage() {
     setItems(getRecurring());
   };
 
-  const categories = useSortedCategories(['Bills', 'Premium', 'Prepaid', 'Add-ons', 'Subscription', 'Shopping', 'Credit Card', 'Rent', 'Insurance'], 'expense');
+  const categories = useSortedCategories(
+    form.txType === 'income'
+      ? ['Salary', 'Business', 'Freelance', 'Interest', 'Dividend', 'Rental', 'Pension', 'Other']
+      : ['Bills', 'Premium', 'Prepaid', 'Add-ons', 'Subscription', 'Shopping', 'Credit Card', 'Rent', 'Insurance'],
+    form.txType
+  );
 
   const filteredCategories = useMemo(() => {
     if (!catSearch) return categories.slice(0, 3);
@@ -228,7 +233,7 @@ export default function RecurringPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Type</label>
-                  <select value={form.txType} onChange={e => setForm({ ...form, txType: e.target.value as any })}
+                  <select value={form.txType} onChange={e => { setForm({ ...form, txType: e.target.value as any, category: '' }); setCatSearch(''); setShowCategoryDropdown(true); setCatHighlightIdx(-1); }}
                     className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand">
                     <option value="expense">Expense</option>
                     <option value="income">Income</option>

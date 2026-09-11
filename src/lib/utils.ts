@@ -79,6 +79,6 @@ export function useSortedCategories(baseCategories: string[], type?: string): st
     window.addEventListener('store-ready', compute);
     return () => window.removeEventListener('store-ready', compute);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [type]);
   return categories;
 }
