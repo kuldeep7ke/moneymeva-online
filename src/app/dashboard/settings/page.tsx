@@ -658,7 +658,7 @@ export default function SettingsPage() {
                     <p className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 shrink-0" />
                       <span className="font-medium">Database:</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'Shared database (no accounts)'}</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'Shared database'}</span>
                     </p>
                     <p className="flex items-center gap-1.5">
                       <Database className="h-3.5 w-3.5 shrink-0" />
