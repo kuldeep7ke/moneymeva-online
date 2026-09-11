@@ -8,9 +8,9 @@
 | Styling | Tailwind CSS v4 + CSS vars | 3-brand theme |
 | i18n | Custom hook | mr/hi/en, no external lib |
 | Database | Dexie.js (IndexedDB) | Offline-first, 9 tables |
-| Sync | PouchDB ↔ Supabase | Live (realtime) + manual sync |
+| Sync | PouchDB ↔ Supabase | Shared database, link-only (no accounts) |
 | State | In-memory cache + Dexie | Instant reads |
-| Auth | localStorage + Supabase Auth | Local profiles + optional cloud login |
+| Auth | localStorage + Supabase anon key | Local profiles + shared cloud database |
 | Security | One-time 4-digit PINs | Simple, auto-rotate |
 | Mobile | Capacitor v8 | Android APK |
 | Charts | Recharts | Lightweight |

@@ -1,55 +1,36 @@
 # Cloud Sync Guide (Money Meva Online)
 
 Cloud sync backs up your Money Meva data to a shared cloud database (Supabase) and
-keeps it in sync across your devices — privately, per account.
+keeps it in sync across your devices — using the classic link-only model (like the
+original CouchDB sync). Every device that connects with the same project URL + anon
+key reads and writes the **same rows**. No email/password, no accounts.
 
 > **Users:** see the full manual in [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md).
-> **Self-hosting?** To run the app against **your own** Supabase project with your
-> own Google login and database, follow **[SELF-HOSTING.md](SELF-HOSTING.md)**.
-> This file is the sync-specific reference, including owner/developer setup.
+> **Self-hosting?** To run the app against **your own** Supabase project,
+> follow **[SELF-HOSTING.md](SELF-HOSTING.md)**.
 
 ---
 
 ## For App Users
 
-> **Which password?** The sync email + password are your **cloud account** credentials for Money Meva — you create them yourself the first time (any email, any password ≥ 6 chars). They are **not** your app unlock password and **not** your Google password. Signed in with Google? Use the same Google email and tap **Create account & sync** to pick a password.
+### First time (connect to a shared database)
 
-### First time (create your account)
-
-1. Open **Settings → Multi-Device Sync**
-2. The Supabase URL and anon key fields start empty — fill them with **your own project's** values (create one free at supabase.com; guide: [`SELF-HOSTING.md`](SELF-HOSTING.md))
-3. Enter **your email** and a **password you choose** (min 6 characters)
-4. Tap **Create account & sync**
-5. Done — your data is now backed up to the cloud
+1. Create a free Supabase project at https://supabase.com (or use an existing one)
+2. In the project's SQL Editor, paste and run the contents of [`supabase/schema.sql`](supabase/schema.sql)
+   — this creates the shared `sync_docs` table with open access for the anon key
+3. Open **Settings → Multi-Device Sync**
+4. Paste your **Supabase project URL** (e.g. `https://xxxxxxxxxxxx.supabase.co`)
+   and the **anon key** (from Project Settings → API)
+5. Tap **Connect** — your local data is pushed to the cloud
 
 ### On another device
 
 1. Open **Settings → Multi-Device Sync** on the second device
-2. Enter the **same email + password** you used before
-3. Tap **Connect**
-4. Your data appears on this device too
+2. Paste the **same URL + anon key**
+3. Tap **Connect** — your data appears on this device
 
-### Link-only sync (Anonymous mode — no email/password)
-
-Want to back up your data to the cloud **without creating an email + password account**?
-
-1. Open **Settings → Multi-Device Sync**
-2. Fill in the **Supabase URL** and **anon key**
-3. Tick **Anonymous mode** (URL + anon key only — email/password fields hide)
-4. Tap **Connect (Anonymous)**
-
-**One-time project setup (owner/developer):** Anonymous sign-ins must be enabled in
-your Supabase dashboard — **Authentication → Sign In / Providers → Anonymous sign-ins →
-Enable**. Until it's on, connect will fail with a clear message telling you to flip it.
-
-> **How it works / limits**
-> - Anonymous mode creates a **throwaway cloud user** owned by that browser — no login
->   to remember, data is private and row-level-secured like any other account.
-> - Because there's nothing to sign in with, you can **not** pull those rows into a
->   different browser/device later by typing credentials. It's a **link-only backup**:
->   perfect for a single device or a quick safety copy.
-> - For **real cross-device sync**, use the email + password account (Create account &
->   sync) — that data follows you everywhere.
+> **Both devices now share the same rows.** Edits on one device appear on the other
+> within seconds (realtime) or when you tap **Sync Now**.
 
 ### Everyday use
 
@@ -59,10 +40,10 @@ Enable**. Until it's on, connect will fail with a clear message telling you to f
 
 ### Data privacy
 
-- Each account has its **own private space** (row-level security) — no user can
-  see another user's data, and this is enforced at the database level
-- Your email + password are the only thing protecting your cloud data —
-  **don't share them**
+- Anyone with the project URL + anon key can read and write the data — this is the
+  same model as the original CouchDB sync. **Don't share the URL + key publicly.**
+- The anon key is public by design (it's safe to ship in app bundles); the protection
+  is keeping the URL private.
 
 ---
 
@@ -71,65 +52,39 @@ Enable**. Until it's on, connect will fail with a clear message telling you to f
 ### Pointing the app at your own Supabase project
 
 1. Create a project at https://supabase.com (free tier is enough)
-2. Run `supabase/schema.sql` in **SQL Editor** (creates `sync_docs` + per-user security)
-3. Optional: turn **OFF** "Confirm email" (Authentication → Sign In / Providers → Email)
-   so new users sign up instantly
-4. Add your keys: copy `.env.example` → `.env.local` and set
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`
-   (the repo ships with **no baked-in cloud**; see [SELF-HOSTING.md](SELF-HOSTING.md))
+2. Run `supabase/schema.sql` in **SQL Editor** (creates shared `sync_docs` + open RLS policies)
+3. Copy `.env.example` → `.env.local` and set:
+   - `NEXT_PUBLIC_SUPABASE_URL` — your project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — your anon key
+   - `NEXT_PUBLIC_SITE_URL` — where the app is served (for Google redirect if needed)
+4. Rebuild (`npm run build`) — the URL + key are embedded; users only paste them in Settings
 
-5. Build the app (`npm run build`) ?" the URL + key are embedded, users only
-   enter email + password
-
-> Users can also paste a different URL + anon key in Settings manually
-> (overrides the baked-in values) — e.g. for testing another project.
-
-### Enabling anonymous (link-only) sync
-
-If you want users to be able to back up without an email/password (Settings →
-Multi-Device Sync → **Anonymous mode**), enable it once per project:
-
-1. **Supabase dashboard** → Authentication → Sign In / Providers → **Anonymous sign-ins**
-2. Toggle it **On** → Save
-3. Users can now connect with URL + anon key only (no sign-in popup, no email).
-
-> Anonymous users get a throwaway auth role and their own private RLS row space.
-> If you later turn "Anonymous" off, those sessions keep working until they re-login.
-
-### Enabling "Continue with Google" (login page)
-
-The app has a Google sign-in button on the login page (web/PWA only — not in the Android APK).
-
-1. **Google Cloud Console** (https://console.cloud.google.com) → APIs & Services →
-   Credentials → **Create Credentials → OAuth client ID** (Application type: Web application):
-   - Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
-   - Copy the **Client ID** + **Client Secret**
-2. **Supabase dashboard** → Authentication → Providers → **Google** → Enable:
-   - Paste Client ID + Client Secret → Save
-3. **Supabase dashboard** → Authentication → URL Configuration → add the app URL to
-   **Redirect URLs** (e.g. `http://localhost:3000/login`, `https://<your-domain>/login`)
-4. Done — tapping "Continue with Google" creates/connects the cloud account and
-   logs the user into the app automatically (new users go to onboarding).
-
-> Google sign-in is only available in browsers (web/PWA). In the Android APK the
-> button is disabled with a hint to use email & password.
+> Users can override the URL + key per device in Settings → Multi-Device Sync.
 
 ### Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | "Table 'sync_docs' not found" | Run `supabase/schema.sql` in the project's SQL Editor |
-| "Email rate limit exceeded" | Disable "Confirm email" in Authentication settings |
-| Sign-in says invalid credentials | User must tap **Create account & sync** first (or confirm their email) |
-| "Anonymous sign-ins are not enabled" on connect | Enable Authentication → Sign In / Providers → Anonymous sign-ins in the Supabase dashboard |
-| Data missing on other device | Check both devices use the same email + password |
-| Realtime updates not arriving | `ALTER PUBLICATION supabase_realtime ADD TABLE sync_docs;` + `REPLICA IDENTITY FULL` (both are in `schema.sql`) |
+| Push shows "ON CONFLICT specification" error | The table still has the old per-user schema — run `supabase/schema.sql` |
+| Pull says "failed to store them locally" | This was a false alarm in older versions (v7.3.0.37+ fixed it) |
+| "Cloud rows in database: 0" after Connect | Run the migration SQL (Settings → Setup Guide → Copy SQL), then Disconnect + Connect again |
+| Realtime updates not arriving | `ALTER PUBLICATION supabase_realtime ADD TABLE sync_docs;` + `REPLICA IDENTITY FULL` (both in `schema.sql`) |
+| Data missing on other device | Make sure both devices use the **same** project URL + anon key |
 
 ---
 
-## Migrating from the old CouchDB setup
+## Migration from the old per-user model
 
-- The old sync used a **CouchDB URL** (e.g. Railway) with PouchDB replication.
-- That path was **removed in v7.1.1.34** — the Railway instance is decommissioned.
-- Local data is unaffected: connect to Supabase with the same app, and
-  `pushAllToPouch` uploads your existing local PouchDB buffer to the cloud.
+Pre-v7.3.0.33 projects had `sync_docs` with a `user_id` column, composite PK
+`(user_id, id)`, and per-user RLS. The migration SQL (`supabase/schema.sql`)
+handles this automatically:
+
+1. Drops all existing RLS policies on `sync_docs`
+2. Drops the composite PK and all foreign key constraints
+3. Drops the `user_id` column
+4. Dedupes rows (newest `updated_at` wins per `id`)
+5. Creates a single-column PK on `id`
+6. Creates open anon policies (any device with the key can read/write)
+
+Run it once in the SQL Editor — it's idempotent and safe to re-run.

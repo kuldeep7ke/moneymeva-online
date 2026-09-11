@@ -3,7 +3,7 @@
 > *Where does the money go? Let's find out.*
 > > **पैसे कुठे जातात? शोधूया.**
 
-**v7.3.0.28** — A minimalistic, local-first personal finance companion.
+**v7.3.0.38** — A minimalistic, local-first personal finance companion.
 Built with Next.js 16, TypeScript, Dexie.js, PouchDB, Supabase, and Tailwind CSS v4.
 Made in India. Runs on Windows, Mac, Linux, Docker, and Android.
 
@@ -20,7 +20,7 @@ This README documents the project surface — features, architecture, setup, and
 Money Meva was built around a single belief: **financial clarity should not require surrendering privacy**. Every feature, every tradeoff, every line of code traces back to this.
 
 - **Local-first by default** — your data lives in your browser's IndexedDB. No cloud required, no accounts to create, no subscription to maintain.
-- **Sync is optional** — multi-device sync exists only so you are not chained to one device. It uses a shared Supabase database with per-user isolation (email + password), and you can bring your own Supabase project.
+- **Sync is optional** — multi-device sync exists only so you are not chained to one device. It uses a shared Supabase database — every device with the same project URL + anon key reads and writes the same rows (link-only, like the original CouchDB model). No email/password, no accounts.
 - **PINs, not passwords** — sensitive operations (deletes, edits, exports) require a 4-digit PIN, not a backend call. Security without dependence.
 - **Soft-delete everywhere** — nothing is truly gone. Every entity carries a `deletedAt` timestamp. The archive is your safety net.
 - **Transitions are traceable** — every mutation carries a `transitionId`, linking lifecycles across entities. The ledger is the source of truth.
@@ -64,12 +64,11 @@ Money Meva was built around a single belief: **financial clarity should not requ
 ### Multi-Device Sync (Supabase)
 - **PouchDB + Supabase** — a local PouchDB buffer (`mm_pouch`) syncs to a shared Supabase `sync_docs` table. Manual + live (realtime) sync. Data is stored on the cloud — it doubles as a backup.
 - **Every section syncs** — all 10 data entities (transactions, partners, recurring, budgets, reminders, adjustments, goals, works, partnerships, partnership_entries) plus the audit trail (mutation_log) push through one doc store (`entity:id` rows). UI preferences stay on-device.
-- **Per-user isolation** — every row carries `user_id`; Row-Level Security guarantees no account can read or write another account's data.
-- **Email + password login** — Supabase Auth. URL + anon key are pre-configured from the build; users just enter their email + password.
-- **Create account & sync** — first-time sign-up connects instantly; **Connect** re-uses an existing account on another device. **Google sign-in connects automatically** — no email/password needed.
+- **Link-only (no accounts)** — every device with the same project URL + anon key reads and writes the **same rows**. No email/password, no Google sign-in, no anonymous accounts. Same model as the original CouchDB sync.
+- **Setup** — owner creates a Supabase project, runs `supabase/schema.sql` once (shared table + open RLS), then shares the project URL + anon key with devices. Users paste them in Settings → Multi-Device Sync → Connect.
 - **Live sync** — realtime subscription pushes remote changes into the local buffer within seconds; a 30-second reconnect timer handles drops.
-- **Manual sync** — `manualSync()` returns `{ ok, pushed, pulled }` with actual doc counts. No infinite recursion.
-- **Bring your own Supabase** — advanced users can paste a different URL + anon key in Settings to use their own project (see `CLOUD-SYNC-GUIDE.md`).
+- **Manual sync** — `manualSync()` returns `{ ok, pushed, pulled }` with actual doc counts. Push errors now surface the real underlying Postgres error for debugging.
+- **Bring your own Supabase** — users can paste a different URL + anon key per device in Settings to point at their own project.
 
 ### User Experience
 - **Multi-user** — Multiple profiles with quick-switch from login screen.
@@ -101,7 +100,7 @@ Money Meva was built around a single belief: **financial clarity should not requ
 | PDF | jsPDF 4 + jspdf-autotable |
 | Excel | SheetJS (xlsx) |
 | Dates | date-fns 4 |
-| Auth | Local (email/password) + optional Supabase Auth for cloud sync |
+| Auth | Local (email/password) for app; Supabase anon key for cloud sync |
 | Mobile | Capacitor 8 (Android) — app, browser, filesystem, share, local-notifications, status-bar |
 | Linting | ESLint 9 |
 
@@ -147,8 +146,8 @@ Money Meva was built around a single belief: **financial clarity should not requ
                          ┌─────────────▼──────────────┐
                          │  Supabase sync_docs (opt-in)│
                          │  Cloud hub + backup         │
-                         │  Per-user rows (user_id)    │
-                         │  Row-Level Security         │
+                          │  Shared rows (link-only)    │
+                          │  Open RLS (anon key)        │
                          │  Realtime subscription      │
                          │  Auto-reconnect (30s)       │
                          └────────────────────────────┘
@@ -164,37 +163,24 @@ Every entity carries: `id`, `transitionId`, `userId`, `createdAt`, `updatedAt`, 
 ### Sync Architecture Details
 
 ```
-signUpUser(url, key, email, password):
-  supabase.auth.signUp({ email, password })
-    → creates account (JWT session)
-    → connectRemote(...) on success
-
-connectRemote(url, key, email, password):
+connectRemote(url, key):
   init Supabase client (url + anon key)
-  supabase.auth.signInWithPassword({ email, password })
-    → session stored under sb-<project-ref>-auth-token (Supabase JS standard)
-  pushAllToPouch()      ← push local PouchDB → sync_docs (upsert, onConflict user_id,id)
+  lightweight ping → { ok, error? }        ← no sign-in, no auth session
+  saveConfig(url, key)                      ← persist for reconnection
   subscribe to sync_docs_realtime (replica identity full)
-  pullAll() → processRemoteChanges()   ← pull remote rows into local PouchDB
-  → onRemoteChange(fn) fires live UI updates
   → startReconnectTimer(30s interval) on disconnect
 
 manualSync():
-  pushAllToPouch()  ← upsert local changes (onConflict 'user_id,id')
-  pullAll() + processRemoteChanges()  ← apply remote changes
-  returns { ok, pushed, pulled }
+  pushLocalToRemote()  ← upsert local changes (onConflict 'id', chunks of 200)
+  pullRemoteToLocal()  ← select all rows, apply to local PouchDB
+    → apply/skip/fail per row (skip = already up-to-date locally)
+  returns { ok, pushed, pulled, pushErr?, pullErr? }
 
 checkConnection():
-  session valid → lightweight ping → true
-  session dead (expired token / stale client):
-    → recreate client → getSession() (auto-refreshes token)
-    → ping → re-subscribe realtime → true; else false
-  → self-healing, no false negatives
-ensureConnected():  ← re-subscribe if session exists but subscription dropped
+  lightweight ping → true/false (no auth session to refresh)
 
-Reconnect timer (30s):  detects dead sessions, recreates client, refreshes session,
-  re-subscribes, dispatches sync event "Sync reconnected" → Settings UI updates live
-  (listenSyncEvents) — no stale "create account" form on flaky Android networks.
+Reconnect timer (30s):  pings the server; on success dispatches sync event
+  "Sync reconnected" → Settings UI updates live (listenSyncEvents).
 ```
 
 ---
@@ -332,26 +318,23 @@ All launchers auto-install deps, rebuild when src/ is newer than out/, and open 
 
 ## Cloud Sync Setup
 
-Cloud sync uses **Supabase** (Postgres + Auth + Realtime) — every user gets their own private data space with email + password login.
+Cloud sync uses **Supabase** (Postgres + Realtime) — every device that connects with the project URL + anon key reads and writes the same rows. No email/password, no accounts.
 
-> **Self-hosting the app with your own database and Google login?**
+> **Self-hosting the app with your own database?**
 > Follow the step-by-step guide: **[SELF-HOSTING.md](SELF-HOSTING.md)** — clone → create a free Supabase project → run `supabase/schema.sql` → fill 3 values in `.env.local` → rebuild. Offline-first by default; cloud sync is optional.
 
 1. **Create a Supabase project** at https://supabase.com (free tier is enough)
-2. **Create the sync table** — open SQL Editor, run the contents of [`supabase/schema.sql`](supabase/schema.sql)
+2. **Create the shared sync table** — open SQL Editor, run the contents of [`supabase/schema.sql`](supabase/schema.sql)
 3. **Get your keys** — Project Settings → API:
    - Project URL: `https://<project-ref>.supabase.co`
    - anon public key (starts with `eyJ…`)
-4. **Keys are NOT baked in** — the repo ships cloud-free. For sync/Google login, create `.env.local` from [`.env.example`](.env.example) with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` and rebuild (full walkthrough: [SELF-HOSTING.md](SELF-HOSTING.md)). End users can also paste a project URL + key per device in Settings at runtime.
+4. **Keys are NOT baked in** — the repo ships cloud-free. Create `.env.local` from [`.env.example`](.env.example) with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` and rebuild (full walkthrough: [SELF-HOSTING.md](SELF-HOSTING.md)). End users can also paste a project URL + key per device in Settings at runtime.
 5. **In-app** — Settings → Multi-Device Sync:
-   - **New user:** enter an email + a **password you choose** (min 6 characters — this is your *cloud account* password, unrelated to the app unlock password or your Google password) → tap **Create account & sync**
-   - **Existing user:** enter the same email + password → tap **Connect**
-   - **Signed in with Google:** use the same Google email and tap **Create account & sync** to pick a password for that account
-6. **Repeat on each device** — same email + password on every device
+   - Paste the **Supabase project URL** + **anon key**
+   - Tap **Connect** — your local data is pushed to the cloud
+6. **Repeat on each device** — same URL + anon key on every device → all share the same data
 
-Each account's data is isolated in the cloud (row-level security) — no user can see another user's data. The app works fully offline without sync; sync is optional.
-
-> **Tip:** to let new users sign up instantly without email confirmation, turn off **Authentication → Sign In / Providers → Email → "Confirm email"** in the Supabase dashboard (or run the one-liner at the bottom of `supabase/schema.sql`).
+The app works fully offline without sync; sync is optional. Keep the project URL private — anyone with the URL + anon key can read/write the data.
 
 > **Advanced:** users can paste a different URL + anon key directly in Settings to point at their own Supabase project (bring-your-own-Supabase).
 

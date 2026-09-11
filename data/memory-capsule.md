@@ -1,13 +1,13 @@
 # Money Meva — Memory Capsule
 
-**Version:** v7.3.0.23 (incremented on every build)
+**Version:** v7.3.0.38 (incremented on every build)
 **Repository:** github.com/kuldeep7ke/moneymeva-online (private, Supabase sync)
 **Legacy repository:** github.com/kuldeep7ke/moneymeva (frozen at `dc965eb`, pure CouchDB — do not build from it)
 **Deployment:** Cloudflare Pages (auto-deploy on push to master)
 **Android:** Capacitor APK via GitHub Actions (auto-build on push)
 **Remote announcements:** jsonbin.io bins (broadcast + banner) — see `docs/BROADCAST-GUIDE.md`
 **Docs vault:** `docs/` (Obsidian-compatible, seed at `AGENTS.md`)
-**Last Updated:** 2026-09-10
+**Last Updated:** 2026-09-11
 
 ---
 
@@ -20,10 +20,10 @@
 | Styling | Tailwind CSS v4 + CSS variables | Rapid prototyping; 3-brand theme via CSS custom properties |
 | i18n | Custom hook + translations.ts | 3 languages (mr/hi/en), no external lib needed |
 | Database | Dexie.js (IndexedDB wrapper) | Offline-first; no server needed; 12 tables with compound indexes |
-| Sync | PouchDB ↔ Supabase `sync_docs` (realtime) | Local PouchDB buffer (`mm_pouch`); cloud hub = Supabase table; live realtime + manual "Sync Now"; 30s reconnect; self-healing `checkConnection` |
+| Sync | PouchDB ↔ Supabase `sync_docs` (link-only) | Local PouchDB buffer (`mm_pouch`); shared database (no accounts); every device with URL + anon key reads/writes the same rows; live realtime + manual "Sync Now"; 30s reconnect |
 | State | In-memory cache + Dexie + PouchDB | Cache for instant reads, Dexie for persistence, PouchDB for sync |
-| Auth | Local (localStorage) + optional Supabase Auth | Local multi-user profiles; cloud login (email+password, JWT in `sb-<ref>-auth-token`) only when Multi-Device Sync enabled |
-| Security | One-time 4-digit PINs + Supabase RLS | PINs for app access; cloud rows isolated per `auth.uid()` via Row-Level Security; no PII stored remotely |
+| Auth | Local (localStorage) + Supabase anon key | Local multi-user profiles; cloud sync uses anon key only (no auth session, no sign-in) |
+| Security | One-time 4-digit PINs + Supabase open RLS | PINs for app access; cloud rows open to any device with the anon key (keep URL private) |
 | Mobile | Capacitor v8 (Android) | Wraps static Next.js output as native APK; plugins: app, browser, filesystem, share, local-notifications, status-bar |
 | Charts | Recharts | Lightweight, React-native charting |
 | PDF Export | jsPDF + jsPDF-autotable | Client-side PDF generation |
@@ -32,7 +32,7 @@
 | Toasts | Custom context (Toast.tsx) | Global success/error/warning/info — replaces `alert()` |
 
 ### Why Not...
-- **Self-hosted/CouchDB sync** → Removed. Railway CouchDB instance decommissioned (dead 404). Replaced by a shared Supabase project with per-user isolation — zero server to run, free tier, realtime built-in.
+- **Self-hosted/CouchDB sync** → Removed (Railway decommissioned). Replaced by Supabase — shared database model (link-only, no accounts). Same simplicity as old CouchDB sync but with Postgres + realtime.
 - **Server components** → Cannot use. Dexie/PouchDB are browser-only. All pages `'use client'`.
 - **Zustand/Redux** → Unnecessary. In-memory cache arrays + direct reads are simpler.
 - **Prisma/SQLite** → Dexie is the only offline-capable option for browser storage.
@@ -56,14 +56,13 @@ Every entity gets a `transitionId` at creation. Links all mutations across lifec
 
 ### 4. Offline-First Cloud Sync (Supabase)
 Local PouchDB buffer (`mm_pouch`) + Supabase `sync_docs` table as the cloud hub (not a relay — data IS stored on Supabase). Optional: app fully works offline without it.
-- **Sign-up**: `signUpUser(url, key, email, password)` → Supabase Auth → connect
-- **Connect**: `connectRemote(url, key, email, password)` → sign in → initial `pushAllToPouch` → realtime subscription → `pullAll` → `processRemoteChanges`
-- **Push**: upsert with `onConflict: 'user_id,id'` (composite PK — every row owned by the signed-in user)
-- **Pull**: `select` scoped by RLS (`auth.uid() = user_id`)
-- **Live updates**: realtime channel on `sync_docs_realtime` (replica identity full); 30s reconnect interval; `onRemoteChange` for UI refresh
-- **Self-healing checks**: `checkConnection()` — if session looks dead (getUser fails on expired token), recreates the client, `getSession()` auto-refreshes, re-pings, and re-subscribes instead of reporting `false`. Successful reconnects dispatch a sync event (`'complete', 'Sync reconnected'`) so Settings updates its UI live (listens via `listenSyncEvents`) — no more flicker between "Sync Now" and the create-account form on slow/flaky Android networks
-- **URL/key defaults**: NONE since v7.2.0.9 — repo ships cloud-free; `src/lib/env.ts` reads `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `NEXT_PUBLIC_SITE_URL` from `.env.local` (owner's real values live there, gitignored) or Settings → Sync per device. jsonbin Bin IDs remain XOR+base64 obfuscated (`_K='moneymeva'`, runtime `_d()` decoder)
-- **Multi-user isolation**: verified E2E — account B sees 0 rows of account A, RLS blocks cross-account writes, realtime events never cross accounts
+- **Connect**: `connectRemote(url, key)` → create client + ping (no sign-in, no auth session) → save config → subscribe to realtime
+- **Push**: upsert with `onConflict: 'id'` (single-column PK; every device shares the same rows)
+- **Pull**: `select *` (open RLS); conflict resolution via `updated_at` (newer wins)
+- **Live updates**: realtime channel on `sync_docs_realtime` (replica identity full); 30s reconnect interval
+- **Schema migration**: one-time SQL (`supabase/schema.sql`) drops the old `user_id` column + composite PK, dedupes rows (newest wins per id), creates single-column PK on `id`, sets open anon RLS policies
+- **URL/key defaults**: NONE — repo ships cloud-free; `src/lib/env.ts` reads from `.env.local` or Settings → Sync per device
+- **Security tradeoff**: anyone with the project URL + anon key can read/write the data (same model as old CouchDB). Keep the URL private.
 
 ### 5. Local Auth with Multi-User
 Users in localStorage `mm_users`. Session in `mm_session`. No server needed. Cloud login (Supabase) is separate and only used for Multi-Device Sync.
@@ -273,12 +272,11 @@ npm run android:apk          # build → version → gradle assembleDebug
 ### PouchDB / Supabase Sync
 - `db.type()` deprecated in PouchDB 9.x (harmless warning)
 - `_`-prefixed custom fields (like `_entity`) rejected — use `entity` instead
-- Upserts against Supabase need `onConflict: 'user_id,id'` (composite PK) — plain `onConflict: 'id'` silently no-ops/fails
+- Upserts use `onConflict: 'id'` (single-column PK). The old composite `(user_id, id)` was removed by the v7.3.x migration
 - Realtime requires `ALTER PUBLICATION supabase_realtime ADD TABLE sync_docs;` + replica identity full, else events never fire
-- SQL-created `auth.users` rows break GoTrue (500 "Database error querying schema") — always create users via the sign-up API
-- `over_email_send_rate_limit` (429): turn OFF "Confirm email" in Authentication → Email to let users sign up instantly without rate limits
-- Anon key without session: select returns 0 rows, insert blocked, delete no-ops — safe to expose
-- Sync errors silent — use `syncHandler.on('error')` / `onRemoteChange` for visibility
+- Pull tri-state: rows already up-to-date locally are "skipped" (not "failed") — only genuine storage errors count as failures
+- Push errors now surface the first real Postgres error message (e.g. RLS policy violation, ON CONFLICT mismatch)
+- Schema migration drops PK/FK constraints BEFORE the `user_id` column (Postgres won't drop a column that's part of a constraint without CASCADE)
 
 ### Dexie
 - Bulk operations: chunk at 500 items

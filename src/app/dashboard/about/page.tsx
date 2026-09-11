@@ -41,7 +41,7 @@ export default function AboutPage() {
             your expenses, income, savings, and investments. Built with simplicity and minimalism 
             in mind, it provides powerful insights through visual analytics while keeping your 
             financial data private and stored locally on your device. Optional multi-device sync 
-            via Supabase lets you access your data across phones, tablets, and computers.
+            via Supabase shares the same database across all your devices — just paste a project URL and anon key, no account needed.
           </p>
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div className="bg-brand-light dark:bg-brand-muted p-4 rounded-xl">

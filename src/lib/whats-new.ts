@@ -5,20 +5,15 @@ export interface WhatsNewItem {
 }
 
 export const RELEASE_NOTES: WhatsNewItem = {
-  version: 'v7.2.0.1',
-  date: '23 Aug 2026',
+  version: 'v7.3.0.38',
+  date: '11 Sep 2026',
   items: [
-    'NEW: Works (कामे) — record farm & other jobs with pending payment tracking',
-    'Works: crop, season, area, duration, party and per-payment history',
-    'NEW: Partnership (भागीदारी) tab in Party Accounts for shared income/expense splits',
-    'Partnership: member shares must total 100% with automatic settlement balances',
-    'Partnership members: type any name or pick from your recent parties',
-    'Payments can auto-create matching Income or Expense ledger entries',
-    'Farmer added as a profession during onboarding, with farming categories',
-    'Categories page: tap any category to see all its entries with totals',
-    'Dashboard: compact single-line summary cards with combined Party totals',
-    'Performance: faster dashboard, less loading stutter',
-    'Removed Tasks section — Savings is now Goals only',
+    'Shared sync database — every device with the same URL + anon key shares one database',
+    'No accounts needed: connect with just a project URL + anon key (like the old CouchDB model)',
+    'Settings now shows "Shared database" and total cloud row count',
+    'Setup Guide simplified: 2 steps (create project, run SQL)',
+    'Push errors now show the real underlying issue (e.g. schema not applied)',
+    'Sync no longer shows false "failed to store" errors after a healthy sync',
   ],
 };
 

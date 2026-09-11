@@ -1,18 +1,18 @@
 # Sync (Cloud Sync)
 
-> **Architecture:** PouchDB (local IndexedDB buffer) ↔ Supabase (shared cloud database).
+> **Architecture:** PouchDB (local IndexedDB buffer) ↔ Supabase (shared cloud database, link-only — no accounts).
 > **Supersedes:** the old CouchDB sync (PouchDB replication to a user-provided CouchDB URL).
 
 ## How It Works
 
 ```
 Device PouchDB (mm_pouch)
-   │  push (upsert onConflict user_id,id)
+   │  push (upsert onConflict id)
    ▼
-Supabase sync_docs table  ←  row-level security: each row tied to auth.uid()
-   │  pull (RLS-filtered select) + realtime subscription
+Supabase sync_docs table  ←  open RLS (any device with anon key reads/writes)
+   │  pull (select all) + realtime subscription
    ▼
-Device PouchDB (same account, another device)
+Device PouchDB (any device with the same URL + key)
 ```
 
 - **Local buffer**: `src/lib/pouchdb.ts` keeps a PouchDB instance named `mm_pouch`
@@ -50,15 +50,14 @@ Soft deletes push the full row; permanent deletes push an `{ id, deletedAt }` to
 ```ts
 // src/lib/pouchdb.ts
 getConfig()                                   // { url, key } — from env or localStorage override
-signUpUser(url, key, email, password)         // create account + connect  → { ok, needsConfirmation?, error? }
-connectRemote(url, key, email, password)      // sign in + start realtime → { ok, error? }
-manualSync()                                  // one-shot push+pull → { ok, pushed, pulled }
-checkConnection()                             // session + ping
-ensureConnected()                             // reconnect if session exists but subscription dropped
+connectRemote(url, key)                       // create client + ping (no sign-in) → { ok, error? }
+manualSync()                                  // one-shot push+pull → { ok, pushed, pulled, pushErr?, pullErr? }
+checkConnection()                             // lightweight ping
+ensureConnected()                             // reconnect if subscription dropped
 disconnectRemote()                            // stop realtime, keep local data
 ```
 
-- Auth is **Supabase Auth** (email + password; JWT session under `sb-<project-ref>-auth-token`).
+- No authentication session — connect is just a client + ping. Every device sharing the URL + anon key reads/writes the same rows.
 - Reconnect: 30s interval + `onRemoteChange` callback for live UI updates.
 
 ## Sync Modes
@@ -78,15 +77,16 @@ disconnectRemote()                            // stop realtime, keep local data
 ## Schema & Security
 
 - Table: `sync_docs` — see `supabase/schema.sql`
-  - PK `(user_id, id)` — every row owned by the signed-in user
-  - `data` jsonb holds the full entity (`entityType:id` doc ids)
-  - `deleted_at` soft-delete marker
-- **Row-Level Security** (`auth.uid() = user_id`):
-  - select: only own rows → other users' data is invisible
-  - insert/update/delete: only own rows → cross-account writes are blocked
+  - PK `id` (text) — one row per document (e.g. `transaction:abc123`)
+  - `entity` column tags which feature the row belongs to
+  - `data` jsonb holds the full document payload
+  - `updated_at` timestamptz for conflict resolution (newer wins)
+  - `deleted_at` timestamptz soft-delete marker
+- **Row-Level Security** (open policies — `using(true)` / `with check(true)`):
+  - Any device with the anon key can read and write all rows
+  - Protection = keeping the project URL private (not baked into the app)
 - Realtime publication on `sync_docs` + `replica identity full`
-- Unauthenticated anon key: can sign up/sign in, but **cannot read any rows**
-  (0 rows returned), so exposing the anon key is safe.
+- Push uses `onConflict: 'id'` (single-column PK); the old composite `(user_id, id)` was removed by the migration
 
 ## Error Handling
 
@@ -108,12 +108,11 @@ listenSyncEvents(fn)   // subscribe to status
 ## Setup (Owners)
 
 1. Create a Supabase project (free tier OK)
-2. Run `supabase/schema.sql` in SQL Editor (creates `sync_docs` + RLS + realtime)
-3. Optional: turn **OFF** "Confirm email" in Authentication → Email
-4. Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` /
+2. Run `supabase/schema.sql` in SQL Editor (creates shared `sync_docs` + open RLS + realtime)
+3. Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` /
    `NEXT_PUBLIC_SITE_URL` in `.env.local` (see `.env.example`) and rebuild —
-   users only enter email + password
-5. Users can override URL/key manually in Settings (bring-your-own-Supabase)
+   users paste the URL + anon key in Settings → Multi-Device Sync → Connect
+4. Users can override URL/key per device (bring-your-own-Supabase)
 
 See `SELF-HOSTING.md` for the full step-by-step guide and `CLOUD-SYNC-GUIDE.md`
 for the end-user sync walkthrough.

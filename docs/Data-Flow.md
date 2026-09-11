@@ -26,8 +26,8 @@ Page loads
 
 ```
 Local PouchDB (mm_pouch)
-  → push (upsert, onConflict user_id,id)
-  → Supabase sync_docs (per-user rows, RLS)
+  → push (upsert, onConflict id)
+  → Supabase sync_docs (shared rows, open RLS)
   → realtime subscription → other devices' PouchDB
   ├── Live: realtime push/pull after connect
   ├── Manual: "Sync Now" one-shot push+pull
@@ -41,5 +41,5 @@ Local PouchDB (mm_pouch)
 3. **Soft-delete** — `deletedAt` field, never hard delete
 4. **transitionId** — Links all mutations for one entity
 5. **mutation_log** — Every write logged for audit ledger
-6. **Cloud rows are user-scoped** — every `sync_docs` row carries `user_id`;
-   RLS guarantees isolation between accounts
+6. **Cloud rows are shared** — every device with the anon key reads/writes the same rows;
+   keep the project URL private to protect data

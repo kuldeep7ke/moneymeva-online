@@ -25,7 +25,7 @@ So we built one that doesn't.
    No cloud account required. No server to trust. The app works fully offline.
 
 2. **Sync is optional** — multi-device sync exists only so you aren't chained to one
-   device. It uses a shared Supabase database with per-user isolation, and you bring
+   device.    It uses a shared Supabase database — every device with the same URL + anon key reads and writes the same rows — and you bring
    your own. No credentials are baked into the code.
 
 3. **Traceable** — every mutation carries a `transitionId`, linking the full lifecycle
@@ -53,8 +53,7 @@ PouchDB (local buffer) ─── fire-and-forget write to local PouchDB
     │
     ▼
 Supabase sync_docs (opt-in) ─── cloud hub + backup
-                                 per-user rows (user_id)
-                                 row-level security
+                                 every device reads/writes the same rows
                                  realtime subscription
                                  auto-reconnect (30s)
 ```
@@ -134,10 +133,9 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 - **Export / Import** — CSV, PDF (jsPDF), Excel (SheetJS), full JSON backup/restore
   with cross-user detection and reassignment. Audit trail + activity log included in
   backups and restored on import.
-- **Cloud Sync** — PouchDB → Supabase sync_docs. Manual + live (realtime). All 10 data
+- **Cloud Sync** — PouchDB → Supabase sync_docs. Link-only (no accounts): every device sharing the project URL + anon key reads/writes the same rows. Manual + live (realtime). All 10 data
   entities + audit log sync across devices. Per-user isolation via row-level security.
-- **Cloud Setup Wizard** — auto-checking 4-step wizard (project, schema, Google
-  provider, redirect URL) with live validation.
+- **Cloud Setup Wizard** — 2-step setup guide (create project, run SQL).
 
 ### Developer Tools (author-only)
 - **Developer Zone** (`/dashboard/developer`) — private page for the owner, not
@@ -185,7 +183,7 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 | PDF | jsPDF + jspdf-autotable |
 | Excel | SheetJS (xlsx) |
 | Dates | date-fns 4 |
-| Auth | Local (email/password) + Supabase Auth |
+| Auth | Local (email/password) for app; Supabase anon key for cloud sync |
 | Mobile | Capacitor 8 (Android) |
 
 ---
@@ -233,6 +231,23 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
   `fixed` wrapper (`left-1/2 md:left-[calc(50%+8rem)]`), the pill only carries its
   swipe-to-dismiss `transform`. Tailwind v4 lesson: `-translate-x-1/2` (CSS `translate`)
   and an inline `translateX(calc(-50%+…))` ADD UP — never layer centering on both
+- **Shared sync database (link-only, no accounts)** — the old CouchDB model is back: every device
+  that connects with the project URL + anon key reads and writes the same rows. No email/password,
+  no per-device anonymous accounts. `connectRemote(url, key)` = create client + ping only; upserts
+  use `onConflict: 'id'` (single-column PK); RLS is open (`using(true)` / `with check(true)`); the
+  old per-user `user_id` column and its FK to auth.users are dropped by a hardened one-time SQL
+  migration (supabase/schema.sql). 541 multi-account rows were deduped to 241 (newest `updated_at`
+  wins per `id`).
+- **Schema migration hardened** — the migration SQL drops *every* RLS policy on `sync_docs` (not just
+  known names), drops PK and FK constraints before the `user_id` column, guards the realtime
+  publication against duplicate-add. The SQL can be run repeatedly without errors.
+- **Pull tri-state** — rows already up-to-date locally (e.g. right after a successful push) are
+  now classified as "skipped" instead of "failed", so a healthy sync no longer shows a false
+  "Fetched N remote row(s) but failed to store them locally" error.
+- **Push error detail** — push failures now surface the first real underlying Postgres error
+  (e.g. RLS policy violation, ON CONFLICT mismatch) instead of just "N write failure(s)".
+- **Cloud Setup Wizard simplified** — 2 steps (create project, run SQL); Google sign-in and redirect
+  steps removed. Settings "Database" label reads "Shared database".
 
 ## What Changed Recently (v7.2.x)
 
@@ -267,7 +282,7 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
 
 - **11 Dexie tables** — transactions, partners, recurring, budgets, reminders,
   adjustments, goals, works, partnerships, partnership_entries, mutation_log
-- **1 Supabase table** — sync_docs (composite PK: user_id + entity:id)
+- **1 Supabase table** — sync_docs (PK: id)
 - **10 synced data entities + audit entries** — transactions, partners, recurring,
   budgets, reminders, adjustments, goals, works, partnerships, partnership_entries
   all push through one doc store, plus the mutation_log audit trail

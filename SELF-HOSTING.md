@@ -56,8 +56,7 @@ npm run build        # static export → out/
 npx serve out        # or ./start.sh (Mac/Linux) / start.bat (Windows)
 ```
 
-Open http://localhost:3000. Create an **email + password account** inside the app —
-this works fully offline. Stop here if you don't want cloud features.
+Open http://localhost:3000 — it works fully offline with no cloud setup. Stop here if you don't want cloud features.
 
 ---
 
@@ -80,28 +79,9 @@ this works fully offline. Stop here if you don't want cloud features.
 
 ---
 
-## Step 4 — Enable Google sign-in (optional but recommended)
+## Step 4 — Enable Google sign-in (optional)
 
-Skip this step to use only email+password accounts. For "Continue with Google":
-
-### 4a. Google Cloud Console
-
-1. https://console.cloud.google.com → create a project (any name)
-2. **APIs & Services → OAuth consent screen** → External → fill app name/email → publish
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID**
-   - Type: **Web application**
-   - Authorized redirect URI: `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback`
-     (exact value also shown in Supabase → Authentication → Providers → Google)
-4. Copy the **Client ID** and **Client Secret**
-
-### 4b. Supabase Dashboard
-
-1. **Authentication → Providers → Google** → enable, paste Client ID + Secret → Save
-2. **Authentication → URL Configuration**:
-   - **Site URL**: where YOUR app runs, e.g. `http://localhost:3000` (change later to your domain)
-   - **Redirect URLs**: add each address you'll open the app from, e.g.
-     - `http://localhost:3000/**`
-     - `https://your-domain.example/**`
+Google sign-in is optional and not required for sync. If you want it, see the original instructions in the git history.
 
 ---
 
@@ -144,7 +124,7 @@ You can also override the sync target per device later in **Settings → Multi-D
 
 On each phone/computer where you use the app:
 
-1. Open the app → sign in with the **same Google account** (or same email+password)
+1. Open the app → Settings → Multi-Device Sync → paste the **same URL + anon key**
 2. Cloud connection starts automatically; check status under **Settings → Multi-Device Sync**
 3. **Sync Now** forces an immediate push/pull; edits made offline reconcile next time online
 
@@ -262,4 +242,4 @@ docker build \
 - Back up anytime: Supabase Dashboard → Database → Backups, or export CSVs from the app
 - Deleting your Supabase project deletes cloud copies; device-local data survives
 - The anon key appearing in the app bundle is normal — it's a public key by design;
-  row-level security is what keeps each account's rows private
+  keeping the project URL private is what protects your data
