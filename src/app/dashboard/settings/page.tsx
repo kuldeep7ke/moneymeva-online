@@ -327,6 +327,7 @@ export default function SettingsPage() {
           } else {
             setSyncError('Connected — nothing new to sync');
           }
+          void refreshSyncDiagnostics();
           dispatchSyncEvent({ status: 'complete', message: `Connected & synced — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         } else {
           dispatchSyncEvent({ status: 'error', message: 'Connected but sync failed', error: 'Replication error' });

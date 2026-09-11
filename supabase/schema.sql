@@ -47,15 +47,13 @@ create table if not exists public.sync_docs (
 -- and composite PK (user_id, id). This collapses it to one shared document per
 -- `id`. The app no longer sends user_id.
 
--- 1) Drop the old per-user policies BEFORE dropping the column they reference.
-drop policy if exists "sync_docs_own_select" on public.sync_docs;
-drop policy if exists "sync_docs_own_insert" on public.sync_docs;
-drop policy if exists "sync_docs_own_update" on public.sync_docs;
-drop policy if exists "sync_docs_own_delete" on public.sync_docs;
-drop policy if exists "sync_docs_anon_select" on public.sync_docs;
-drop policy if exists "sync_docs_anon_insert" on public.sync_docs;
-drop policy if exists "sync_docs_anon_update" on public.sync_docs;
-drop policy if exists "sync_docs_anon_delete" on public.sync_docs;
+-- 1) Drop EVERY existing RLS policy on sync_docs (whatever they're called) so the
+--    column/constr remodelling below can't be blocked by stale per-user policies.
+do $$ declare p record; begin
+  for p in select policyname from pg_policies where schemaname = 'public' and tablename = 'sync_docs' loop
+    execute format('drop policy if exists %I on public.sync_docs', p.policyname);
+  end loop;
+end $$;
 
 -- 2) Drop user_id (removes its FK to auth.users automatically).
 alter table public.sync_docs drop column if exists user_id;

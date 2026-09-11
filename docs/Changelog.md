@@ -1,5 +1,9 @@
 # Changelog
 
+## v7.3.8 (2026-09-11) — Bullet-proof Shared Schema + Live Cloud Count
+- **Schema migration hardened**: the SQL now drops *every* RLS policy on `sync_docs` (not just the known names) before remodelling, so a partially-migrated/older project can't leave stale policies blocking the `id`-only key. Fixes "no unique ... constraint matching the ON CONFLICT specification" on projects that still have the old `(user_id, id)` key.
+- Cloud-row count now refreshes right after a successful Connect sync, so you can see rows appear immediately.
+
 ## v7.3.7 (2026-09-11) — Push Error Detail + Schema Hint
 - Push errors now include the first real underlying error (e.g. RLS "new row violates row-level security policy" / "null value in column user_id") so a wrong/missing schema is obvious instead of a bare "N write failure(s)".
 - Settings 0-rows warning now says to run `supabase/schema.sql` (Setup Guide → Copy SQL) when Connect works but upload fails.
