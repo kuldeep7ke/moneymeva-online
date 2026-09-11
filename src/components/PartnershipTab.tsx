@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Users, Trash2, Pencil, X, TrendingUp, TrendingDown, IndianRupee } from 'lucide-react';
 import { formatCurrency, cn, todayStr } from '@/lib/utils';
 import { getPartnerships, addPartnership, updatePartnership, deletePartnership, getPartnershipEntries, addPartnershipEntry, deletePartnershipEntry, getPartnershipSummary, getPartnerNameSafe, getPartners, isStoreReady, getTransactions, payerValueForMember, PSEUDO_PARTY_PREFIX } from '@/lib/store';
-import type { Partnership, PartnershipMember, PartnershipEntry, SeasonType } from '@/types';
+import type { Partnership, PartnershipMember, PartnershipEntry, SeasonType, PartnershipKind } from '@/types';
 import PinPrompt from '@/components/PinPrompt';
 import PinSetupGuide from '@/components/PinSetupGuide';
 import { hasPins } from '@/lib/pinStore';
@@ -15,6 +15,8 @@ import { useTranslation } from '@/lib/i18n';
 import { useAuth } from '@/components/AuthProvider';
 
 const SEASONS = ['kharif', 'rabi', 'summer', 'annual'] as const;
+
+const PARTNERSHIP_KINDS: PartnershipKind[] = ['farm', 'livestock', 'business', 'startup', 'shop', 'transport', 'contractor', 'freelance', 'investment', 'rental', 'other'];
 
 function entryPayerLabel(members: PartnershipMember[], pid?: string): string {
   if (!pid) return '';
@@ -59,7 +61,7 @@ export default function PartnershipTab() {
     const members = meName
       ? [{ id: 'm1', name: meName, partyId: myPartyId, sharePct: '' }]
       : [{ id: 'm1', name: '', partyId: '', sharePct: '' }];
-    return { title: '', crop: '', season: 'kharif', year: String(new Date().getFullYear()), description: '', members };
+    return { title: '', kind: 'farm' as PartnershipKind, crop: '', season: 'kharif', year: String(new Date().getFullYear()), description: '', members };
   };
   const [form, setForm] = useState(emptyForm);
   const emptyEntry = { type: 'expense' as 'income' | 'expense', amount: '', date: todayStr(), description: '', paidByPartyId: '', alsoLedger: true };
@@ -106,7 +108,7 @@ export default function PartnershipTab() {
     if (members.length === 0) { toast(t('ps.needMember'), 'warning'); return; }
     const total = members.reduce((s, m) => s + m.sharePct, 0);
     if (Math.round(total) !== 100) { toast(t('ps.shareMust100').replace('{total}', String(Math.round(total))), 'warning'); return; }
-    const payload = { title: form.title.trim(), crop: form.crop.trim(), season: form.season as SeasonType, year: Number(form.year) || new Date().getFullYear(), description: form.description.trim() || undefined, members };
+    const payload = { title: form.title.trim(), kind: form.kind, crop: form.crop.trim(), season: form.season as SeasonType, year: Number(form.year) || new Date().getFullYear(), description: form.description.trim() || undefined, members };
     if (editingId) {
       updatePartnership(editingId, payload);
       toast(t('ps.updated'), 'success');
@@ -124,6 +126,7 @@ export default function PartnershipTab() {
     setEditingId(p.id);
     setForm({
       title: p.title,
+      kind: p.kind || 'farm',
       crop: p.crop || '',
       season: p.season,
       year: String(p.year),
@@ -203,8 +206,11 @@ export default function PartnershipTab() {
                   <div className="p-3 bg-brand-secondary dark:bg-brand-muted/30 rounded-xl text-brand dark:text-brand-secondary"><Users className="h-6 w-6" /></div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{ps.title}</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">
-                      {ps.crop ? `${ps.crop} · ` : ''}{t(`works.season.${ps.season}`)} {ps.year} · {ps.members.length} {t('ps.members')}
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <span className={cn("inline-block mr-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-brand-secondary dark:bg-brand-muted/50 text-brand dark:text-brand-secondary")}>{t(`ps.kind.${ps.kind || 'farm'}`)}</span>
+                      {ps.kind && ps.kind !== 'farm'
+                        ? `${ps.year} · ${ps.members.length} ${t('ps.members')}${ps.description ? ` · ${ps.description}` : ''}`
+                        : `${ps.crop ? `${ps.crop} · ` : ''}${t(`works.season.${ps.season}`)} ${ps.year} · ${ps.members.length} ${t('ps.members')}`}
                     </p>
                   </div>
                 </div>
@@ -311,25 +317,46 @@ export default function PartnershipTab() {
             <form onSubmit={handleSavePs} className="space-y-4">
               <input required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-base" placeholder={t('ps.titlePlaceholder')} />
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.crop')}</label>
-                  <input value={form.crop} onChange={e => setForm({ ...form, crop: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder={t('works.cropPlaceholder')} />
+              <div>
+                <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1.5">{t('ps.kindLabel')}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PARTNERSHIP_KINDS.map(k => (
+                    <button key={k} type="button" onClick={() => setForm({ ...form, kind: k })}
+                      className={cn("px-2.5 py-1 rounded-full text-xs font-medium transition-colors", form.kind === k ? "bg-brand text-white shadow-sm" : "bg-slate-100 dark:bg-brand-muted text-slate-600 dark:text-slate-300 hover:bg-brand-secondary dark:hover:bg-brand-muted/60")}>
+                      {t(`ps.kind.${k}`)}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.season')}</label>
-                  <select value={form.season} onChange={e => setForm({ ...form, season: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
-                    {SEASONS.map(s => <option key={s} value={s}>{t(`works.season.${s}`)}</option>)}
-                  </select>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">{form.kind === 'farm' ? t('ps.farmHint') : t('ps.businessHint')}</p>
+              </div>
+
+              {form.kind === 'farm' ? (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.crop')}</label>
+                    <input value={form.crop} onChange={e => setForm({ ...form, crop: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" placeholder={t('works.cropPlaceholder')} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.season')}</label>
+                    <select value={form.season} onChange={e => setForm({ ...form, season: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm">
+                      {SEASONS.map(s => <option key={s} value={s}>{t(`works.season.${s}`)}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.year')}</label>
+                    <input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" />
+                  </div>
                 </div>
+              ) : (
                 <div>
                   <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 block mb-1">{t('works.year')}</label>
                   <input type="number" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-brand-muted outline-none focus:ring-2 focus:ring-brand text-sm" />
                 </div>
-              </div>
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-2">

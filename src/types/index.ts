@@ -173,11 +173,25 @@ export interface PartnershipMember {
   sharePct: number;                  // agreed share of income & expenses
 }
 
+export type PartnershipKind =
+  | 'farm'
+  | 'livestock'
+  | 'business'
+  | 'startup'
+  | 'shop'
+  | 'transport'
+  | 'contractor'
+  | 'freelance'
+  | 'investment'
+  | 'rental'
+  | 'other';
+
 export interface Partnership {
   id: string;
   userId: string;
   transitionId: string;
   title: string;                     // e.g. "Cotton Kharif 2026"
+  kind?: PartnershipKind;            // absent → treated as 'farm' (legacy data)
   crop: string;
   season: SeasonType;
   year: number;
