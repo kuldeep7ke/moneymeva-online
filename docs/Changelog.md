@@ -5,6 +5,7 @@
 - **One-time SQL** — run `supabase/schema.sql` in your project's SQL Editor. It drops `user_id`, dedupes rows per document id, changes the PK to a single shared `id`, and replaces per-user RLS with open anon policies. Without it a fresh project has no table and an old project still hides rows behind the old policies.
 - **App**: Settings → Multi-Device Sync now only asks for URL + anon key; removed email/password, "Create account & sync", Google, and anonymous-mode UIs. Diagnostics show "Shared database (no accounts)" and total cloud rows. Developer quick-connect is link-only too.
 - **Schema**: `src/lib/cloud-setup-schema.ts` and `supabase/schema.sql` updated for the shared model; existing rows are collapsed to one row per `id` (newest wins).
+- **Setup wizard simplified** — now 2 steps (create project, run SQL) with no Google/redirect steps.
 
 ## v7.3.5 (2026-09-11) — Anonymous-Account Visibility
 - **Sync panel shows the Account ID** (first 8 chars) next to "Signed in as", labelled "must match on both devices" — anonymous mode mints a different throwaway id per device, which is why two "anonymous" devices each see an empty cloud.

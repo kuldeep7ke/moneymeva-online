@@ -605,8 +605,8 @@ export default function SettingsPage() {
                     <p className="text-sky-700/80 dark:text-sky-300/70">
                       Every device that connects with this project URL + anon key shares the <strong>same</strong> data
                       (older CouchDB-style sync). No accounts, no sign-in. For a brand-new project you must first create
-                      the sync table — copy the SQL from the Developer page, or run <span className="font-mono">supabase/schema.sql</span> in
-                      your project's SQL Editor, then Connect.
+                      the sync table — open the <strong>Setup Guide</strong> above and tap <strong>Copy SQL</strong>, then run it in
+                      your project's SQL Editor (or run <span className="font-mono">supabase/schema.sql</span>) and Connect.
                     </p>
                   </div>
                 )}

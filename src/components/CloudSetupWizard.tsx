@@ -1,15 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
 import {
   Check, ChevronRight, Circle, Copy, ExternalLink, Loader2, RefreshCw, X,
 } from 'lucide-react';
 import { CLOUD_SETUP_SQL } from '@/lib/cloud-setup-schema';
-import { BASE_PATH } from '@/lib/env';
 
 const LS_DRAFT = 'mm_setup_draft';
-const LS_REDIRECT_OK = 'mm_setup_redirect_ok';
 
 type Draft = { url: string; key: string };
 
@@ -30,20 +27,6 @@ function cleanUrl(url: string): string {
   return (url || '').trim().replace(/\/+$/, '');
 }
 
-type AuthSettings = { external?: { google?: boolean } } | null;
-
-async function fetchAuthSettings(url: string, key: string): Promise<AuthSettings> {
-  try {
-    const res = await fetch(`${cleanUrl(url)}/auth/v1/settings`, {
-      headers: { apikey: key },
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as AuthSettings;
-  } catch {
-    return null;
-  }
-}
-
 async function checkSchemaTable(url: string, key: string): Promise<boolean> {
   try {
     const res = await fetch(`${cleanUrl(url)}/rest/v1/sync_docs?select=id&limit=1`, {
@@ -59,37 +42,34 @@ type StepState = 'pending' | 'checking' | 'done';
 
 export default function CloudSetupWizard({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [draft, setDraft] = useState<Draft>({ url: '', key: '' });
-  const [states, setStates] = useState<Record<string, StepState>>({ project: 'pending', schema: 'pending', google: 'pending' });
-  const [redirectOk, setRedirectOk] = useState(false);
+  const [states, setStates] = useState<Record<string, StepState>>({ project: 'pending', schema: 'pending' });
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasCreds = /^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(cleanUrl(draft.url)) && draft.key.trim().length > 20;
 
-  useEffect(() => {
-    if (!open) return;
-    const t = setTimeout(() => {
-      setDraft(loadDraft());
-      try { setRedirectOk(localStorage.getItem(LS_REDIRECT_OK) === '1'); } catch {}
-    }, 0);
-    return () => clearTimeout(t);
-  }, [open]);
-
   const runChecks = useCallback(async (d: Draft) => {
     const url = cleanUrl(d.url);
     const key = d.key.trim();
     if (!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url) || key.length <= 20) {
-      setStates({ project: 'pending', schema: 'pending', google: 'pending' });
+      setStates({ project: 'pending', schema: 'pending' });
       return;
     }
-    setStates({ project: 'checking', schema: 'checking', google: 'checking' });
-    const settings = await fetchAuthSettings(url, key);
+    setStates({ project: 'checking', schema: 'checking' });
+    const schema = await checkSchemaTable(url, key);
     setStates({
-      project: settings ? 'done' : 'pending',
-      google: settings?.external?.google === true ? 'done' : 'pending',
-      schema: settings ? await checkSchemaTable(url, key) ? 'done' : 'pending' : 'pending',
+      project: schema ? 'done' : 'pending',
+      schema: schema ? 'done' : 'pending',
     });
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      setDraft(loadDraft());
+    }, 0);
+    return () => clearTimeout(t);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !hasCreds) return;
@@ -107,15 +87,11 @@ export default function CloudSetupWizard({ open, onClose }: { open: boolean; onC
   if (!open) return null;
 
   const ref = projectRef(draft.url);
-  const isNative = Capacitor.isNativePlatform();
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const redirectWeb = `${origin}${BASE_PATH}/login`;
-  const doneCount = Object.values(states).filter(s => s === 'done').length + (redirectOk ? 1 : 0);
-  const allDone = states.project === 'done' && states.schema === 'done' && states.google === 'done' && redirectOk;
+  const doneCount = Object.values(states).filter(s => s === 'done').length;
+  const allDone = states.project === 'done' && states.schema === 'done';
 
   const persistAndClose = () => {
-    // Config is saved by the login flow on first successful Google sign-in;
-    // here we just stash the draft so "Continue with Google" can use it.
+    // Stash the draft URL + key so Settings → Multi-Device Sync Connect uses them.
     try {
       localStorage.setItem('mm_pouch_url', cleanUrl(draft.url));
       localStorage.setItem('mm_sync_key', draft.key.trim());
@@ -148,7 +124,7 @@ export default function CloudSetupWizard({ open, onClose }: { open: boolean; onC
         <div className="sticky top-0 bg-white dark:bg-[#2A2522] border-b border-slate-100 dark:border-brand-muted px-5 py-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Cloud Sync Setup</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Create your own free Supabase — 4 steps</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Create your own free Supabase — 2 steps</p>
           </div>
           <button onClick={onClose} className="p-2 -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
             <X className="h-5 w-5" />
@@ -161,10 +137,10 @@ export default function CloudSetupWizard({ open, onClose }: { open: boolean; onC
             <div className="flex-1 h-2 bg-slate-100 dark:bg-brand-muted/40 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-sky-500 to-blue-600 rounded-full transition-all duration-500"
-                style={{ width: `${(doneCount / 4) * 100}%` }}
+                style={{ width: `${(doneCount / 2) * 100}%` }}
               />
             </div>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">{doneCount}/4</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">{doneCount}/2</span>
           </div>
           {hasCreds && (
             <button
@@ -235,71 +211,16 @@ export default function CloudSetupWizard({ open, onClose }: { open: boolean; onC
                   Open SQL Editor <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
+</div>
             </div>
-          </div>
 
-          {/* Step 3 — Google provider */}
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-brand-dark/60">
-            <div className="mt-0.5">{hasCreds ? stepIcon(states.google) : stepIcon('pending')}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">3. Enable Google sign-in</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {states.google === 'done'
-                  ? 'Google provider is active on your project.'
-                  : 'Authentication → Providers → Google → Enable. Needs a Google OAuth client ID (guide: SELF-HOSTING.md).'}
-              </p>
-              <a href={dash('auth/providers')} target="_blank" rel="noreferrer"
-                 className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline">
-                Open Providers <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          </div>
-
-          {/* Step 4 — Redirect URLs */}
-          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-brand-dark/60">
-            <button
-              onClick={() => {
-                const next = !redirectOk;
-                setRedirectOk(next);
-                try { localStorage.setItem(LS_REDIRECT_OK, next ? '1' : '0'); } catch {}
-              }}
-              className="mt-0.5"
-              aria-label="Mark redirect URLs added"
-            >
-              {redirectOk
-                ? <Check className="h-4 w-4 text-green-600" />
-                : <Circle className="h-4 w-4 text-slate-300 dark:text-slate-600" />}
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">4. Add redirect URL</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Authentication → URL Configuration → Redirect URLs, add:
-              </p>
-              <code className="block mt-1 text-[11px] bg-white dark:bg-brand-dark border border-slate-200 dark:border-brand-muted rounded px-2 py-1 text-slate-600 dark:text-slate-300 break-all select-all">
-                {isNative ? 'moneymeva://login' : redirectWeb}
-              </code>
-              {!isNative && (
-                <code className="block mt-1 text-[11px] bg-white dark:bg-brand-dark border border-slate-200 dark:border-brand-muted rounded px-2 py-1 text-slate-400 dark:text-slate-500 break-all select-all">
-                  moneymeva://login <span className="text-slate-400">(for the Android app)</span>
-                </code>
-              )}
-              <a href={dash('auth/url-configuration')} target="_blank" rel="noreferrer"
-                 className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline">
-                Open URL Configuration <ExternalLink className="h-3 w-3" />
-              </a>
-              <label className="mt-2 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={redirectOk}
-                  onChange={e => {
-                    setRedirectOk(e.target.checked);
-                    try { localStorage.setItem(LS_REDIRECT_OK, e.target.checked ? '1' : '0'); } catch {}
-                  }}
-                  className="accent-sky-600"
-                />
-                I added it and pressed Save
-              </label>
-            </div>
+          {/* No-account note */}
+          <div className="rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 p-3 text-xs text-sky-700 dark:text-sky-300">
+            <p className="font-semibold">Shared database — no sign-in needed</p>
+            <p className="mt-0.5 text-sky-600/90 dark:text-sky-300/70">
+              Sync works with just the project URL + anon key. No email/password, no Google/redirect setup. Every device
+              connecting with these shares the same data.
+            </p>
           </div>
 
           {/* Ready banner */}
@@ -309,7 +230,7 @@ export default function CloudSetupWizard({ open, onClose }: { open: boolean; onC
                 <Check className="h-4 w-4" /> Cloud ready!
               </p>
               <p className="text-xs text-green-600/80 dark:text-green-500/80 mt-1">
-                Close this and tap “Continue with Google” again.
+                Close this, then Connect in Settings → Multi-Device Sync — the URL + anon key are saved.
               </p>
               <button
                 onClick={persistAndClose}
