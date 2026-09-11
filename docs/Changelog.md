@@ -1,5 +1,11 @@
 # Changelog
 
+## v7.3.6 (2026-09-11) — Shared Sync Database (no accounts)
+- **Sync is now link-only and shared** — the old CouchDB model is back: every device that connects with the project URL + anon key reads and writes the **same** rows. No email/password, no per-device anonymous accounts, no more "connected but empty" identity mismatches.
+- **One-time SQL** — run `supabase/schema.sql` in your project's SQL Editor. It drops `user_id`, dedupes rows per document id, changes the PK to a single shared `id`, and replaces per-user RLS with open anon policies. Without it a fresh project has no table and an old project still hides rows behind the old policies.
+- **App**: Settings → Multi-Device Sync now only asks for URL + anon key; removed email/password, "Create account & sync", Google, and anonymous-mode UIs. Diagnostics show "Shared database (no accounts)" and total cloud rows. Developer quick-connect is link-only too.
+- **Schema**: `src/lib/cloud-setup-schema.ts` and `supabase/schema.sql` updated for the shared model; existing rows are collapsed to one row per `id` (newest wins).
+
 ## v7.3.5 (2026-09-11) — Anonymous-Account Visibility
 - **Sync panel shows the Account ID** (first 8 chars) next to "Signed in as", labelled "must match on both devices" — anonymous mode mints a different throwaway id per device, which is why two "anonymous" devices each see an empty cloud.
 - **Anonymous sessions labelled honestly** — "Anonymous account (this device only)" instead of "session active".

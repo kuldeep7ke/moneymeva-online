@@ -131,15 +131,9 @@ function stopReconnectTimer() {
 function startReconnectTimer(url: string, key: string) {
   stopReconnectTimer();
   reconnectTimer = setInterval(async () => {
-    if (supabase) {
-      const uid = await getCurrentUserId().catch(() => null);
-      if (uid) return;
-      supabase = null;
-    }
+    if (supabase) return;
     try {
       const client = createClient(cleanSupabaseUrl(url), key);
-      const { data } = await client.auth.getSession();
-      if (!data.session) return;
       const { ok } = await pingRemote(client);
       if (ok) {
         supabase = client;
@@ -336,7 +330,7 @@ export async function getOAuthSessionUser(url?: string): Promise<{ email: string
   }
 }
 
-export async function connectRemote(url: string, key?: string, email?: string, password?: string, anonymous?: boolean): Promise<{ ok: boolean; error?: string }> {
+export async function connectRemote(url: string, key?: string): Promise<{ ok: boolean; error?: string }> {
   await initPouchDB();
   disconnectRemote();
   if (!localDB) return { ok: false, error: 'Local database not initialized' };
@@ -345,23 +339,6 @@ export async function connectRemote(url: string, key?: string, email?: string, p
   if (!cleanUrl || !anonKey) return { ok: false, error: 'Supabase URL and anon key are required' };
   try {
     const client = createClient(cleanUrl, anonKey);
-    if (anonymous) {
-      // No email/password needed — Supabase creates a throwaway anonymous user.
-      // Requires: Supabase Dashboard → Authentication → Sign In / Providers → Anonymous.
-      const { error: anonErr } = await client.auth.signInAnonymously();
-      if (anonErr) {
-        if (/anonymous/i.test(anonErr.message)) {
-          return { ok: false, error: 'Anonymous sign-ins are not enabled on this project — turn them on in Supabase → Authentication → Sign In / Providers → Anonymous, then retry.' };
-        }
-        return { ok: false, error: anonErr.message };
-      }
-    } else if (email && password) {
-      const { error: signInErr } = await client.auth.signInWithPassword({ email, password });
-      if (signInErr) return { ok: false, error: signInErr.message };
-    } else {
-      const { data: sessionData } = await client.auth.getSession();
-      if (!sessionData.session) return { ok: false, error: 'No active session — sign in with email + password, or use the anonymous (link-only) mode' };
-    }
     const ping = await pingRemote(client);
     if (!ping.ok) return { ok: false, error: ping.error };
     supabase = client;
@@ -383,8 +360,6 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
   if (!localDB || !supabase) return { pushed: 0 };
   let pushed = 0;
   let failures = 0;
-  const userId = await getCurrentUserId();
-  if (!userId) return { pushed: 0, pushErr: 'Not signed in' };
   try {
     const result = await localDB.allDocs({ include_docs: true });
     const rows = result.rows || [];
@@ -395,19 +370,19 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
       const entity = doc.entity || (doc._id.split(':')[0] in ENTITY_PREFIXES ? doc._id.split(':')[0] : null);
       if (!entity) continue;
       if (doc._deleted) {
-        upserts.push({ user_id: userId, id: doc._id, entity, data: { id: doc._id.split(':')[1], deletedAt: new Date().toISOString() }, deleted_at: new Date().toISOString() });
+        upserts.push({ id: doc._id, entity, data: { id: doc._id.split(':')[1], deletedAt: new Date().toISOString() }, deleted_at: new Date().toISOString() });
         continue;
       }
       const data: any = { ...doc };
       delete data._id; delete data._rev; delete data._deleted;
       const updatedAt = data.updatedAt || new Date().toISOString();
-      upserts.push({ user_id: userId, id: doc._id, entity, data, updated_at: updatedAt });
+      upserts.push({ id: doc._id, entity, data, updated_at: updatedAt });
     }
     const CHUNK = 200;
     for (let i = 0; i < upserts.length; i += CHUNK) {
       const chunk = upserts.slice(i, i + CHUNK);
       try {
-        const { error } = await supabase.from(SYNC_TABLE).upsert(chunk, { onConflict: 'user_id,id' });
+        const { error } = await supabase.from(SYNC_TABLE).upsert(chunk, { onConflict: 'id' });
         if (error) failures += chunk.length;
         else pushed += chunk.length;
       } catch { failures += chunk.length; }
@@ -508,15 +483,9 @@ export function disconnectRemote() {
 export async function checkConnection(): Promise<boolean> {
   const cfg = getConfig();
   if (!cfg.url || !cfg.key) return false;
-  if (connected()) {
-    const userId = await getCurrentUserId();
-    if (userId) return true;
-    // Session looks dead — try a self-healing reconnect once (auto-refreshes the token)
-  }
+  if (connected()) return true;
   try {
     const client = createClient(cleanSupabaseUrl(cfg.url), cfg.key.trim());
-    const { data: sessionData } = await client.auth.getSession();
-    if (!sessionData.session) return false;
     const { ok } = await pingRemote(client);
     if (ok) {
       supabase = client;

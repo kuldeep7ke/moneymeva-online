@@ -89,9 +89,6 @@ export default function DeveloperPage() {
   const [clearLocalLoading, setClearLocalLoading] = useState(false);
   const [connectUrl, setConnectUrl] = useState('');
   const [connectKey, setConnectKey] = useState('');
-  const [connectEmail, setConnectEmail] = useState('');
-  const [connectPassword, setConnectPassword] = useState('');
-  const [connectAnonymous, setConnectAnonymous] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [connectStatus, setConnectStatus] = useState<string | null>(null);
@@ -519,12 +516,11 @@ const loadRemoteRows = async () => {
 
   const handleConnect = async () => {
     if (!connectUrl.trim()) { setConnectStatus('URL is required'); return; }
-    if (!connectAnonymous && !connectKey.trim()) { setConnectStatus('Anon key is required'); return; }
-    if (!connectAnonymous && (!connectEmail.trim() || !connectPassword.trim())) { setConnectStatus('Email + password are required (or use anonymous mode)'); return; }
+    if (!connectKey.trim()) { setConnectStatus('Anon key is required'); return; }
     setConnecting(true);
     setConnectStatus('Connecting…');
     try {
-      const result = await connectRemote(connectUrl.trim(), connectKey.trim(), connectEmail.trim(), connectPassword, connectAnonymous);
+      const result = await connectRemote(connectUrl.trim(), connectKey.trim());
       if (result.ok) {
         setSyncOk(true);
         setConnectStatus('Connected successfully');
@@ -766,39 +762,11 @@ const loadRemoteRows = async () => {
                 <Field label="Anon key" htmlFor="dev-connect-key">
                   <input id="dev-connect-key" name="devConnectKey" type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…" value={connectKey} onChange={e => setConnectKey(e.target.value)} className={inputCls} />
                 </Field>
-                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600 dark:text-slate-300">
-                  <input id="dev-connect-anonymous" name="devConnectAnonymous" type="checkbox" checked={connectAnonymous} onChange={e => setConnectAnonymous(e.target.checked)} className="accent-brand h-4 w-4" />
-                  <span><span className="font-semibold">Anonymous mode</span> — connect with URL + anon key only, no email/password</span>
-                </label>
-                {connectAnonymous && (
-                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200 space-y-1">
-                    <p className="font-bold">Enable Anonymous sign-ins first (one-time, Supabase dashboard):</p>
-                    <p className="font-mono">Authentication → Sign In / Providers → Anonymous sign-ins → Enable</p>
-                    <p>Then paste the URL + anon key above and click Connect — no email/password needed.</p>
-                  </div>
-                )}
-                {!connectAnonymous && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Email" htmlFor="dev-connect-email">
-                      <input id="dev-connect-email" name="devConnectEmail" type="email" placeholder="you@example.com" value={connectEmail} onChange={e => setConnectEmail(e.target.value)} className={inputCls} />
-                    </Field>
-                    <Field label="Password" htmlFor="dev-connect-password">
-                      <input id="dev-connect-password" name="devConnectPassword" type="password" placeholder="••••••••" value={connectPassword} onChange={e => setConnectPassword(e.target.value)} className={inputCls} />
-                    </Field>
-                  </div>
-                )}
-                {connectStatus && (
-                  <p className={cn('text-xs font-mono break-all', connectStatus.includes('success') || connectStatus.includes('Connected') ? 'text-green-600 dark:text-green-400' : connectStatus.includes('Disconnected') ? 'text-slate-500' : 'text-red-500')}>{connectStatus}</p>
-                )}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button variant="outline" onClick={handleConnect} disabled={connecting || disconnecting} className="flex-1">
-                    {connecting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Connecting…</> : connectAnonymous ? 'Connect (Anonymous)' : 'Connect'}
-                  </Button>
-                  <Button variant="outline" onClick={handleDisconnect} disabled={connecting || disconnecting || syncOk === false} className="flex-1 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
-                    {disconnecting ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Disconnecting…</> : 'Disconnect'}
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-400">Temporary connection — does not overwrite saved Settings config. Link-only uses a fresh anonymous user (your rows get that user's ID).</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Shared database connection — URL + anon key only, no email/password. Every device connecting with
+                  these reads and writes the same rows.
+                </p>
+                <p className="text-xs text-slate-400">Temporary connection — does not overwrite saved Settings config.</p>
               </div>
             </div>
 

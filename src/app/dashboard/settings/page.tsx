@@ -22,7 +22,7 @@ import { db } from '@/lib/db';
 import { BASE_PATH } from '@/lib/env';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser, getStoredCloudUser, getRemoteStats, getCurrentUserId } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, getRemoteStats } from '@/lib/pouchdb';
 import { dispatchSyncEvent, listenSyncEvents } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
 import { NOTIFICATION_KEYS, POPUP_KEYS, getNotifyPrefs, setNotifyPref, resetNotifyPrefs } from '@/lib/notification-prefs';
@@ -51,16 +51,12 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [syncUrl, setSyncUrl] = useState('');
   const [syncKey, setSyncKey] = useState('');
-  const [syncEmail, setSyncEmail] = useState('');
-  const [syncPassword, setSyncPassword] = useState('');
-  const [syncAnonymous, setSyncAnonymous] = useState(false);
   const [syncConnected, setSyncConnected] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [syncFailCount, setSyncFailCount] = useState(0);
   const [syncAccountEmail, setSyncAccountEmail] = useState('');
-  const [syncUserId, setSyncUserId] = useState('');
   const [syncRemoteTotal, setSyncRemoteTotal] = useState<number | null>(null);
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
   const [syncUrlHistory, setSyncUrlHistory] = useState<string[]>([]);
@@ -306,12 +302,12 @@ export default function SettingsPage() {
   const handleConnect = async () => {
     const url = syncUrl.trim().replace(/\/+$/, '');
     if (!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url)) { setSyncError('Enter a valid Supabase project URL (e.g. https://xxxx.supabase.co)'); return; }
-    if (!syncKey.trim() || (!syncAnonymous && (!syncEmail.trim() || !syncPassword.trim()))) { setSyncError('Enter your anon key, sync email, and password'); return; }
+    if (!syncKey.trim()) { setSyncError('Enter your anon key'); return; }
     setSyncStatus('connecting');
     setSyncError('');
     dispatchSyncEvent({ status: 'started', message: 'Connecting to Supabase…' });
     try {
-      const { ok, error: connErr } = await connectRemote(url, syncKey.trim(), syncEmail.trim(), syncPassword, syncAnonymous);
+      const { ok, error: connErr } = await connectRemote(url, syncKey.trim());
       if (ok) {
         saveSyncUrlHistory(url);
         setSyncUrlHistory(getSyncUrlHistory());
@@ -329,7 +325,7 @@ export default function SettingsPage() {
           } else if (pushed > 0 || pulled > 0) {
             setSyncError(`Pushed ${pushed} item(s) · Pulled ${pulled} change(s)`);
           } else {
-            setSyncError('Connected — nothing new to sync for this account');
+            setSyncError('Connected — nothing new to sync');
           }
           dispatchSyncEvent({ status: 'complete', message: `Connected & synced — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         } else {
@@ -347,53 +343,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleCreateAccount = async () => {
-    const url = syncUrl.trim().replace(/\/+$/, '');
-    if (!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url)) { setSyncError('Enter a valid Supabase project URL (e.g. https://xxxx.supabase.co)'); return; }
-    if (!syncKey.trim() || !syncEmail.trim() || syncPassword.length < 6) { setSyncError('Enter your anon key, email, and a password (min 6 characters)'); return; }
-    setSyncStatus('connecting');
-    setSyncError('');
-    dispatchSyncEvent({ status: 'started', message: 'Creating account…' });
-    try {
-      const { ok, needsConfirmation, error: signUpErr } = await signUpUser(url, syncKey.trim(), syncEmail.trim(), syncPassword);
-      if (!ok) {
-        failSync(signUpErr || 'Account creation failed');
-        return;
-      }
-      if (needsConfirmation) {
-        setSyncStatus('idle');
-        setSyncError('Account created! Check your email to confirm, then tap Connect.');
-        return;
-      }
-      const { ok: connectedOk, error: connErr } = await connectRemote(url, syncKey.trim(), syncEmail.trim(), syncPassword);
-      if (connectedOk) {
-        saveSyncUrlHistory(url);
-        setSyncUrlHistory(getSyncUrlHistory());
-        setSyncStatus('connected');
-        setSyncConnected(true);
-        setSyncFailCount(0);
-        void refreshSyncDiagnostics();
-        dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
-        await pushAllToPouch();
-        const { ok: synced, pushed, pulled, pushErr, pullErr } = await manualSync();
-        if (synced) {
-          await processRemoteChanges();
-          if (pushErr || pullErr) {
-            setSyncError(`Connected — ${pushErr ? `push: ${pushErr}` : ''}${pushErr && pullErr ? ' · ' : ''}${pullErr ? `pull: ${pullErr}` : ''}`);
-          } else if (pushed > 0 || pulled > 0) {
-            setSyncError(`Pushed ${pushed} item(s) · Pulled ${pulled} change(s)`);
-          } else {
-            setSyncError('Connected — nothing new to sync for this account');
-          }
-        }
-      } else {
-        failSync(connErr || 'Connection failed after sign-up');
-      }
-    } catch {
-      failSync('Account creation failed.');
-    }
-  };
-
   const handleDisconnect = () => {
     disconnectRemote();
     localStorage.removeItem('mm_pouch_url');
@@ -402,18 +351,11 @@ export default function SettingsPage() {
     setSyncConnected(false);
     setSyncFailCount(0);
     setSyncAccountEmail('');
-    setSyncUserId('');
     setSyncRemoteTotal(null);
   };
 
   const refreshSyncDiagnostics = async () => {
-    const [cloudUser, stats, uid] = await Promise.all([
-      getStoredCloudUser().catch(() => null),
-      getRemoteStats().catch(() => null),
-      getCurrentUserId().catch(() => null),
-    ]);
-    setSyncAccountEmail(cloudUser?.email || '');
-    setSyncUserId(uid || '');
+    const stats = await getRemoteStats().catch(() => null);
     setSyncRemoteTotal(stats && stats.ok ? stats.total : null);
   };
 
@@ -433,7 +375,7 @@ export default function SettingsPage() {
         setSyncConnected(true);
         setSyncFailCount(0);
         void refreshSyncDiagnostics();
-        const msg = pushErr ? `Push error: ${pushErr}` : pullErr ? `Pull problem: ${pullErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 reached the cloud` : 'Synced — nothing new for this account';
+        const msg = pushErr ? `Push error: ${pushErr}` : pullErr ? `Pull problem: ${pullErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 reached the cloud` : 'Synced — nothing new to sync';
         setSyncError(msg);
         dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         setTimeout(() => { setSyncError(''); }, 4000);
@@ -656,57 +598,16 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* Anonymous mode toggle */}
+                {/* Shared database note */}
                 {!syncConnected && (
-                  <label className="flex items-start gap-2 cursor-pointer select-none">
-                    <input type="checkbox" checked={syncAnonymous} onChange={e => { setSyncAnonymous(e.target.checked); setSyncError(''); }} className="mt-0.5 accent-sky-600 h-3.5 w-3.5" />
-                    <span className="text-sm text-slate-600 dark:text-slate-300">
-                      <span className="font-medium">Anonymous mode</span> — connect with URL + anon key only,{' '}
-                      <span className="text-slate-400 dark:text-slate-500">no email/password (separate empty account — won't see your email-account data)</span>
-                    </span>
-                  </label>
-                )}
-
-                {/* Email + password rows */}
-                {!syncConnected && !syncAnonymous && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
-                        <input
-                          type="email"
-                          value={syncEmail}
-                          onChange={e => { setSyncEmail(e.target.value); setSyncError(''); }}
-                          placeholder="Your sync email"
-                          className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 flex items-center gap-1.5 bg-white dark:bg-brand-dark rounded-lg border border-slate-200 dark:border-brand-muted px-3 py-2 text-sm min-w-0">
-                        <input
-                          type="password"
-                          value={syncPassword}
-                          onChange={e => { setSyncPassword(e.target.value); setSyncError(''); }}
-                          placeholder="Password (min 6 characters)"
-                          className="bg-transparent outline-none text-slate-600 dark:text-slate-300 flex-1 min-w-0"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-                      This is your <strong>cloud account password</strong> — you choose it yourself (min 6 characters) and
-                      reuse it on every device. It is <strong>not</strong> your app unlock password, and <strong>not</strong>{' '}
-                      your Google password. Signed in with Google? Tap <strong>Create account &amp; sync</strong> with the
-                      same Google email to get cloud credentials.
+                  <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-xl p-3 text-xs space-y-1">
+                    <p className="font-semibold text-sky-800 dark:text-sky-300">Shared database — no email/password</p>
+                    <p className="text-sky-700/80 dark:text-sky-300/70">
+                      Every device that connects with this project URL + anon key shares the <strong>same</strong> data
+                      (older CouchDB-style sync). No accounts, no sign-in. For a brand-new project you must first create
+                      the sync table — copy the SQL from the Developer page, or run <span className="font-mono">supabase/schema.sql</span> in
+                      your project's SQL Editor, then Connect.
                     </p>
-                  </>
-                )}
-
-                {/* Anonymous mode note */}
-                {!syncConnected && syncAnonymous && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3 text-xs space-y-1">
-                    <p className="font-semibold text-amber-800 dark:text-amber-300">Enable Anonymous sign-ins on this Supabase project first (one-time, dashboard):</p>
-                    <p className="font-mono text-amber-700 dark:text-amber-400 leading-relaxed">Dashboard → Authentication → Sign In / Providers → Anonymous sign-ins → <span className="font-bold">Enable</span></p>
-                    <p className="text-amber-700/80 dark:text-amber-400/80">Anonymous mode creates a throwaway cloud space keyed to this device — link only, no email/password. To access the same data on another device, use that device's browser (local app data stays in the browser). For real cross-device sync, use an email + password account instead.</p>
                   </div>
                 )}
 
@@ -742,14 +643,9 @@ export default function SettingsPage() {
                     </>
                   ) : (
                     <>
-                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim() || !syncKey.trim() || (!syncAnonymous && (!syncEmail.trim() || !syncPassword.trim()))}>
-                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> {syncAnonymous ? 'Connect (Anonymous)' : 'Connect'}
+                      <Button size="sm" className="bg-sky-600 hover:bg-sky-700 gap-1.5" onClick={handleConnect} disabled={syncStatus === 'connecting' || !syncUrl.trim() || !syncKey.trim()}>
+                        <RefreshCw className={cn("h-3.5 w-3.5", syncStatus === 'connecting' && 'animate-spin')} /> Connect
                       </Button>
-                      {!syncAnonymous && (
-                        <Button size="sm" variant="outline" onClick={handleCreateAccount} disabled={syncStatus === 'connecting'}>
-                          Create account &amp; sync
-                        </Button>
-                      )}
                     </>
                   )}
                 </div>
@@ -760,27 +656,18 @@ export default function SettingsPage() {
                   <div className="space-y-1.5 rounded-xl bg-sky-50 dark:bg-sky-900/10 border border-sky-100 dark:border-sky-900/40 p-3 text-xs text-slate-500 dark:text-slate-400">
                     <p className="flex items-center gap-1.5">
                       <User className="h-3.5 w-3.5 shrink-0" />
-                      <span className="font-medium">Signed in as:</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'Anonymous account (this device only)'}</span>
+                      <span className="font-medium">Database:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'Shared database (no accounts)'}</span>
                     </p>
-                    {syncUserId ? (
-                      <p className="flex items-center gap-1.5">
-                        <Key className="h-3.5 w-3.5 shrink-0" />
-                        <span className="font-medium">Account ID:</span>
-                        <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{syncUserId.slice(0, 8)}…</span>
-                        <span className="text-slate-400">(must match on both devices)</span>
-                      </p>
-                    ) : null}
                     <p className="flex items-center gap-1.5">
                       <Database className="h-3.5 w-3.5 shrink-0" />
-                      <span className="font-medium">Cloud rows for this account:</span>
+                      <span className="font-medium">Cloud rows in database:</span>
                       <span className="font-semibold text-slate-700 dark:text-slate-200">{syncRemoteTotal === null ? '…' : String(syncRemoteTotal)}</span>
                     </p>
                     {syncRemoteTotal === 0 && (
                       <p className="pt-1 text-amber-600 dark:text-amber-400">
-                        This account has no cloud data. If another device has your data, this device is on a
-                        different project URL or a different sign-in (anonymous vs email) — compare the URL and
-                        "Signed in as" values on both devices, then reconnect with the same ones.
+                        The database is empty — the first device to Connect will upload its data. If you expected rows
+                        here, verify this is the same project URL your other device uses.
                       </p>
                     )}
                   </div>
