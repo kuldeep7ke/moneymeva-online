@@ -68,8 +68,8 @@ function BroadcastPill({ data, onDismiss }: { data: BroadcastData; onDismiss: ()
   return (
     <div
       onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
-      className={`fixed left-1/2 -translate-x-1/2 z-[9998] max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2 touch-pan-y select-none${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
-      style={{ top: '8px', transform: `translateX(calc(-50% + ${leaving ? -140 : dragX}px))`, opacity: 1 - (leaving ? 1 : Math.min(Math.abs(dragX) / 160, 0.6)), transition: dragging ? 'none' : 'transform 0.25s ease, opacity 0.25s ease' }}>
+      className={`max-w-lg w-[calc(100vw-1rem)] ${BG[type]} rounded-lg shadow-lg px-3 py-2 text-xs font-medium leading-snug flex items-center gap-2 touch-pan-y select-none${data.link ? ' cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+      style={{ transform: `translateX(${leaving ? -140 : dragX}px)`, opacity: 1 - (leaving ? 1 : Math.min(Math.abs(dragX) / 160, 0.6)), transition: dragging ? 'none' : 'transform 0.25s ease, opacity 0.25s ease' }}>
       <Wrapper {...wrapperProps} className="contents">
         <span className="shrink-0">{ICONS[type]}</span>
         <span className="flex-1 min-w-0 truncate">
@@ -142,7 +142,7 @@ export default function BroadcastBanner() {
   return (
     <>
       {items.map((b, i) => (
-        <div key={b.id} style={{ top: `${8 + i * 44}px` }} className={`fixed left-1/2 -translate-x-1/2 z-[9998]`}>
+        <div key={b.id} style={{ top: `${8 + i * 44}px` }} className="fixed left-1/2 md:left-[calc(50%+8rem)] -translate-x-1/2 z-[9998]">
           <BroadcastPill data={b} onDismiss={() => dismiss(b.id)} />
         </div>
       ))}
