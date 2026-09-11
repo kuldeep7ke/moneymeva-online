@@ -1,5 +1,8 @@
 # Changelog
 
+## v7.3.9 (2026-09-11) — Pull "failed to store" false alarm fixed
+- Rows already up-to-date locally (e.g. right after a successful push) were counted as **failed** pulls, producing a scary "Fetched 241 remote row(s) but failed to store them locally" after a healthy sync. Pull now distinguishes **applied / skipped / failed**; only genuine storage failures trigger the error.
+
 ## v7.3.8 (2026-09-11) — Bullet-proof Shared Schema + Live Cloud Count
 - **Schema migration hardened**: the SQL now drops *every* RLS policy on `sync_docs` (not just the known names) before remodelling, so a partially-migrated/older project can't leave stale policies blocking the `id`-only key. Fixes "no unique ... constraint matching the ON CONFLICT specification" on projects that still have the old `(user_id, id)` key.
 - Cloud-row count now refreshes right after a successful Connect sync, so you can see rows appear immediately.

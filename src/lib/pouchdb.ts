@@ -412,35 +412,34 @@ function toTimestamp(v: any): number {
   return isNaN(t) ? 0 : t;
 }
 
-async function applyRemoteRow(row: any): Promise<boolean> {
-  if (!localDB) return false;
+async function applyRemoteRow(row: any): Promise<'applied' | 'skipped' | 'failed'> {
+  if (!localDB) return 'failed';
   const docId = row.id;
   const data = (row.data && typeof row.data === 'object') ? row.data : {};
   const entity = row.entity || (docId.split(':')[0] in ENTITY_PREFIXES ? docId.split(':')[0] : null);
-  if (!entity) return false;
+  if (!entity) return 'failed';
   try {
     const existing = await localDB.get(docId).catch(() => null);
     if (existing) {
       const localTs = toTimestamp(existing.updatedAt);
       const remoteTs = toTimestamp(row.updated_at);
-      if (remoteTs > 0 && localTs > 0 && remoteTs <= localTs) return false;
+      if (remoteTs > 0 && localTs > 0 && remoteTs <= localTs) return 'skipped';
     }
     if (row.deleted_at) {
       if (existing) { try { await localDB.remove(existing); } catch {} }
-      return true;
+      return 'applied';
     }
     if (existing) {
       await localDB.put({ ...existing, ...data, entity, updatedAt: row.updated_at || data.updatedAt || new Date().toISOString() });
     } else {
       await localDB.put({ _id: docId, ...data, entity, updatedAt: row.updated_at || data.updatedAt || new Date().toISOString() });
     }
-    return true;
-  } catch { return false; }
+    return 'applied';
+  } catch { return 'failed'; }
 }
 
 async function pullRemoteToLocal(): Promise<{ pulled: number; total: number; error?: string }> {
   if (!localDB || !supabase) return { pulled: 0, total: 0 };
-  let pulled = 0;
   try {
     const { data: rows, error } = await supabase.from(SYNC_TABLE).select('*').order('updated_at', { ascending: true });
     if (error) {
@@ -448,17 +447,23 @@ async function pullRemoteToLocal(): Promise<{ pulled: number; total: number; err
       return { pulled: 0, total: 0, error: error?.message || String(error || 'Pull query failed') };
     }
     if (!rows) return { pulled: 0, total: 0 };
+    let applied = 0;
+    let skipped = 0;
     let failed = 0;
     for (const row of rows) {
-      if (await applyRemoteRow(row)) pulled++;
+      const outcome = await applyRemoteRow(row);
+      if (outcome === 'applied') applied++;
+      else if (outcome === 'skipped') skipped++;
       else failed++;
     }
-    if (rows.length > 0 && pulled === 0 && failed === rows.length) {
+    if (skipped > 0) console.debug(`[Sync] Pull: ${skipped} row(s) already up to date locally`);
+    if (rows.length > 0 && applied === 0 && failed === rows.length) {
       // Every fetched row failed to apply to local PouchDB (e.g. IndexedDB issue on
       // Android WebView) — report it instead of quietly faking an empty pull.
+      // Rows skipped because local already has the newest copy are NOT failures.
       return { pulled: 0, total: rows.length, error: `Fetched ${rows.length} remote row(s) but failed to store them locally` };
     }
-    return { pulled, total: rows.length };
+    return { pulled: applied, total: rows.length };
   } catch (e: any) {
     console.warn('[Sync] Pull failed:', e?.message || e);
     return { pulled: 0, total: 0, error: e?.message || String(e || 'Pull failed') };

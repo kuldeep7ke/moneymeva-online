@@ -55,10 +55,21 @@ do $$ declare p record; begin
   end loop;
 end $$;
 
--- 2) Drop user_id (removes its FK to auth.users automatically).
+-- 2) Drop the composite PK and every FK constraint FIRST — the old (user_id, id)
+--    primary key and the user_id FOREIGN KEY to auth.users both depend on the
+--    user_id column, so dropping that column BEFORE them would abort the script.
+alter table public.sync_docs drop constraint if exists sync_docs_pkey;
+do $$ declare f record; begin
+  for f in select conname from pg_constraint
+              where conrelid = 'public.sync_docs'::regclass and contype = 'f' loop
+    execute format('alter table public.sync_docs drop constraint if exists %I', f.conname);
+  end loop;
+end $$;
+
+-- 3) Now that nothing depends on it, user_id can go (unused by the app).
 alter table public.sync_docs drop column if exists user_id;
 
--- 3) Dedupe rows so the new single-column PK can be created: for each document
+-- 4) Dedupe rows so the new single-column PK can be created: for each document
 --    id keep only the newest row (same updated_at → keep one deterministic row).
 delete from public.sync_docs d
 using public.sync_docs m
@@ -66,8 +77,7 @@ where m.id = d.id
   and (m.updated_at > d.updated_at
     or (m.updated_at = d.updated_at and m.ctid > d.ctid));
 
--- 4) Single-row-per-document PK.
-alter table public.sync_docs drop constraint if exists sync_docs_pkey;
+-- 5) Single-row-per-document PK (the app upserts with onConflict: 'id').
 alter table public.sync_docs add constraint sync_docs_pkey primary key (id);
 
 drop index if exists sync_docs_user_updated_at_idx;
@@ -97,4 +107,11 @@ create policy "sync_docs_shared_delete" on public.sync_docs for delete using (tr
 
 -- Enable live (realtime) sync — lets the app push/pull instantly across devices.
 alter table public.sync_docs replica identity full;
-alter publication supabase_realtime add table public.sync_docs;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables
+                  where pubname = 'supabase_realtime' and schemaname = 'public'
+                    and tablename = 'sync_docs') then
+    alter publication supabase_realtime add table public.sync_docs;
+  end if;
+end $$;
