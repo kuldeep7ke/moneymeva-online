@@ -1,5 +1,9 @@
 # Changelog
 
+## v7.3.7 (2026-09-11) — Push Error Detail + Schema Hint
+- Push errors now include the first real underlying error (e.g. RLS "new row violates row-level security policy" / "null value in column user_id") so a wrong/missing schema is obvious instead of a bare "N write failure(s)".
+- Settings 0-rows warning now says to run `supabase/schema.sql` (Setup Guide → Copy SQL) when Connect works but upload fails.
+
 ## v7.3.6 (2026-09-11) — Shared Sync Database (no accounts)
 - **Sync is now link-only and shared** — the old CouchDB model is back: every device that connects with the project URL + anon key reads and writes the **same** rows. No email/password, no per-device anonymous accounts, no more "connected but empty" identity mismatches.
 - **One-time SQL** — run `supabase/schema.sql` in your project's SQL Editor. It drops `user_id`, dedupes rows per document id, changes the PK to a single shared `id`, and replaces per-user RLS with open anon policies. Without it a fresh project has no table and an old project still hides rows behind the old policies.

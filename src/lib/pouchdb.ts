@@ -360,6 +360,7 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
   if (!localDB || !supabase) return { pushed: 0 };
   let pushed = 0;
   let failures = 0;
+  let firstError: string | null = null;
   try {
     const result = await localDB.allDocs({ include_docs: true });
     const rows = result.rows || [];
@@ -383,15 +384,24 @@ async function pushLocalToRemote(): Promise<{ pushed: number; pushErr?: string }
       const chunk = upserts.slice(i, i + CHUNK);
       try {
         const { error } = await supabase.from(SYNC_TABLE).upsert(chunk, { onConflict: 'id' });
-        if (error) failures += chunk.length;
-        else pushed += chunk.length;
-      } catch { failures += chunk.length; }
+        if (error) {
+          failures += chunk.length;
+          if (!firstError) firstError = error?.message || error?.details || String(error || 'upsert failed');
+        } else {
+          pushed += chunk.length;
+        }
+      } catch (e: any) {
+        failures += chunk.length;
+        if (!firstError) firstError = e?.message || String(e || 'upsert threw');
+      }
     }
   } catch (e: any) {
     console.warn('[Sync] Push failed:', e?.message || e);
     failures++;
+    if (!firstError) firstError = e?.message || String(e || 'push failed');
   }
-  return { pushed, pushErr: failures > 0 ? `${failures} write failure(s)` : undefined };
+  const detail = firstError ? ` — ${firstError?.slice(0, 200)}` : '';
+  return { pushed, pushErr: failures > 0 ? `${failures} write failure(s)${detail}` : undefined };
 }
 
 // ─── Pull: Supabase → local PouchDB ─────────────────────────────

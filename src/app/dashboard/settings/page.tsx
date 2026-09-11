@@ -666,8 +666,10 @@ export default function SettingsPage() {
                     </p>
                     {syncRemoteTotal === 0 && (
                       <p className="pt-1 text-amber-600 dark:text-amber-400">
-                        The database is empty — the first device to Connect will upload its data. If you expected rows
-                        here, verify this is the same project URL your other device uses.
+                        Database shows 0 rows. If Connect succeeded but uploading fails, the shared schema hasn't been
+                        applied to this project yet — run <span className="font-mono">supabase/schema.sql</span> in its
+                        SQL Editor (open the <strong>Setup Guide</strong> → Copy SQL), then Disconnect and Connect again.
+                        Also verify this is the same project URL your other device uses.
                       </p>
                     )}
                   </div>
