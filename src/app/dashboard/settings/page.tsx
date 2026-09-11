@@ -5,7 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Upload, Download, Trash2, AlertTriangle, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User, Bell, RotateCcw } from 'lucide-react';
+import { Upload, Download, Trash2, AlertTriangle, AlertCircle, Shield, Key, Clock, Eye, EyeOff, Cloud, ArrowRight, PaintBucket, Check, ExternalLink, RefreshCw, Copy, Globe, User, Database, Bell, RotateCcw } from 'lucide-react';
 import { cn, todayStr } from '@/lib/utils';
 import { addTransaction, getTransactions, getBudgets, getGoals, getReminders, getRecurring, getPartners, getAdjustments, getWorks, getPartnerships, getAllPartnershipEntries, logMutation } from '@/lib/store';
 import { exportAllDataPDF, exportAllDataExcel } from '@/lib/export';
@@ -22,7 +22,7 @@ import { db } from '@/lib/db';
 import { BASE_PATH } from '@/lib/env';
 import Reveal from '@/components/Reveal';
 import LanguageSelector from '@/components/LanguageSelector';
-import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser } from '@/lib/pouchdb';
+import { connectRemote, disconnectRemote, checkConnection, ensureConnected, getConfig, manualSync, getSyncUrlHistory, saveSyncUrlHistory, signUpUser, getStoredCloudUser, getRemoteStats } from '@/lib/pouchdb';
 import { dispatchSyncEvent, listenSyncEvents } from '@/lib/sync-notify';
 import { downloadFile, copyText, printHtml } from '@/lib/download';
 import { NOTIFICATION_KEYS, POPUP_KEYS, getNotifyPrefs, setNotifyPref, resetNotifyPrefs } from '@/lib/notification-prefs';
@@ -59,6 +59,8 @@ export default function SettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState('');
   const [syncFailCount, setSyncFailCount] = useState(0);
+  const [syncAccountEmail, setSyncAccountEmail] = useState('');
+  const [syncRemoteTotal, setSyncRemoteTotal] = useState<number | null>(null);
   const [showSyncFailPopup, setShowSyncFailPopup] = useState(false);
   const [syncUrlHistory, setSyncUrlHistory] = useState<string[]>([]);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -115,6 +117,7 @@ export default function SettingsPage() {
         }
         setSyncConnected(ok);
         setSyncStatus(ok ? 'connected' : 'idle');
+        if (ok) void refreshSyncDiagnostics();
       });
     }
     setSyncUrlHistory(getSyncUrlHistory());
@@ -125,6 +128,7 @@ export default function SettingsPage() {
       checkConnection().then(ok => {
         setSyncConnected(ok);
         setSyncStatus(ok ? 'connected' : 'idle');
+        if (ok) void refreshSyncDiagnostics();
       });
     });
   }, []);
@@ -313,6 +317,7 @@ export default function SettingsPage() {
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
+        void refreshSyncDiagnostics();
         dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
         await pushAllToPouch();
         const { ok: synced, pushed, pulled, pushErr, pullErr } = await manualSync();
@@ -366,6 +371,7 @@ export default function SettingsPage() {
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
+        void refreshSyncDiagnostics();
         dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
         await pushAllToPouch();
         const { ok: synced, pushed, pulled, pushErr, pullErr } = await manualSync();
@@ -394,6 +400,15 @@ export default function SettingsPage() {
     setSyncStatus('idle');
     setSyncConnected(false);
     setSyncFailCount(0);
+    setSyncAccountEmail('');
+    setSyncRemoteTotal(null);
+  };
+
+  const refreshSyncDiagnostics = async () => {
+    const cloudUser = await getStoredCloudUser().catch(() => null);
+    const stats = await getRemoteStats().catch(() => null);
+    setSyncAccountEmail(cloudUser?.email || '');
+    setSyncRemoteTotal(stats && stats.ok ? stats.total : null);
   };
 
   const handleSyncNow = async () => {
@@ -411,6 +426,7 @@ export default function SettingsPage() {
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
+        void refreshSyncDiagnostics();
         const msg = pushErr ? `Push error: ${pushErr}` : pullErr ? `Pull problem: ${pullErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 reached the cloud` : 'Synced — nothing new for this account';
         setSyncError(msg);
         dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
@@ -733,6 +749,21 @@ export default function SettingsPage() {
                 </div>
 
                 {syncError && <p className="text-xs text-red-500">{syncError}</p>}
+
+                {syncConnected && (
+                  <div className="space-y-1.5 rounded-xl bg-sky-50 dark:bg-sky-900/10 border border-sky-100 dark:border-sky-900/40 p-3 text-xs text-slate-500 dark:text-slate-400">
+                    <p className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 shrink-0" />
+                      <span className="font-medium">Signed in as:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{syncAccountEmail || 'session active (no profile email)'}</span>
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <Database className="h-3.5 w-3.5 shrink-0" />
+                      <span className="font-medium">Cloud rows for this account:</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{syncRemoteTotal === null ? '…' : String(syncRemoteTotal)}</span>
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
