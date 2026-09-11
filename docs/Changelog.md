@@ -1,5 +1,10 @@
 # Changelog
 
+## v7.3.2 (2026-09-11) — Recurring Category Type-Awareness + Broadcast Pill Placement
+- **Recurring category suggestions follow the selected Type** — the New Recurring Transaction modal now shows income categories (Salary, Business, Freelance, Interest, Dividend, Rental, Pension…) when Type = Income and expense categories (Bills, Premium, Subscription, Shopping, Credit Card…) when Type = Expense. Switching Type clears the field and reopens the dropdown. (Previously the list always came from the expense set, even for Income.)
+- **Broadcast pill placement fixed** — the pill was rendering a full width off-center because Tailwind v4's `-translate-x-1/2` utility (CSS `translate` property) and an inline `translateX(calc(-50% + …))` swipe style were **adding** instead of the inline replacing the class. Centering now lives on a wrapper (`left-1/2 md:left-[calc(50%+8rem)]` so desktop pills center over the content area, past the sidebar); the pill only carries its swipe-to-dismiss transform. Multiple broadcasts stack correctly at 44px apart.
+- **Verification** — `npx tsc --noEmit` clean; both fixes deployed through all four pipelines.
+
 ## v7.3.1 (2026-09-10) — Accrual Credit Model, Credit Alerts & Settlement Tracking
 - **Accrual credit tracking** — credit purchases/sales count in income/expense totals at record time (no longer at settlement). `operationalTransactions()` excludes `Credit Settlement` everywhere, so settlements never double-count.
 - **Auto payment-pending adjustments** — every credit entry creates a linked Adjustment (`sourceTransactionId`, `sourceType`, `settleStatus: pending`, `settledAmount: 0`) in the Adjustments section.

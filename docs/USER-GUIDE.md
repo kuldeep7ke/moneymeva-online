@@ -73,6 +73,7 @@ Three transaction types: **Income · Expense · Investment**.
 
 - Daily, weekly, monthly, yearly, or custom frequencies.
 - **Advance** creates the transaction and rolls the next date.
+- The **category field follows the type**: choose Income and you'll get income categories (Salary, Business, Freelance…); choose Expense and you get expense categories (Bills, Subscription, Credit Card…). Switching type swaps the list and clears the field.
 
 ---
 

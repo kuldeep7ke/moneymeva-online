@@ -216,6 +216,13 @@ Sync path:   PouchDB ↔ Supabase (bidirectional, realtime + manual)
   auto-increment on focus in some browsers)
 - **Restore-linkage fix** — restoring a deleted credit transaction also restores its
   archived linked adjustment
+- **Recurring categories follow type** — the add-modal category field swaps between
+  income and expense suggestion sets when the Type changes (and clears the selection);
+  `useSortedCategories` recomputes on `[type]` instead of once
+- **Broadcast pill placement** — pill no longer double-centers: centering lives on a
+  `fixed` wrapper (`left-1/2 md:left-[calc(50%+8rem)]`), the pill only carries its
+  swipe-to-dismiss `transform`. Tailwind v4 lesson: `-translate-x-1/2` (CSS `translate`)
+  and an inline `translateX(calc(-50%+…))` ADD UP — never layer centering on both
 
 ## What Changed Recently (v7.2.x)
 
