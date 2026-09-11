@@ -315,13 +315,15 @@ export default function SettingsPage() {
         setSyncFailCount(0);
         dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
         await pushAllToPouch();
-        const { ok: synced, pushed, pulled } = await manualSync();
+        const { ok: synced, pushed, pulled, pushErr, pullErr } = await manualSync();
         if (synced) {
           await processRemoteChanges();
-          if (pushed > 0 || pulled > 0) {
+          if (pushErr || pullErr) {
+            setSyncError(`Connected — ${pushErr ? `push: ${pushErr}` : ''}${pushErr && pullErr ? ' · ' : ''}${pullErr ? `pull: ${pullErr}` : ''}`);
+          } else if (pushed > 0 || pulled > 0) {
             setSyncError(`Pushed ${pushed} item(s) · Pulled ${pulled} change(s)`);
           } else {
-            setSyncError('');
+            setSyncError('Connected — nothing new to sync for this account');
           }
           dispatchSyncEvent({ status: 'complete', message: `Connected & synced — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         } else {
@@ -366,10 +368,16 @@ export default function SettingsPage() {
         setSyncFailCount(0);
         dispatchSyncEvent({ status: 'pushing', message: 'Pushing local data to cloud…' });
         await pushAllToPouch();
-        const { ok: synced, pushed, pulled } = await manualSync();
+        const { ok: synced, pushed, pulled, pushErr, pullErr } = await manualSync();
         if (synced) {
           await processRemoteChanges();
-          setSyncError(pushed > 0 || pulled > 0 ? `Pushed ${pushed} item(s) · Pulled ${pulled} change(s)` : '');
+          if (pushErr || pullErr) {
+            setSyncError(`Connected — ${pushErr ? `push: ${pushErr}` : ''}${pushErr && pullErr ? ' · ' : ''}${pullErr ? `pull: ${pullErr}` : ''}`);
+          } else if (pushed > 0 || pulled > 0) {
+            setSyncError(`Pushed ${pushed} item(s) · Pulled ${pulled} change(s)`);
+          } else {
+            setSyncError('Connected — nothing new to sync for this account');
+          }
         }
       } else {
         failSync(connErr || 'Connection failed after sign-up');
@@ -396,14 +404,14 @@ export default function SettingsPage() {
       dispatchSyncEvent({ status: 'pushing', message: 'Pushing local changes…' });
       const localCount = await pushAllToPouch();
       dispatchSyncEvent({ status: 'pushing', message: `Pulled remote changes…` });
-      const { ok, pushed, pulled, pushErr } = await manualSync();
+      const { ok, pushed, pulled, pushErr, pullErr } = await manualSync();
       if (ok) {
         dispatchSyncEvent({ status: 'processing', message: 'Applying remote changes…' });
         await processRemoteChanges();
         setSyncStatus('connected');
         setSyncConnected(true);
         setSyncFailCount(0);
-        const msg = pushErr ? `Push error: ${pushErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 pushed to cloud` : 'Synced — no local changes found';
+        const msg = pushErr ? `Push error: ${pushErr}` : pullErr ? `Pull problem: ${pullErr}` : pushed > 0 || pulled > 0 ? `Pushed ${pushed} · Pulled ${pulled}` : localCount > 0 ? `Wrote ${localCount} local items — 0 reached the cloud` : 'Synced — nothing new for this account';
         setSyncError(msg);
         dispatchSyncEvent({ status: 'complete', message: `Sync complete — pushed ${pushed}, pulled ${pulled}`, pushed, pulled });
         setTimeout(() => { setSyncError(''); }, 4000);

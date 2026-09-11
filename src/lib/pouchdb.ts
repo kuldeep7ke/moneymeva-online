@@ -453,31 +453,43 @@ async function applyRemoteRow(row: any): Promise<boolean> {
   } catch { return false; }
 }
 
-async function pullRemoteToLocal(): Promise<{ pulled: number; total: number }> {
+async function pullRemoteToLocal(): Promise<{ pulled: number; total: number; error?: string }> {
   if (!localDB || !supabase) return { pulled: 0, total: 0 };
   let pulled = 0;
   try {
     const { data: rows, error } = await supabase.from(SYNC_TABLE).select('*').order('updated_at', { ascending: true });
-    if (error || !rows) return { pulled: 0, total: 0 };
+    if (error) {
+      console.warn('[Sync] Pull query failed:', error?.message || String(error));
+      return { pulled: 0, total: 0, error: error?.message || String(error || 'Pull query failed') };
+    }
+    if (!rows) return { pulled: 0, total: 0 };
+    let failed = 0;
     for (const row of rows) {
       if (await applyRemoteRow(row)) pulled++;
+      else failed++;
+    }
+    if (rows.length > 0 && pulled === 0 && failed === rows.length) {
+      // Every fetched row failed to apply to local PouchDB (e.g. IndexedDB issue on
+      // Android WebView) — report it instead of quietly faking an empty pull.
+      return { pulled: 0, total: rows.length, error: `Fetched ${rows.length} remote row(s) but failed to store them locally` };
     }
     return { pulled, total: rows.length };
   } catch (e: any) {
     console.warn('[Sync] Pull failed:', e?.message || e);
+    return { pulled: 0, total: 0, error: e?.message || String(e || 'Pull failed') };
   }
-  return { pulled: 0, total: 0 };
 }
 
-export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number; pushErr?: string }> {
-  const result: { ok: boolean; pushed: number; pulled: number; pushErr?: string } = { ok: false, pushed: 0, pulled: 0 };
+export async function manualSync(): Promise<{ ok: boolean; pushed: number; pulled: number; pushErr?: string; pullErr?: string }> {
+  const result: { ok: boolean; pushed: number; pulled: number; pushErr?: string; pullErr?: string } = { ok: false, pushed: 0, pulled: 0 };
   if (!localDB || !supabase) return result;
   try {
     const pushResult = await pushLocalToRemote();
     result.pushed = pushResult.pushed;
-    result.pushErr = pushResult.pushErr;
+    if (pushResult.pushErr) result.pushErr = pushResult.pushErr;
     const pullResult = await pullRemoteToLocal();
     result.pulled = pullResult.pulled;
+    if (pullResult.error) result.pullErr = pullResult.error;
     result.ok = true;
     return result;
   } catch (e: any) {

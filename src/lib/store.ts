@@ -1,6 +1,6 @@
 import { Transaction, TransactionType, PartnerAccount, RecurringTx, Budget, Reminder, Adjustment, Goal, MutationAction, MutationLog, ArchiveItemType, ArchivedItem, WorkEntry, WorkStatus, WorkPayment, Partnership, PartnershipEntry, PartnershipMember } from '@/types';
 import { db } from './db';
-import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected } from './pouchdb';
+import { putDoc, removeDoc, pullAll, checkConnection, ensureConnected, EntityType, initPouchDB, clearPouch, onRemoteChange, manualSync, connected, getConfig } from './pouchdb';
 import { dispatchSyncEvent, getLastSyncEvent } from './sync-notify';
 import { creditLimitFor, creditSettleDaysFor, NEAR_LIMIT_PCT, NEAR_DUE_DAYS, DEFAULT_CREDIT_LIMIT, DEFAULT_CREDIT_SETTLE_DAYS } from './parties';
 import { isNotifyEnabled, notificationKey } from './notification-prefs';
@@ -186,6 +186,36 @@ function deduplicatePartners(partners: PartnerAccount[]): PartnerAccount[] {
   return Array.from(seen.values());
 }
 
+async function bootRestoreFromCloud() {
+  if (typeof window === 'undefined') return;
+  try {
+    const cfg = getConfig();
+    if (!cfg.url || !cfg.key) return;
+    await ensureConnected();
+    if (!connected()) return;
+    // Only restore when there is no local data at all — otherwise a normal boot
+    // (or the 12-hour auto-sync) handles changes.
+    const dataKeys: (keyof typeof cache)[] = ['transactions', 'partners', 'recurring', 'budgets', 'reminders', 'adjustments', 'goals', 'works', 'partnerships', 'partnershipEntries'];
+    const isEmpty = dataKeys.every(k => (cache[k] as unknown[]).length === 0);
+    if (!isEmpty) return;
+    dispatchSyncEvent({ status: 'pushing', message: 'Restoring data from cloud…' });
+    const result = await manualSync();
+    if (!result.ok) return;
+    await processRemoteChanges();
+    const restored = cache.transactions.length + cache.partners.length + cache.works.length + cache.partnerships.length;
+    if (result.pullErr) {
+      console.warn('[Store] boot restore pull issue:', result.pullErr);
+      dispatchSyncEvent({ status: 'error', message: 'Sync could not restore data — ' + result.pullErr, error: result.pullErr });
+    } else if (restored > 0) {
+      dispatchSyncEvent({ status: 'complete', message: `Restored ${result.pulled} item(s) from cloud`, pushed: result.pushed, pulled: result.pulled });
+    } else {
+      dispatchSyncEvent({ status: 'complete', message: 'Connected — cloud has no data for this account yet', pushed: result.pushed, pulled: result.pulled });
+    }
+  } catch (e) {
+    console.warn('[Store] boot restore skipped:', e);
+  }
+}
+
 export async function initDB() {
   if (initialized) return;
   try {
@@ -219,6 +249,9 @@ export async function initDB() {
     console.warn('[Store] initDB failed — continuing with empty cache:', e);
   }
   initialized = true;
+  // Auto-restore after local storage loss (e.g. Android WebView wiped IndexedDB):
+  // if the app boots empty but a cloud config + session exist, pull everything back.
+  void bootRestoreFromCloud();
   // Auto-process remote changes when live sync detects them
   let remoteChangeTimer: ReturnType<typeof setTimeout> | null = null;
   let remoteChangeRunning = false;
